@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Server Disk Monitor - Dashboard</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💾</text></svg>">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
     <style>
         * {
@@ -161,6 +162,11 @@
         .status-offline {
             background: #660000;
             color: #ff0000;
+        }
+
+        .status-simulation {
+            background: #666600;
+            color: #ffff00;
         }
 
         @keyframes pulse {
@@ -442,4 +448,425 @@
         </div>
         <div class="stat-item">
             <div class="stat-value" id="lastUpdate">--:--:--</div>
-            <div class="stat-label">Dernière MA
+            <div class="stat-label">Dernière MAJ</div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-primary" onclick="refreshData()">🔄 Actualiser</button>
+        <button class="btn btn-success" onclick="showConfigModal()">⚙️ Configuration</button>
+        <button class="btn btn-warning" onclick="showPasswordModal()">🔐 Mots de passe</button>
+        <button class="btn" onclick="exportConfig()">💾 Exporter</button>
+        <button class="btn" onclick="importConfig()">📁 Importer</button>
+        <button class="btn" onclick="showStatsModal()">📊 Statistiques</button>
+    </div>
+
+    <div class="container">
+        <div id="loading" class="loading" style="display: none;">
+            <div class="spinner"></div>
+            <p>Chargement des données...</p>
+        </div>
+
+        <div id="serversContainer" class="server-grid">
+            <!-- Les serveurs seront générés dynamiquement -->
+        </div>
+    </div>
+
+    <!-- Modal Configuration -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('configModal')">&times;</span>
+            <h2>⚙️ Configuration des Serveurs</h2>
+            <div id="configContent">
+                <div class="alert alert-success">
+                    <strong>Configuration via API :</strong><br>
+                    • Utilisez l'export/import pour modifier la configuration<br>
+                    • L'éditeur graphique sera disponible dans une version future<br>
+                    • Configuration actuelle : <span id="configServerCount">0</span> serveur(s)
+                </div>
+                <div style="text-align: center; margin: 20px 0;">
+                    <button class="btn btn-primary" onclick="exportConfig()">💾 Exporter Config</button>
+                    <button class="btn btn-warning" onclick="importConfig()">📁 Importer Config</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Mots de passe -->
+    <div id="passwordModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('passwordModal')">&times;</span>
+            <h2>🔐 Configuration des Mots de passe</h2>
+            <div id="passwordContent">
+                <!-- Contenu des mots de passe -->
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-success" onclick="savePasswords()">💾 Sauvegarder</button>
+                <button class="btn" onclick="closeModal('passwordModal')">❌ Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Statistiques -->
+    <div id="statsModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('statsModal')">&times;</span>
+            <h2>📊 Statistiques Détaillées</h2>
+            <div id="statsContent">
+                <!-- Contenu des statistiques -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Détails Disque -->
+    <div id="diskModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('diskModal')">&times;</span>
+            <h2 id="diskModalTitle">💽 Détails du Disque</h2>
+            <div id="diskModalContent">
+                <!-- Détails du disque -->
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn" onclick="closeModal('diskModal')">Fermer</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div class="connection-status">
+            <div class="connection-indicator" id="connectionIndicator"></div>
+            <span id="connectionStatus">Connexion...</span>
+        </div>
+        <div id="statusMessage">Initialisation...</div>
+    </div>
+
+    <script>
+        // Variables globales
+        let socket;
+        let serversData = {};
+        let statsData = {};
+        let config = {};
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSocket();
+            loadInitialData();
+        });
+
+        // Initialisation du WebSocket
+        function initializeSocket() {
+            socket = io();
+
+            socket.on('connect', function() {
+                updateConnectionStatus(true);
+                updateStatusMessage('✅ Connecté au serveur');
+            });
+
+            socket.on('disconnect', function() {
+                updateConnectionStatus(false);
+                updateStatusMessage('❌ Connexion perdue');
+            });
+
+            socket.on('disk_status_update', function(data) {
+                serversData = data.servers || {};
+                statsData = data.stats || {};
+                config = data.config || {};
+                updateDisplay();
+            });
+
+            socket.on('connected', function(data) {
+                console.log('WebSocket connecté:', data.message);
+            });
+        }
+
+        // Chargement des données initiales
+        async function loadInitialData() {
+            try {
+                const statusResponse = await fetch('/api/status');
+                const statusData = await statusResponse.json();
+                
+                serversData = statusData.servers || {};
+                statsData = statusData.stats || {};
+                config = statusData.config || {};
+                
+                updateDisplay();
+            } catch (error) {
+                console.error('Erreur lors du chargement:', error);
+                updateStatusMessage('❌ Erreur de chargement');
+            }
+        }
+
+        // Mise à jour de l'affichage
+        function updateDisplay() {
+            updateStats();
+            updateServers();
+            updateConfigInfo();
+        }
+
+        // Mise à jour des statistiques
+        function updateStats() {
+            document.getElementById('totalServers').textContent = statsData.total_servers || 0;
+            document.getElementById('onlineServers').textContent = statsData.online_servers || 0;
+            document.getElementById('totalDisks').textContent = statsData.total_disks || 0;
+            document.getElementById('mountedDisks').textContent = statsData.mounted_disks || 0;
+            
+            if (statsData.last_update) {
+                const updateTime = new Date(statsData.last_update).toLocaleTimeString();
+                document.getElementById('lastUpdate').textContent = updateTime;
+            }
+        }
+
+        // Mise à jour des informations de config
+        function updateConfigInfo() {
+            const serverCount = Object.keys(config).length;
+            const element = document.getElementById('configServerCount');
+            if (element) {
+                element.textContent = serverCount;
+            }
+        }
+
+        // Mise à jour des serveurs
+        function updateServers() {
+            const container = document.getElementById('serversContainer');
+            container.innerHTML = '';
+
+            if (Object.keys(serversData).length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; color: #666; padding: 50px;">
+                        <h3>Aucun serveur configuré</h3>
+                        <p>Utilisez le bouton "⚙️ Configuration" pour ajouter des serveurs</p>
+                    </div>
+                `;
+                return;
+            }
+
+            for (const [serverName, serverData] of Object.entries(serversData)) {
+                const serverCard = createServerCard(serverName, serverData);
+                container.appendChild(serverCard);
+            }
+        }
+
+        // Création d'une carte serveur
+        function createServerCard(serverName, serverData) {
+            const card = document.createElement('div');
+            card.className = 'server-card';
+
+            const serverConfig = config[serverName];
+            if (!serverConfig) return card;
+
+            // Déterminer le statut
+            let statusClass = 'status-offline';
+            let statusText = '● HORS LIGNE';
+            
+            if (serverData.online === true) {
+                statusClass = 'status-online';
+                statusText = '● EN LIGNE';
+            } else if (serverData.online === false && serverData.name === 'EXAMPLE-SERVER') {
+                statusClass = 'status-simulation';
+                statusText = '● SIMULATION';
+            }
+
+            card.innerHTML = `
+                <div class="server-header">
+                    <div class="server-name">
+                        🖥️ ${serverName}
+                        <div style="font-size: 0.8em; color: #ccc; margin-top: 5px;">
+                            ${serverData.username}@${serverData.ip}
+                        </div>
+                    </div>
+                    <div class="server-status ${statusClass}">
+                        ${statusText}
+                    </div>
+                </div>
+                <div class="racks-container">
+                    ${createRacksHTML(serverName, serverConfig, serverData)}
+                </div>
+            `;
+
+            return card;
+        }
+
+        // Création du HTML des racks
+        function createRacksHTML(serverName, serverConfig, serverData) {
+            let html = '';
+
+            // Face avant
+            if (serverConfig.front_rack && serverConfig.front_rack.enabled && serverConfig.front_rack.total_slots > 0) {
+                html += `
+                    <div class="rack">
+                        <div class="rack-title">
+                            🔲 Face Avant (${serverConfig.front_rack.rows}×${serverConfig.front_rack.cols})
+                        </div>
+                        ${createDiskGrid(serverName, 'front', serverConfig.front_rack, serverData)}
+                    </div>
+                `;
+            }
+
+            // Face arrière
+            if (serverConfig.back_rack && serverConfig.back_rack.enabled && serverConfig.back_rack.total_slots > 0) {
+                html += `
+                    <div class="rack">
+                        <div class="rack-title">
+                            🔳 Face Arrière (${serverConfig.back_rack.rows}×${serverConfig.back_rack.cols})
+                        </div>
+                        ${createDiskGrid(serverName, 'back', serverConfig.back_rack, serverData)}
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        // Création de la grille de disques
+        function createDiskGrid(serverName, face, rackConfig, serverData) {
+            const rows = rackConfig.rows;
+            const cols = rackConfig.cols;
+            
+            let html = `<div class="disk-grid" style="grid-template-columns: repeat(${cols}, 1fr);">`;
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const position = `${face}_${row}_${col}`;
+                    const diskData = serverData.disks && serverData.disks[position];
+                    
+                    html += createDiskSlot(serverName, position, diskData, serverData.online);
+                }
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        // Création d'un slot de disque
+        function createDiskSlot(serverName, position, diskData, serverOnline) {
+            if (!diskData) {
+                return `
+                    <div class="disk-slot empty-slot">
+                        <div class="slot-position">${position.replace(/_/g, '-').toUpperCase()}</div>
+                        <div>VIDE</div>
+                        <div class="disk-status-indicator">○</div>
+                    </div>
+                `;
+            }
+
+            let statusClass = 'has-disk';
+            let statusIndicator = '●';
+            let statusColor = '#666';
+
+            if (!serverOnline) {
+                statusClass += ' offline';
+                statusColor = '#ff0000';
+            } else if (diskData.mounted) {
+                statusClass += ' mounted';
+                statusColor = '#00ff00';
+            } else if (diskData.exists) {
+                statusClass += ' unmounted';
+                statusColor = '#ff6600';
+            } else {
+                statusColor = '#ff0000';
+            }
+
+            return `
+                <div class="disk-slot ${statusClass}" onclick="showDiskDetails('${serverName}', '${position}')">
+                    <div class="slot-position">${position.replace(/_/g, '-').toUpperCase()}</div>
+                    <div class="disk-label">${diskData.label || 'Disque'}</div>
+                    <div class="disk-status-indicator" style="color: ${statusColor}">${statusIndicator}</div>
+                    <div class="disk-capacity">${diskData.capacity || 'N/A'}</div>
+                </div>
+            `;
+        }
+
+        // Affichage des détails d'un disque
+        function showDiskDetails(serverName, position) {
+            const serverData = serversData[serverName];
+            const diskData = serverData && serverData.disks && serverData.disks[position];
+            const serverConfig = config[serverName];
+
+            if (!diskData) {
+                alert('Données du disque non disponibles');
+                return;
+            }
+
+            const modal = document.getElementById('diskModal');
+            const title = document.getElementById('diskModalTitle');
+            const content = document.getElementById('diskModalContent');
+
+            title.textContent = `💽 ${diskData.label || 'Disque'} - ${serverName}`;
+
+            const statusText = !serverData.online ? 'Serveur hors ligne' : 
+                            diskData.mounted ? '✅ Monté' : 
+                            diskData.exists ? '⚠️ Non monté' : '❌ Non détecté';
+
+            content.innerHTML = `
+                <div class="form-group">
+                    <label>🖥️ Serveur:</label>
+                    <p>${serverName} (${serverData.username}@${serverData.ip})</p>
+                </div>
+                <div class="form-group">
+                    <label>📍 Position:</label>
+                    <p>${position.replace(/_/g, ' - ')}</p>
+                </div>
+                <div class="form-group">
+                    <label>🏷️ Label:</label>
+                    <p>${diskData.label || 'N/A'}</p>
+                </div>
+                <div class="form-group">
+                    <label>🔍 UUID:</label>
+                    <p style="font-family: monospace; word-break: break-all;">${diskData.uuid}</p>
+                </div>
+                <div class="form-group">
+                    <label>💾 Périphérique:</label>
+                    <p style="font-family: monospace;">${diskData.device}</p>
+                </div>
+                <div class="form-group">
+                    <label>📏 Capacité:</label>
+                    <p>${diskData.capacity || 'N/A'}</p>
+                </div>
+                <div class="form-group">
+                    <label>📊 Statut:</label>
+                    <p style="font-weight: bold; color: ${
+                        !serverData.online ? '#ff0000' : 
+                        diskData.mounted ? '#00ff00' : 
+                        diskData.exists ? '#ff6600' : '#ff0000'
+                    }">${statusText}</p>
+                </div>
+                ${diskData.description ? `
+                    <div class="form-group">
+                        <label>📝 Description:</label>
+                        <p>${diskData.description}</p>
+                    </div>
+                ` : ''}
+            `;
+
+            modal.style.display = 'block';
+        }
+
+        // Actualisation des données
+        function refreshData() {
+            updateStatusMessage('🔄 Actualisation en cours...');
+            socket.emit('request_refresh');
+        }
+
+        // Configuration
+        function showConfigModal() {
+            document.getElementById('configModal').style.display = 'block';
+        }
+
+        // Mots de passe
+        function showPasswordModal() {
+            const modal = document.getElementById('passwordModal');
+            const content = document.getElementById('passwordContent');
+            
+            let html = '';
+            for (const [serverName, serverConfig] of Object.entries(config)) {
+                html += `
+                    <div class="form-group">
+                        <label>🔐 ${serverName} (${serverConfig.username}@${serverConfig.ip}):</label>
+                        <input type="password" id="password_${serverName}" placeholder="Entrez le mot de passe">
+                    </div>
+                `;
+            }
+            
+            content.innerHTML = html;
+            modal.style.display = 'block';
+        }
