@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  server-disk-monitor:
+    build: .
+    container_name: server-disk-monitor
+    ports:
+      - "5000:5000"
+    volumes:
+      # Volume pour persister la configuration et les clés de chiffrement
+      - ./data:/app/data
+      # Volume pour les clés SSH si nécessaire
+      - ./ssh_keys:/root/.ssh:ro
+    environment:
+      - FLASK_ENV=production
+      - TZ=Europe/Paris
+    restart: unless-stopped
+    networks:
+      - monitoring
+    labels:
+      # Labels pour Portainer
+      - "traefik.enable=true"
+      - "traefik.http.routers.disk-monitor.rule=Host(`disk-monitor.local`)"
+      - "traefik.http.routers.disk-monitor.entrypoints=web"
+      - "traefik.http.services.disk-monitor.loadbalancer.server.port=5000"
+      
+      # Labels pour la documentation dans Portainer
+      - "org.label-schema.name=Server Disk Monitor"
+      - "org.label-schema.description=Dashboard de surveillance des disques serveurs"
+      - "org.label-schema.version=2.0"
+      - "org.label-schema.vendor=Open Source"
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  disk_monitor_data:
+    driver: local

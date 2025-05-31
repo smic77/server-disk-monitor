@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Server Disk Monitor - Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+            color: #ffffff;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 2px solid #00ff00;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            color: #00ff00;
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.5);
+            margin-bottom: 10px;
+        }
+
+        .stats-bar {
+            background: rgba(64, 64, 64, 0.9);
+            padding: 15px;
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            border-bottom: 1px solid #555;
+        }
+
+        .stat-item {
+            text-align: center;
+            margin: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #00ff00;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #cccccc;
+        }
+
+        .controls {
+            background: rgba(45, 45, 45, 0.9);
+            padding: 15px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            border-bottom: 1px solid #555;
+        }
+
+        .btn {
+            background: linear-gradient(145deg, #404040, #303030);
+            border: none;
+            color: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .btn-primary {
+            background: linear-gradient(145deg, #0066cc, #0052a3);
+            border-color: #0066cc;
+        }
+
+        .btn-success {
+            background: linear-gradient(145deg, #006600, #004d00);
+            border-color: #006600;
+        }
+
+        .btn-warning {
+            background: linear-gradient(145deg, #cc6600, #994d00);
+            border-color: #cc6600;
+        }
+
+        .container {
+            padding: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .server-grid {
+            display: grid;
+            gap: 30px;
+            grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
+        }
+
+        .server-card {
+            background: rgba(45, 45, 45, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            border: 2px solid #404040;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+        }
+
+        .server-card:hover {
+            border-color: #00ff00;
+            box-shadow: 0 8px 25px rgba(0, 255, 0, 0.2);
+        }
+
+        .server-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: rgba(64, 64, 64, 0.8);
+            border-radius: 10px;
+        }
+
+        .server-name {
+            font-size: 1.4em;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .server-status {
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.8em;
+            animation: pulse 2s infinite;
+        }
+
+        .status-online {
+            background: #006600;
+            color: #00ff00;
+        }
+
+        .status-offline {
+            background: #660000;
+            color: #ff0000;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .racks-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .rack {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .rack-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: rgba(0, 255, 0, 0.1);
+            border-radius: 5px;
+            border-left: 4px solid #00ff00;
+            color: #00ff00;
+        }
+
+        .disk-grid {
+            display: grid;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .disk-slot {
+            background: rgba(64, 64, 64, 0.8);
+            border: 2px solid #555;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .disk-slot:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .disk-slot.has-disk {
+            border-color: #0066cc;
+            background: rgba(0, 102, 204, 0.1);
+        }
+
+        .disk-slot.mounted {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .disk-slot.unmounted {
+            border-color: #ff6600;
+            background: rgba(255, 102, 0, 0.1);
+        }
+
+        .disk-slot.offline {
+            border-color: #ff0000;
+            background: rgba(255, 0, 0, 0.1);
+        }
+
+        .slot-position {
+            font-size: 0.7em;
+            color: #999;
+            margin-bottom: 3px;
+        }
+
+        .disk-label {
+            font-weight: bold;
+            font-size: 0.9em;
+            margin-bottom: 3px;
+        }
+
+        .disk-capacity {
+            font-size: 0.7em;
+            color: #ccc;
+        }
+
+        .disk-status-indicator {
+            font-size: 1.5em;
+            margin: 5px 0;
+        }
+
+        .empty-slot {
+            color: #666;
+            font-style: italic;
+        }
+
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(64, 64, 64, 0.95);
+            padding: 10px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            backdrop-filter: blur(10px);
+            border-top: 1px solid #555;
+        }
+
+        .connection-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .connection-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff0000;
+            animation: pulse 1s infinite;
+        }
+
+        .connection-indicator.connected {
+            background: #00ff00;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            background: #2d2d2d;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            border: 2px solid #00ff00;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: color 0.3s;
+        }
+
+        .close:hover {
+            color: #fff;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #00ff00;
+            font-weight: bold;
+        }
+
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #555;
+            border-radius: 8px;
+            background: #404040;
+            color: #ffffff;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #00ff00;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+
+        .spinner {
+            border: 4px solid #404040;
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .alert-success {
+            background: rgba(0, 128, 0, 0.2);
+            border: 1px solid #008000;
+            color: #00ff00;
+        }
+
+        .alert-error {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid #ff0000;
+            color: #ff6666;
+        }
+
+        @media (max-width: 768px) {
+            .server-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .racks-container {
+                flex-direction: column;
+            }
+            
+            .modal-content {
+                width: 95%;
+                margin: 10% auto;
+                padding: 20px;
+            }
+            
+            .stats-bar {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🖥️💾 Server Disk Monitor</h1>
+        <p>Dashboard de surveillance des disques en temps réel</p>
+    </div>
+
+    <div class="stats-bar" id="statsBar">
+        <div class="stat-item">
+            <div class="stat-value" id="totalServers">0</div>
+            <div class="stat-label">Serveurs</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="onlineServers">0</div>
+            <div class="stat-label">En ligne</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="totalDisks">0</div>
+            <div class="stat-label">Disques</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="mountedDisks">0</div>
+            <div class="stat-label">Montés</div>
+        </div>
+        <div class="stat-item">
+            <div class="stat-value" id="lastUpdate">--:--:--</div>
+            <div class="stat-label">Dernière MA

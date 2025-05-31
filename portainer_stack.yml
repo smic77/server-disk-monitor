@@ -1,0 +1,78 @@
+# Stack Portainer pour Server Disk Monitor
+# À déployer directement dans Portainer via l'interface Stacks
+
+version: '3.8'
+
+services:
+  disk-monitor:
+    image: server-disk-monitor:latest
+    container_name: server-disk-monitor-web
+    ports:
+      - "${MONITOR_PORT:-5000}:5000"
+    volumes:
+      # Persistence des données
+      - disk_monitor_config:/app/data
+      # Optionnel: montage des clés SSH
+      - type: bind
+        source: ${SSH_KEYS_PATH:-./ssh_keys}
+        target: /root/.ssh
+        read_only: true
+    environment:
+      - FLASK_ENV=production
+      - TZ=${TIMEZONE:-Europe/Paris}
+      - REFRESH_INTERVAL=${REFRESH_INTERVAL:-30}
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    labels:
+      # Traefik (si utilisé)
+      - "traefik.enable=true"
+      - "traefik.http.routers.disk-monitor.rule=Host(`${DOMAIN:-disk-monitor.local}`)"
+      - "traefik.http.routers.disk-monitor.entrypoints=web"
+      - "traefik.http.services.disk-monitor.loadbalancer.server.port=5000"
+      
+      # Labels Portainer
+      - "portainer.stack.name=server-disk-monitor"
+      - "portainer.category=Monitoring"
+      
+      # Métadonnées
+      - "org.label-schema.name=Server Disk Monitor"
+      - "org.label-schema.description=Dashboard de surveillance des disques serveurs en temps réel"
+      - "org.label-schema.version=2.0"
+      - "org.label-schema.vendor=Open Source"
+      - "org.label-schema.url=http://localhost:${MONITOR_PORT:-5000}"
+
+  # Service optionnel: Reverse proxy Nginx (si pas de Traefik)
+  nginx-proxy:
+    image: nginx:alpine
+    container_name: disk-monitor-proxy
+    ports:
+      - "${PROXY_PORT:-80}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - disk-monitor
+    networks:
+      - monitoring
+    profiles:
+      - proxy
+    labels:
+      - "portainer.stack.name=server-disk-monitor"
+
+networks:
+  monitoring:
+    driver: bridge
+    labels:
+      - "portainer.stack.name=server-disk-monitor"
+
+volumes:
+  disk_monitor_config:
+    driver: local
+    labels:
+      - "portainer.stack.name=server-disk-monitor"
