@@ -197,7 +197,7 @@
 
         .disk-grid {
             display: grid;
-            gap: 8px;
+            gap: 6px;
             margin-bottom: 20px;
         }
 
@@ -205,66 +205,138 @@
             background: rgba(64, 64, 64, 0.8);
             border: 2px solid #555;
             border-radius: 8px;
-            padding: 10px;
+            padding: 8px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
             min-height: 80px;
+            max-height: 120px;
             display: flex;
             flex-direction: column;
             justify-content: center;
+            overflow: hidden;
+            word-wrap: break-word;
+            position: relative;
         }
 
         .disk-slot:hover {
-            transform: scale(1.05);
+            transform: scale(1.02);
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
         }
 
-        .disk-slot.has-disk {
-            border-color: #0066cc;
-            background: rgba(0, 102, 204, 0.1);
-        }
-
-        .disk-slot.mounted {
-            border-color: #00ff00;
-            background: rgba(0, 255, 0, 0.1);
-        }
-
-        .disk-slot.unmounted {
-            border-color: #ff6600;
-            background: rgba(255, 102, 0, 0.1);
-        }
-
-        .disk-slot.offline {
-            border-color: #ff0000;
-            background: rgba(255, 0, 0, 0.1);
-        }
-
         .slot-position {
-            font-size: 0.7em;
+            font-size: 0.65em;
             color: #999;
-            margin-bottom: 3px;
+            margin-bottom: 2px;
         }
 
         .disk-label {
             font-weight: bold;
-            font-size: 0.9em;
-            margin-bottom: 3px;
+            font-size: 0.75em;
+            margin-bottom: 2px;
+            line-height: 1.1;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            display: block;
+        }
+
+        .disk-label.long-label {
+            font-size: 0.65em;
+            white-space: normal;
+            word-break: break-all;
+            max-height: 2.4em;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .disk-label.extra-long-label {
+            font-size: 0.6em;
+            line-height: 1.0;
+            max-height: 2.2em;
         }
 
         .disk-capacity {
-            font-size: 0.7em;
+            font-size: 0.65em;
             color: #ccc;
+            margin-top: 1px;
         }
 
         .disk-status-indicator {
-            font-size: 1.5em;
-            margin: 5px 0;
+            font-size: 1.3em;
+            margin: 3px 0;
         }
 
         .empty-slot {
             color: #666;
             font-style: italic;
+        }
+
+        .has-disk {
+            border-color: #0066cc;
+            background: rgba(0, 102, 204, 0.1);
+        }
+
+        .mounted {
+            border-color: #00ff00;
+            background: rgba(0, 255, 0, 0.1);
+        }
+
+        .unmounted {
+            border-color: #ff6600;
+            background: rgba(255, 102, 0, 0.1);
+        }
+
+        .offline {
+            border-color: #ff0000;
+            background: rgba(255, 0, 0, 0.1);
+        }
+
+        .no-credentials {
+            border-color: #ffaa00;
+            background: rgba(255, 170, 0, 0.1);
+        }
+
+        .auth-error {
+            border-color: #ff3300;
+            background: rgba(255, 51, 0, 0.1);
+        }
+
+        .ssh-error {
+            border-color: #cc0000;
+            background: rgba(204, 0, 0, 0.1);
+        }
+
+        .disk-slot[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            bottom: 120%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            white-space: nowrap;
+            z-index: 1000;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+            border: 1px solid #00ff00;
+            max-width: 250px;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+
+        .disk-slot[title]:hover::before {
+            content: '';
+            position: absolute;
+            bottom: 112%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 5px solid transparent;
+            border-top-color: #00ff00;
+            z-index: 1001;
         }
 
         .status-bar {
@@ -401,6 +473,21 @@
             color: #ff6666;
         }
 
+        @media (max-width: 1200px) {
+            .disk-slot {
+                min-height: 70px;
+                padding: 6px;
+            }
+            
+            .disk-label {
+                font-size: 0.7em;
+            }
+            
+            .disk-status-indicator {
+                font-size: 1.2em;
+            }
+        }
+
         @media (max-width: 768px) {
             .server-grid {
                 grid-template-columns: 1fr;
@@ -419,6 +506,23 @@
             .stats-bar {
                 flex-direction: column;
                 gap: 10px;
+            }
+
+            .disk-slot {
+                min-height: 60px;
+                padding: 4px;
+            }
+            
+            .disk-label {
+                font-size: 0.65em;
+            }
+            
+            .disk-capacity {
+                font-size: 0.6em;
+            }
+            
+            .disk-grid {
+                gap: 4px;
             }
         }
     </style>
@@ -596,11 +700,62 @@
             }
         }
 
+        // Fonction pour traiter intelligemment la longueur des labels
+        function processLabelLength(label) {
+            let displayLabel = label;
+            let labelClass = 'disk-label';
+            
+            // Logique de troncature intelligente
+            if (label.length <= 15) {
+                // Labels courts : affichage complet
+                displayLabel = label;
+            } else if (label.length <= 20) {
+                // Labels moyens : classe spéciale pour retour à la ligne
+                labelClass += ' long-label';
+                displayLabel = label;
+            } else if (label.length <= 30) {
+                // Labels longs : troncature avec "..."
+                labelClass += ' long-label';
+                displayLabel = label.substring(0, 17) + '...';
+            } else {
+                // Labels très longs : troncature plus agressive
+                labelClass += ' extra-long-label';
+                displayLabel = label.substring(0, 15) + '...';
+            }
+            
+            return { displayLabel, labelClass };
+        }
+
+        // Fonction pour optimiser les labels après le rendu
+        function optimizeDiskLabels() {
+            document.querySelectorAll('.disk-label').forEach(labelElement => {
+                const parent = labelElement.closest('.disk-slot');
+                if (!parent) return;
+                
+                // Si le label déborde encore, on applique une classe d'urgence
+                if (labelElement.scrollHeight > labelElement.clientHeight + 2) {
+                    labelElement.classList.add('extra-long-label');
+                    
+                    // En dernier recours, troncature plus agressive
+                    const originalLabel = labelElement.getAttribute('data-original-label');
+                    if (originalLabel && originalLabel.length > 12) {
+                        labelElement.textContent = originalLabel.substring(0, 12) + '...';
+                    }
+                }
+            });
+        }
+
         // Mise à jour de l'affichage
         function updateDisplay() {
-            updateStats();
-            updateServers();
-            updateConfigInfo();
+            try {
+                updateStats();
+                updateServers();
+                updateConfigInfo();
+                console.log('✅ Affichage mis à jour avec succès');
+            } catch (error) {
+                console.error('❌ Erreur lors de la mise à jour de l\'affichage:', error);
+                updateStatusMessage('⚠️ Erreur d\'affichage - Actualisation recommandée');
+            }
         }
 
         // Mise à jour des statistiques
@@ -644,6 +799,12 @@
                 const serverCard = createServerCard(serverName, serverData);
                 container.appendChild(serverCard);
             }
+            
+            // Optimisation des labels après le rendu
+            setTimeout(() => {
+                optimizeDiskLabels();
+                console.log('🎯 Optimisation des labels terminée');
+            }, 100);
         }
 
         // Création d'une carte serveur
@@ -737,11 +898,11 @@
             return html;
         }
 
-        // Création d'un slot de disque
+        // Création d'un slot de disque avec gestion intelligente des labels
         function createDiskSlot(serverName, position, diskData, serverOnline) {
             if (!diskData) {
                 return `
-                    <div class="disk-slot empty-slot">
+                    <div class="disk-slot empty-slot" title="Slot vide - Position ${position}">
                         <div class="slot-position">${position.replace(/_/g, '-').toUpperCase()}</div>
                         <div>VIDE</div>
                         <div class="disk-status-indicator">○</div>
@@ -752,31 +913,69 @@
             let statusClass = 'has-disk';
             let statusIndicator = '●';
             let statusColor = '#666';
+            let statusText = 'Inconnu';
 
+            // Détermination du statut
             if (!serverOnline) {
                 statusClass += ' offline';
                 statusColor = '#ff0000';
+                statusIndicator = '⚫';
+                statusText = 'Serveur hors ligne';
+            } else if (diskData.status === 'no_password') {
+                statusClass += ' no-credentials';
+                statusColor = '#ffaa00';
+                statusIndicator = '🔐';
+                statusText = 'Pas de mot de passe SSH';
+            } else if (diskData.status === 'auth_error') {
+                statusClass += ' auth-error';
+                statusColor = '#ff6600';
+                statusIndicator = '🚫';
+                statusText = 'Erreur d\'authentification';
+            } else if (diskData.status === 'ssh_error') {
+                statusClass += ' ssh-error';
+                statusColor = '#ff3300';
+                statusIndicator = '❌';
+                statusText = 'Erreur SSH';
             } else if (diskData.mounted) {
                 statusClass += ' mounted';
                 statusColor = '#00ff00';
+                statusIndicator = '✅';
+                statusText = 'Monté';
             } else if (diskData.exists) {
                 statusClass += ' unmounted';
                 statusColor = '#ff6600';
+                statusIndicator = '⚠️';
+                statusText = 'Non monté';
             } else {
                 statusColor = '#ff0000';
+                statusIndicator = '❌';
+                statusText = 'Non détecté';
             }
 
+            // Gestion intelligente des labels longs
+            const label = diskData.label || 'Disque';
+            const { displayLabel, labelClass } = processLabelLength(label);
+
+            // Gestion de la capacité
+            const capacity = diskData.capacity || 'N/A';
+            const displayCapacity = capacity.length > 10 ? capacity.replace(/\s+/g, '') : capacity;
+
+            // Construction du tooltip informatif
+            const tooltipContent = `${label} - ${capacity} - ${statusText}${diskData.device ? ' (' + diskData.device + ')' : ''}`;
+
             return `
-                <div class="disk-slot ${statusClass}" onclick="showDiskDetails('${serverName}', '${position}')">
+                <div class="disk-slot ${statusClass}" 
+                     onclick="showDiskDetails('${serverName}', '${position}')" 
+                     title="${tooltipContent}">
                     <div class="slot-position">${position.replace(/_/g, '-').toUpperCase()}</div>
-                    <div class="disk-label">${diskData.label || 'Disque'}</div>
+                    <div class="${labelClass}" data-original-label="${label}">${displayLabel}</div>
                     <div class="disk-status-indicator" style="color: ${statusColor}">${statusIndicator}</div>
-                    <div class="disk-capacity">${diskData.capacity || 'N/A'}</div>
+                    <div class="disk-capacity">${displayCapacity}</div>
                 </div>
             `;
         }
 
-        // Affichage des détails d'un disque
+        // Affichage des détails d'un disque avec informations enrichies
         function showDiskDetails(serverName, position) {
             const serverData = serversData[serverName];
             const diskData = serverData && serverData.disks && serverData.disks[position];
@@ -793,9 +992,32 @@
 
             title.textContent = `💽 ${diskData.label || 'Disque'} - ${serverName}`;
 
-            const statusText = !serverData.online ? 'Serveur hors ligne' : 
-                            diskData.mounted ? '✅ Monté' : 
-                            diskData.exists ? '⚠️ Non monté' : '❌ Non détecté';
+            // Détermination du statut avec plus de détails
+            let statusText = 'Inconnu';
+            let statusColor = '#666';
+            
+            if (!serverData.online) {
+                statusText = '🔴 Serveur hors ligne';
+                statusColor = '#ff0000';
+            } else if (diskData.status === 'no_password') {
+                statusText = '🔐 Pas de mot de passe SSH configuré';
+                statusColor = '#ffaa00';
+            } else if (diskData.status === 'auth_error') {
+                statusText = '🚫 Erreur d\'authentification SSH';
+                statusColor = '#ff6600';
+            } else if (diskData.status === 'ssh_error') {
+                statusText = '❌ Erreur de connexion SSH';
+                statusColor = '#ff3300';
+            } else if (diskData.mounted) {
+                statusText = '✅ Disque monté et accessible';
+                statusColor = '#00ff00';
+            } else if (diskData.exists) {
+                statusText = '⚠️ Disque détecté mais non monté';
+                statusColor = '#ff6600';
+            } else {
+                statusText = '❌ Disque non détecté';
+                statusColor = '#ff0000';
+            }
 
             content.innerHTML = `
                 <div class="form-group">
@@ -807,12 +1029,12 @@
                     <p>${position.replace(/_/g, ' - ')}</p>
                 </div>
                 <div class="form-group">
-                    <label>🏷️ Label:</label>
-                    <p>${diskData.label || 'N/A'}</p>
+                    <label>🏷️ Label complet:</label>
+                    <p style="word-break: break-all; font-family: monospace; background: rgba(64,64,64,0.5); padding: 8px; border-radius: 4px;">${diskData.label || 'N/A'}</p>
                 </div>
                 <div class="form-group">
                     <label>🔍 UUID:</label>
-                    <p style="font-family: monospace; word-break: break-all;">${diskData.uuid}</p>
+                    <p style="font-family: monospace; word-break: break-all; background: rgba(64,64,64,0.5); padding: 8px; border-radius: 4px;">${diskData.uuid}</p>
                 </div>
                 <div class="form-group">
                     <label>💾 Périphérique:</label>
@@ -823,17 +1045,25 @@
                     <p>${diskData.capacity || 'N/A'}</p>
                 </div>
                 <div class="form-group">
-                    <label>📊 Statut:</label>
-                    <p style="font-weight: bold; color: ${
-                        !serverData.online ? '#ff0000' : 
-                        diskData.mounted ? '#00ff00' : 
-                        diskData.exists ? '#ff6600' : '#ff0000'
-                    }">${statusText}</p>
+                    <label>📊 Statut détaillé:</label>
+                    <p style="font-weight: bold; color: ${statusColor}">${statusText}</p>
                 </div>
                 ${diskData.description ? `
                     <div class="form-group">
                         <label>📝 Description:</label>
                         <p>${diskData.description}</p>
+                    </div>
+                ` : ''}
+                ${diskData.mount_point ? `
+                    <div class="form-group">
+                        <label>📂 Point de montage:</label>
+                        <p style="font-family: monospace;">${diskData.mount_point}</p>
+                    </div>
+                ` : ''}
+                ${diskData.fs_type ? `
+                    <div class="form-group">
+                        <label>🗂️ Système de fichiers:</label>
+                        <p>${diskData.fs_type}</p>
                     </div>
                 ` : ''}
             `;
@@ -870,7 +1100,8 @@
             content.innerHTML = html;
             modal.style.display = 'block';
         }
-// Sauvegarde des mots de passe
+
+        // Sauvegarde des mots de passe
         async function savePasswords() {
             const passwords = {};
             let hasChanges = false;
@@ -1053,6 +1284,27 @@
         function updateStatusMessage(message) {
             document.getElementById('statusMessage').textContent = message;
         }
+
+        // Fonction utilitaire pour le debug des labels
+        function debugLabels() {
+            const labels = document.querySelectorAll('.disk-label');
+            console.log('🔍 Debug des labels:');
+            labels.forEach((label, index) => {
+                const original = label.getAttribute('data-original-label');
+                const displayed = label.textContent;
+                const classes = label.className;
+                console.log(`Label ${index + 1}:`, {
+                    original: original,
+                    displayed: displayed,
+                    classes: classes,
+                    height: label.scrollHeight,
+                    visible: label.clientHeight
+                });
+            });
+        }
+
+        // Exposer la fonction de debug globalement pour les tests
+        window.debugLabels = debugLabels;
 
         // Démarrage automatique de la surveillance
         setInterval(() => {
