@@ -1,117 +1,82 @@
 name: Build and Deploy Server Disk Monitor
 
-# 🎯 Déclencheurs du workflow
 on:
   push:
-    branches: [ main, develop ]    # Build sur push vers main/develop
-    tags: [ 'v*' ]                # Build sur tags version (v1.0.0, v2.1.0, etc.)
+    branches: [ main, develop ]
+    tags: [ 'v*' ]
   pull_request:
-    branches: [ main ]            # Build sur PR vers main
+    branches: [ main ]
 
-# 🌍 Variables globales
 env:
-  REGISTRY: ghcr.io                          # GitHub Container Registry
-  IMAGE_NAME: ${{ github.repository }}      # votre-username/server-disk-monitor
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
 
-# 🏗️ Jobs du workflow
 jobs:
-  # ===============================================
-  # JOB 1: BUILD ET PUSH DE L'IMAGE DOCKER
-  # ===============================================
   build-and-push:
-    runs-on: ubuntu-latest                   # Machine virtuelle Ubuntu
+    runs-on: ubuntu-latest
     permissions:
-      contents: read                         # Lire le code source
-      packages: write                        # Écrire dans le registry
+      contents: read
+      packages: write
 
     steps:
-    # 📥 Étape 1: Récupérer le code source
     - name: Checkout repository
       uses: actions/checkout@v4
-      # ↳ Télécharge votre code dans la machine virtuelle
 
-    # 🔐 Étape 2: Se connecter au registry Docker
     - name: Log in to Container Registry
       uses: docker/login-action@v3
       with:
-        registry: ${{ env.REGISTRY }}        # ghcr.io
-        username: ${{ github.actor }}        # Votre username GitHub
-        password: ${{ secrets.GITHUB_TOKEN }} # Token automatique GitHub
-      # ↳ Authentification pour pouvoir push l'image
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
-    # 🏷️ Étape 3: Générer les tags et métadonnées
     - name: Extract metadata
       id: meta
       uses: docker/metadata-action@v5
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          type=ref,event=branch              # Ex: main, develop
-          type=ref,event=pr                  # Ex: pr-123
-          type=semver,pattern={{version}}    # Ex: v1.0.0 → 1.0.0
-          type=semver,pattern={{major}}.{{minor}} # Ex: v1.0.0 → 1.0
-          type=raw,value=latest,enable={{is_default_branch}} # latest sur main
-      # ↳ Crée automatiquement les tags selon le contexte
+          type=ref,event=branch
+          type=ref,event=pr
+          type=semver,pattern={{version}}
+          type=semver,pattern={{major}}.{{minor}}
+          type=raw,value=latest,enable={{is_default_branch}}
 
-    # 🔧 Étape 4: Configurer Docker Buildx (build avancé)
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      # ↳ Active les fonctionnalités avancées (multi-arch, cache)
 
-    # 🐳 Étape 5: Build et push de l'image Docker
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
-        context: .                           # Dossier de build (racine du repo)
-        platforms: linux/amd64,linux/arm64  # Multi-architecture
-        push: true                           # Push automatique après build
-        tags: ${{ steps.meta.outputs.tags }} # Tags générés à l'étape 3
-        labels: ${{ steps.meta.outputs.labels }} # Métadonnées
-        cache-from: type=gha                 # Cache depuis GitHub Actions
-        cache-to: type=gha,mode=max          # Sauvegarde du cache
-      # ↳ Build l'image et la pousse vers ghcr.io
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: ${{ steps.meta.outputs.tags }}
+        labels: ${{ steps.meta.outputs.labels }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
 
-    # 📦 Étape 6: Générer les artefacts de déploiement
-    - name: Generate deployment artifact
+    # SECTION ARTEFACTS SIMPLIFIÉE (optionnelle)
+    - name: Generate deployment info
       run: |
-        mkdir -p deployment
-        envsubst < docker-compose.portainer.yml > deployment/docker-compose.yml
-        cp portainer-stack.yml deployment/
-        echo "IMAGE_TAG=${{ steps.meta.outputs.version }}" > deployment/.env
-      env:
-        IMAGE_NAME: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-      # ↳ Prépare les fichiers de déploiement avec les bonnes variables
+        echo "IMAGE_URL=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> $GITHUB_STEP_SUMMARY
+        echo "TAGS=${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+        echo "✅ Image Docker buildée et disponible !" >> $GITHUB_STEP_SUMMARY
 
-    # 📤 Étape 7: Upload des artefacts
-    - name: Upload deployment artifacts
-      uses: actions/upload-artifact@v3
-      with:
-        name: deployment-files
-        path: deployment/
-      # ↳ Rend les fichiers de déploiement téléchargeables
-
-  # ===============================================
-  # JOB 2: SCAN DE SÉCURITÉ
-  # ===============================================
   security-scan:
     runs-on: ubuntu-latest
-    needs: build-and-push                    # Attend la fin du build
-    if: github.event_name != 'pull_request' # Pas sur les PR (économise du temps)
+    needs: build-and-push
+    if: github.event_name != 'pull_request'
     
     steps:
-    # 🔍 Étape 1: Scanner les vulnérabilités
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
         image-ref: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-        format: 'sarif'                      # Format pour GitHub Security
+        format: 'sarif'
         output: 'trivy-results.sarif'
-      # ↳ Analyse l'image pour détecter les vulnérabilités
 
-    # 📊 Étape 2: Upload des résultats de sécurité
     - name: Upload Trivy scan results to GitHub Security tab
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()                           # Toujours exécuter même si scan échoue
+      uses: github/codeql-action/upload-sarif@v3
+      if: always()
       with:
         sarif_file: 'trivy-results.sarif'
-      # ↳ Affiche les résultats dans l'onglet Security de GitHub
