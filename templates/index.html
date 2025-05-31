@@ -870,3 +870,211 @@
             content.innerHTML = html;
             modal.style.display = 'block';
         }
+// Sauvegarde des mots de passe
+        async function savePasswords() {
+            const passwords = {};
+            let hasChanges = false;
+
+            for (const serverName of Object.keys(config)) {
+                const input = document.getElementById(`password_${serverName}`);
+                if (input && input.value.trim()) {
+                    passwords[serverName] = input.value.trim();
+                    hasChanges = true;
+                }
+            }
+
+            if (!hasChanges) {
+                alert('Aucun mot de passe à sauvegarder');
+                return;
+            }
+
+            try {
+                for (const [serverName, password] of Object.entries(passwords)) {
+                    const response = await fetch(`/api/server/${serverName}/password`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({ password: password })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Erreur pour ${serverName}`);
+                    }
+                }
+
+                alert('Mots de passe sauvegardés avec succès');
+                closeModal('passwordModal');
+                refreshData();
+            } catch (error) {
+                alert('Erreur lors de la sauvegarde: ' + error.message);
+            }
+        }
+
+        // Statistiques détaillées
+        function showStatsModal() {
+            const modal = document.getElementById('statsModal');
+            const content = document.getElementById('statsContent');
+            
+            const mountedPercentage = statsData.total_disks > 0 ? 
+                ((statsData.mounted_disks / statsData.total_disks) * 100).toFixed(1) : 0;
+            
+            const onlinePercentage = statsData.total_servers > 0 ? 
+                ((statsData.online_servers / statsData.total_servers) * 100).toFixed(1) : 0;
+
+            content.innerHTML = `
+                <div class="form-group">
+                    <label>📊 Résumé Global:</label>
+                    <p><strong>Serveurs:</strong> ${statsData.online_servers}/${statsData.total_servers} en ligne (${onlinePercentage}%)</p>
+                    <p><strong>Disques:</strong> ${statsData.mounted_disks}/${statsData.total_disks} montés (${mountedPercentage}%)</p>
+                </div>
+                
+                <div class="form-group">
+                    <label>🕒 Surveillance:</label>
+                    <p><strong>Statut:</strong> ${statsData.monitoring ? '✅ Active' : '❌ Inactive'}</p>
+                    <p><strong>Dernière mise à jour:</strong> ${statsData.last_update || 'Jamais'}</p>
+                </div>
+                
+                <div class="form-group">
+                    <label>🔧 Configuration:</label>
+                    <p><strong>Serveurs configurés:</strong> ${Object.keys(config).length}</p>
+                    <p><strong>Intervalle de rafraîchissement:</strong> 30 secondes</p>
+                </div>
+                
+                <div class="form-group">
+                    <label>📋 Détail par Serveur:</label>
+                    ${Object.entries(serversData).map(([name, data]) => `
+                        <p><strong>${name}:</strong> 
+                        ${data.online ? '🟢 En ligne' : '🔴 Hors ligne'} - 
+                        ${Object.keys(data.disks || {}).length} disque(s)</p>
+                    `).join('')}
+                </div>
+            `;
+            
+            modal.style.display = 'block';
+        }
+
+        // Export de configuration
+        function exportConfig() {
+            fetch('/api/config')
+                .then(response => response.json())
+                .then(data => {
+                    const configStr = JSON.stringify(data, null, 2);
+                    const blob = new Blob([configStr], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `server-disk-monitor-config-${new Date().toISOString().split('T')[0]}.json`;
+                    a.click();
+                    
+                    URL.revokeObjectURL(url);
+                    updateStatusMessage('💾 Configuration exportée');
+                })
+                .catch(error => {
+                    alert('Erreur lors de l\'export: ' + error.message);
+                });
+        }
+
+        // Import de configuration
+        function importConfig() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const importedConfig = JSON.parse(e.target.result);
+                            
+                            fetch('/api/config', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(importedConfig)
+                            })
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data.success) {
+                                    alert('Configuration importée avec succès');
+                                    refreshData();
+                                } else {
+                                    throw new Error(data.error);
+                                }
+                            })
+                            .catch(error => {
+                                alert('Erreur lors de l\'import: ' + error.message);
+                            });
+                            
+                        } catch (error) {
+                            alert('Erreur lors de l\'import: fichier JSON invalide');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+
+        // Gestion des modals
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+
+        // Fermeture des modals en cliquant à l'extérieur
+        window.onclick = function(event) {
+            const modals = ['configModal', 'passwordModal', 'diskModal', 'statsModal'];
+            modals.forEach(modalId => {
+                const modal = document.getElementById(modalId);
+                if (event.target === modal) {
+                    modal.style.display = 'none';
+                }
+            });
+        }
+
+        // Mise à jour du statut de connexion
+        function updateConnectionStatus(connected) {
+            const indicator = document.getElementById('connectionIndicator');
+            const status = document.getElementById('connectionStatus');
+            
+            if (connected) {
+                indicator.classList.add('connected');
+                status.textContent = 'Connecté';
+            } else {
+                indicator.classList.remove('connected');
+                status.textContent = 'Déconnecté';
+            }
+        }
+
+        // Mise à jour du message de statut
+        function updateStatusMessage(message) {
+            document.getElementById('statusMessage').textContent = message;
+        }
+
+        // Démarrage automatique de la surveillance
+        setInterval(() => {
+            if (socket && socket.connected) {
+                socket.emit('request_refresh');
+            }
+        }, 30000); // Rafraîchissement toutes les 30 secondes
+
+        // Gestion des erreurs globales
+        window.addEventListener('error', function(e) {
+            console.error('Erreur JavaScript:', e.error);
+            updateStatusMessage('❌ Erreur dans l\'interface');
+        });
+
+        // Test de connexion initial
+        setTimeout(() => {
+            if (!socket || !socket.connected) {
+                updateStatusMessage('⚠️ Problème de connexion WebSocket');
+                // Fallback sur refresh manuel si WebSocket échoue
+                setInterval(loadInitialData, 30000);
+            }
+        }, 5000);
+    </script>
+</body>
+</html>
