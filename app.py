@@ -34,6 +34,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=
 class NotificationManager:
     def __init__(self, cipher=None):
         self.previous_disk_states = {}
+        self.previous_server_states = {}  # NOUVEAU: États précédents des serveurs
         self.telegram_config = {
             'enabled': False,
             'bot_token': '',
@@ -168,10 +169,66 @@ class NotificationManager:
         
         return message
     
+    def format_server_telegram_message(self, server_name, server_ip, server_status):
+        """Formate un message pour les changements d'état des serveurs"""
+        if server_status == 'online':
+            emoji = '🟢'
+            status_text = 'EN LIGNE'
+            description = 'Le serveur est maintenant accessible et opérationnel.'
+        else:
+            emoji = '🔴'
+            status_text = 'HORS LIGNE'
+            description = 'Le serveur ne répond plus aux requêtes ping.'
+        
+        message = f"""
+{emoji} <b>Server Disk Monitor - ALERTE SERVEUR</b>
+
+<b>Serveur:</b> {server_name}
+<b>IP:</b> {server_ip}
+<b>Nouveau statut:</b> {status_text}
+
+<b>Description:</b>
+{description}
+
+<b>Timestamp:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """.strip()
+        
+        return message
+    
     def check_disk_state_changes(self, current_disk_status):
-        """Vérifie les changements d'état des disques et envoie des notifications"""
+        """Vérifie les changements d'état des disques et serveurs, envoie des notifications"""
         notifications_sent = []
         
+        # NOUVEAU: Vérification des changements d'état des serveurs
+        for server_name, server_data in current_disk_status.items():
+            current_server_online = server_data.get('online', False)
+            
+            # Vérifier s'il y a un état précédent pour le serveur
+            if server_name in self.previous_server_states:
+                previous_server_online = self.previous_server_states[server_name]
+                
+                # Détecter les changements d'état du serveur
+                if previous_server_online != current_server_online:
+                    server_status = 'online' if current_server_online else 'offline'
+                    
+                    if self.telegram_config['enabled']:
+                        server_message = self.format_server_telegram_message(
+                            server_name,
+                            server_data.get('ip', 'N/A'),
+                            server_status
+                        )
+                        
+                        if self.send_telegram_notification(server_message):
+                            notifications_sent.append({
+                                'type': 'telegram_server',
+                                'server': server_name,
+                                'change': f"SERVEUR {server_status.upper()}"
+                            })
+            
+            # Mettre à jour l'état précédent du serveur
+            self.previous_server_states[server_name] = current_server_online
+        
+        # Vérification existante des changements d'état des disques
         for server_name, server_data in current_disk_status.items():
             if not server_data.get('online', False):
                 continue

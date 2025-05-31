@@ -19,11 +19,14 @@ Dashboard web pour la surveillance des disques durs sur serveurs distants, acces
 ### Fonctionnalités des Notifications
 
 - **Alertes en Temps Réel** : Notification immédiate lors de changements d'état
-- **Types d'Alertes** :
+- **Types d'Alertes Disques** :
   - 🚨 **Disque disparu** : Détection immédiate d'une déconnexion
   - ❌ **Disque démonté** : Notification si un disque se démonte
   - ✅ **Disque remonté** : Confirmation du remontage
   - 🔄 **Disque réapparu** : Notification de reconnexion
+- **🆕 Types d'Alertes Serveurs** :
+  - 🔴 **Serveur hors ligne** : Notification immédiate si un serveur devient inaccessible
+  - 🟢 **Serveur en ligne** : Confirmation du retour en ligne d'un serveur
 - **Multi-Destinataires** : Envoi vers plusieurs chats Telegram
 - **Configuration Simple** : Interface web intuitive
 - **Messages Enrichis** : Informations détaillées (serveur, IP, position, etc.)
@@ -61,6 +64,7 @@ Dashboard web pour la surveillance des disques durs sur serveurs distants, acces
 
 ### Exemple de Messages Telegram
 
+**Alerte Disque :**
 ```
 🚨 Server Disk Monitor - ALERTE
 
@@ -73,6 +77,20 @@ Changement détecté:
 🚨 DISQUE DISPARU: Stockage Données
 
 Timestamp: 2025-01-15 14:30:15
+```
+
+**🆕 Alerte Serveur :**
+```
+🔴 Server Disk Monitor - ALERTE SERVEUR
+
+Serveur: PROD-SERVER-01
+IP: 192.168.1.100
+Nouveau statut: HORS LIGNE
+
+Description:
+Le serveur ne répond plus aux requêtes ping.
+
+Timestamp: 2025-01-15 14:25:42
 ```
 
 ## 📋 Prérequis
@@ -387,10 +405,11 @@ healthcheck:
 
 Le système surveille automatiquement :
 
-1. **État précédent** : Stockage de l'état de chaque disque
-2. **Comparaison** : Détection des changements à chaque scan
-3. **Classification** : Types d'alertes selon le changement
+1. **États précédents** : Stockage de l'état de chaque disque ET serveur
+2. **Comparaison** : Détection des changements à chaque scan (30 secondes par défaut)
+3. **Classification** : Types d'alertes selon le changement détecté
 4. **Notification** : Envoi immédiat si changement critique
+5. **🆕 Surveillance serveurs** : Détection ping/perte de connectivité réseau
 
 ## 🔧 Dépannage
 
@@ -546,6 +565,8 @@ Ce projet est sous licence MIT. Libre d'utilisation, modification et distributio
 - **📢 Bouton Notifications** dans l'interface
 - **🤖 Intégration Telegram Bot API** complète
 - **🔔 Alertes en Temps Réel** pour les changements d'état
+- **🖥️ Notifications Serveurs** : Alertes hors ligne/en ligne
+- **💾 Notifications Disques** : Alertes montage/démontage
 - **🧪 Fonction de Test** intégrée
 - **🔐 Chiffrement des Tokens** pour la sécurité
 - **📱 Support Multi-Chat** (personnel + groupes)
