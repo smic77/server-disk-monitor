@@ -32,7 +32,7 @@ CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
 class NotificationManager:
-    def __init__(self):
+    def __init__(self, cipher=None):
         self.previous_disk_states = {}
         self.telegram_config = {
             'enabled': False,
@@ -40,6 +40,7 @@ class NotificationManager:
             'chat_ids': [],
             'parse_mode': 'HTML'
         }
+        self.cipher = cipher  # Référence vers le cipher de la classe principale
         self.load_notification_config()
     
     def load_notification_config(self):
@@ -70,31 +71,63 @@ class NotificationManager:
             logger.error(f"Erreur sauvegarde config notifications: {e}")
             return False
     
+    def decrypt_token(self, encrypted_token):
+        """Déchiffre le token Telegram"""
+        if not encrypted_token or not self.cipher:
+            return ""
+        try:
+            if encrypted_token == '***':  # Token masqué, ne pas déchiffrer
+                return ""
+            encrypted_bytes = base64.b64decode(encrypted_token.encode())
+            return self.cipher.decrypt(encrypted_bytes).decode()
+        except Exception as e:
+            logger.error(f"Erreur déchiffrement token: {e}")
+            return ""
+    
     def send_telegram_notification(self, message):
         """Envoie une notification Telegram"""
         if not self.telegram_config['enabled'] or not self.telegram_config['bot_token']:
+            logger.warning("Notifications Telegram désactivées ou token manquant")
             return False
         
         try:
+            # Déchiffrer le token
+            bot_token = self.decrypt_token(self.telegram_config['bot_token'])
+            if not bot_token:
+                logger.error("Impossible de déchiffrer le token Telegram")
+                return False
+            
             success_count = 0
             
             for chat_id in self.telegram_config['chat_ids']:
-                url = f"https://api.telegram.org/bot{self.telegram_config['bot_token']}/sendMessage"
+                if not chat_id:
+                    continue
+                    
+                url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
                 
+                # CORRECTION: Utiliser les paramètres dans l'URL ET le body JSON
+                # pour une meilleure compatibilité
                 payload = {
-                    'chat_id': chat_id,
+                    'chat_id': str(chat_id),
                     'text': message,
                     'parse_mode': self.telegram_config['parse_mode'],
                     'disable_web_page_preview': True
                 }
                 
+                logger.info(f"Envoi vers Chat ID: {chat_id}")
+                logger.debug(f"URL: {url}")
+                logger.debug(f"Payload: {payload}")
+                
                 response = requests.post(url, json=payload, timeout=10)
+                
+                logger.info(f"Response status: {response.status_code}")
+                logger.debug(f"Response: {response.text}")
                 
                 if response.status_code == 200:
                     success_count += 1
-                    logger.info(f"Message Telegram envoyé à {chat_id}")
+                    logger.info(f"Message Telegram envoyé avec succès à {chat_id}")
                 else:
-                    logger.error(f"Erreur Telegram {chat_id}: {response.status_code}")
+                    logger.error(f"Erreur Telegram {chat_id}: {response.status_code} - {response.text}")
             
             return success_count > 0
             
@@ -263,8 +296,8 @@ class ServerDiskMonitorWeb:
         # AJOUT : Cache pour éviter les changements de statut aléatoires
         self.status_cache = {}
         
-        # AJOUT: Gestionnaire de notifications
-        self.notification_manager = NotificationManager()
+        # AJOUT: Gestionnaire de notifications avec référence au cipher
+        self.notification_manager = NotificationManager(cipher=self.cipher)
         
         # Démarrage du scheduler
         self.scheduler = BackgroundScheduler()
@@ -639,6 +672,7 @@ def update_notification_config():
         telegram_config = data.get('telegram', {})
         for key, value in telegram_config.items():
             if key == 'bot_token' and value and value != '***':
+                # CORRECTION: Chiffrer le token avec le cipher du monitor
                 monitor.notification_manager.telegram_config[key] = monitor.encrypt_password(value)
             elif key != 'bot_token':
                 monitor.notification_manager.telegram_config[key] = value
