@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Server Disk Monitor - Version Web Corrigée
+Server Disk Monitor - Version Web avec Notifications Telegram
 Dashboard de surveillance des disques durs accessible via navigateur
 """
 
@@ -19,6 +19,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 import uuid
 import logging
 from datetime import datetime
+import requests
 
 # Configuration du logging
 logging.basicConfig(level=logging.INFO)
@@ -29,6 +30,174 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
+
+class NotificationManager:
+    def __init__(self):
+        self.previous_disk_states = {}
+        self.telegram_config = {
+            'enabled': False,
+            'bot_token': '',
+            'chat_ids': [],
+            'parse_mode': 'HTML'
+        }
+        self.load_notification_config()
+    
+    def load_notification_config(self):
+        """Charge la configuration des notifications"""
+        config_file = os.path.join("data", "notifications.json")
+        if os.path.exists(config_file):
+            try:
+                with open(config_file, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                    self.telegram_config.update(config.get('telegram', {}))
+                    logger.info("Configuration notifications chargée")
+            except Exception as e:
+                logger.error(f"Erreur chargement config notifications: {e}")
+    
+    def save_notification_config(self):
+        """Sauvegarde la configuration des notifications"""
+        os.makedirs("data", exist_ok=True)
+        config_file = os.path.join("data", "notifications.json")
+        try:
+            config = {
+                'telegram': self.telegram_config
+            }
+            with open(config_file, 'w', encoding='utf-8') as f:
+                json.dump(config, f, indent=4, ensure_ascii=False)
+            logger.info("Configuration notifications sauvegardée")
+            return True
+        except Exception as e:
+            logger.error(f"Erreur sauvegarde config notifications: {e}")
+            return False
+    
+    def send_telegram_notification(self, message):
+        """Envoie une notification Telegram"""
+        if not self.telegram_config['enabled'] or not self.telegram_config['bot_token']:
+            return False
+        
+        try:
+            success_count = 0
+            
+            for chat_id in self.telegram_config['chat_ids']:
+                url = f"https://api.telegram.org/bot{self.telegram_config['bot_token']}/sendMessage"
+                
+                payload = {
+                    'chat_id': chat_id,
+                    'text': message,
+                    'parse_mode': self.telegram_config['parse_mode'],
+                    'disable_web_page_preview': True
+                }
+                
+                response = requests.post(url, json=payload, timeout=10)
+                
+                if response.status_code == 200:
+                    success_count += 1
+                    logger.info(f"Message Telegram envoyé à {chat_id}")
+                else:
+                    logger.error(f"Erreur Telegram {chat_id}: {response.status_code}")
+            
+            return success_count > 0
+            
+        except Exception as e:
+            logger.error(f"Erreur envoi Telegram: {e}")
+            return False
+    
+    def format_telegram_message(self, server_name, server_ip, position, disk_label, changes):
+        """Formate un message pour Telegram"""
+        # Emojis pour les différents types d'alertes
+        emoji_map = {
+            'DÉMONTÉ': '❌',
+            'DISPARU': '🚨',
+            'REMONTÉ': '✅',
+            'RÉAPPARU': '🔄'
+        }
+        
+        # Trouver l'emoji approprié
+        emoji = '⚠️'
+        for key, em in emoji_map.items():
+            if key in changes[0]:
+                emoji = em
+                break
+        
+        message = f"""
+{emoji} <b>Server Disk Monitor - ALERTE</b>
+
+<b>Serveur:</b> {server_name}
+<b>IP:</b> {server_ip}
+<b>Position:</b> {position}
+<b>Disque:</b> {disk_label}
+
+<b>Changement détecté:</b>
+{changes[0]}
+
+<b>Timestamp:</b> {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+        """.strip()
+        
+        return message
+    
+    def check_disk_state_changes(self, current_disk_status):
+        """Vérifie les changements d'état des disques et envoie des notifications"""
+        notifications_sent = []
+        
+        for server_name, server_data in current_disk_status.items():
+            if not server_data.get('online', False):
+                continue
+            
+            for position, disk_data in server_data.get('disks', {}).items():
+                disk_key = f"{server_name}_{position}"
+                current_state = {
+                    'exists': disk_data.get('exists', False),
+                    'mounted': disk_data.get('mounted', False),
+                    'label': disk_data.get('label', 'Disque inconnu'),
+                    'device': disk_data.get('device', 'N/A'),
+                    'capacity': disk_data.get('capacity', 'N/A')
+                }
+                
+                # Vérifier s'il y a un état précédent
+                if disk_key in self.previous_disk_states:
+                    previous_state = self.previous_disk_states[disk_key]
+                    
+                    # Détecter les changements critiques
+                    changes = []
+                    
+                    # Disque démonté
+                    if previous_state['mounted'] and not current_state['mounted']:
+                        changes.append(f"❌ DISQUE DÉMONTÉ: {current_state['label']}")
+                        
+                    # Disque disparu
+                    elif previous_state['exists'] and not current_state['exists']:
+                        changes.append(f"🚨 DISQUE DISPARU: {current_state['label']}")
+                    
+                    # Disque remonté (bonne nouvelle)
+                    elif not previous_state['mounted'] and current_state['mounted']:
+                        changes.append(f"✅ DISQUE REMONTÉ: {current_state['label']}")
+                    
+                    # Disque réapparu
+                    elif not previous_state['exists'] and current_state['exists']:
+                        changes.append(f"🔄 DISQUE RÉAPPARU: {current_state['label']}")
+                    
+                    # Envoyer notification Telegram si changement détecté
+                    if changes and self.telegram_config['enabled']:
+                        telegram_message = self.format_telegram_message(
+                            server_name, 
+                            server_data.get('ip', 'N/A'),
+                            position,
+                            current_state['label'],
+                            changes
+                        )
+                        
+                        if self.send_telegram_notification(telegram_message):
+                            notifications_sent.append({
+                                'type': 'telegram',
+                                'server': server_name,
+                                'disk': current_state['label'],
+                                'change': changes[0]
+                            })
+                
+                # Mettre à jour l'état précédent
+                self.previous_disk_states[disk_key] = current_state.copy()
+        
+        return notifications_sent
 
 class ServerDiskMonitorWeb:
     def __init__(self):
@@ -93,6 +262,9 @@ class ServerDiskMonitorWeb:
         
         # AJOUT : Cache pour éviter les changements de statut aléatoires
         self.status_cache = {}
+        
+        # AJOUT: Gestionnaire de notifications
+        self.notification_manager = NotificationManager()
         
         # Démarrage du scheduler
         self.scheduler = BackgroundScheduler()
@@ -233,7 +405,7 @@ class ServerDiskMonitorWeb:
         logger.info("Cache de statut vidé")
     
     def update_all_disk_status(self):
-        """Met à jour le statut de tous les disques"""
+        """Met à jour le statut de tous les disques avec notifications"""
         logger.info("Mise à jour du statut des disques...")
         
         total_disks = 0
@@ -277,6 +449,14 @@ class ServerDiskMonitorWeb:
             self.disk_status[server_name] = server_status
         
         self.last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # AJOUT: Vérification des changements et notifications
+        notifications = self.notification_manager.check_disk_state_changes(self.disk_status)
+        
+        if notifications:
+            logger.info(f"Notifications envoyées: {len(notifications)}")
+            for notif in notifications:
+                logger.info(f"  - {notif['type']}: {notif['server']} - {notif['change']}")
         
         # Statistiques globales
         stats = {
@@ -434,6 +614,67 @@ def clear_cache():
         return jsonify({'success': True, 'message': 'Cache vidé'})
     except Exception as e:
         logger.error(f"Erreur lors du vidage du cache: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# NOUVELLES ROUTES API pour les notifications Telegram
+
+@app.route('/api/notifications/config', methods=['GET'])
+def get_notification_config():
+    """Récupère la configuration des notifications"""
+    telegram_config = monitor.notification_manager.telegram_config.copy()
+    
+    # Masquer le token
+    if telegram_config.get('bot_token'):
+        telegram_config['bot_token'] = '***'
+    
+    return jsonify({'telegram': telegram_config})
+
+@app.route('/api/notifications/config', methods=['POST'])
+def update_notification_config():
+    """Met à jour la configuration des notifications"""
+    try:
+        data = request.get_json()
+        
+        # Configuration Telegram
+        telegram_config = data.get('telegram', {})
+        for key, value in telegram_config.items():
+            if key == 'bot_token' and value and value != '***':
+                monitor.notification_manager.telegram_config[key] = monitor.encrypt_password(value)
+            elif key != 'bot_token':
+                monitor.notification_manager.telegram_config[key] = value
+        
+        # Sauvegarde
+        if monitor.notification_manager.save_notification_config():
+            return jsonify({'success': True, 'message': 'Configuration notifications mise à jour'})
+        else:
+            return jsonify({'success': False, 'error': 'Erreur sauvegarde'}), 500
+            
+    except Exception as e:
+        logger.error(f"Erreur config notifications: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 400
+
+@app.route('/api/notifications/test', methods=['POST'])
+def test_notification():
+    """Test d'envoi de notification Telegram"""
+    try:
+        message = f"""
+🧪 <b>Test - Server Disk Monitor</b>
+
+Test de notification TELEGRAM envoyé le {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+
+Si vous recevez ce message, la configuration Telegram fonctionne correctement !
+
+--
+Server Disk Monitor
+        """.strip()
+        
+        if monitor.notification_manager.send_telegram_notification(message):
+            return jsonify({'success': True, 'message': 'Notification de test envoyée'})
+        else:
+            return jsonify({'success': False, 'error': 'Échec envoi notification'}), 500
+            
+    except Exception as e:
+        logger.error(f"Erreur test notification: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # WebSocket events
