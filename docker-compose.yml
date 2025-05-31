@@ -1,39 +1,62 @@
+# Stack Portainer CORRIGÉE pour Server Disk Monitor
+# Version sans erreur de volume
+
 version: '3.8'
 
 services:
-  server-disk-monitor:
-    build: .
-    container_name: server-disk-monitor
+  disk-monitor:
+    # Utiliser une image publique pour test ou votre image GitHub
+    image: python:3.11-slim
+    container_name: server-disk-monitor-web
     ports:
-      - "5000:5000"
+      - "${MONITOR_PORT:-5000}:5000"
     volumes:
-      # Volume pour persister la configuration et les clés de chiffrement
-      - ./data:/app/data
-      # Volume pour les clés SSH si nécessaire
-      - ./ssh_keys:/root/.ssh:ro
+      # CORRECTION: Volume déclaré en bas
+      - disk_monitor_data:/app/data
+      # Optionnel: clés SSH (créer le dossier avant)
+      - type: bind
+        source: ${SSH_KEYS_PATH:-./ssh_keys}
+        target: /root/.ssh
+        read_only: true
+        bind:
+          create_host_path: true
     environment:
       - FLASK_ENV=production
-      - TZ=Europe/Paris
+      - TZ=${TIMEZONE:-Europe/Paris}
+      - REFRESH_INTERVAL=${REFRESH_INTERVAL:-30}
     restart: unless-stopped
     networks:
       - monitoring
+    # Commande temporaire pour test
+    command: |
+      bash -c "
+        apt-get update && 
+        apt-get install -y curl openssh-client sshpass iputils-ping &&
+        pip install flask flask-socketio flask-cors cryptography paramiko apscheduler python-dotenv &&
+        echo 'Container ready - Deploy your app here' &&
+        sleep infinity
+      "
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     labels:
-      # Labels pour Portainer
-      - "traefik.enable=true"
-      - "traefik.http.routers.disk-monitor.rule=Host(`disk-monitor.local`)"
-      - "traefik.http.routers.disk-monitor.entrypoints=web"
-      - "traefik.http.services.disk-monitor.loadbalancer.server.port=5000"
-      
-      # Labels pour la documentation dans Portainer
+      - "portainer.stack.name=server-disk-monitor"
+      - "portainer.category=Monitoring"
       - "org.label-schema.name=Server Disk Monitor"
       - "org.label-schema.description=Dashboard de surveillance des disques serveurs"
-      - "org.label-schema.version=2.0"
-      - "org.label-schema.vendor=Open Source"
 
 networks:
   monitoring:
     driver: bridge
+    labels:
+      - "portainer.stack.name=server-disk-monitor"
 
+# CORRECTION: Section volumes obligatoire !
 volumes:
   disk_monitor_data:
     driver: local
+    labels:
+      - "portainer.stack.name=server-disk-monitor"
