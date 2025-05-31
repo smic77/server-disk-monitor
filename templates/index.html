@@ -103,6 +103,11 @@
             border-color: #cc6600;
         }
 
+        .btn-info {
+            background: linear-gradient(145deg, #17a2b8, #138496);
+            border-color: #17a2b8;
+        }
+
         .container {
             padding: 20px;
             max-width: 1400px;
@@ -392,6 +397,8 @@
             max-width: 600px;
             border: 2px solid #00ff00;
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            max-height: 80vh;
+            overflow-y: auto;
         }
 
         .close {
@@ -418,7 +425,7 @@
             font-weight: bold;
         }
 
-        .form-group input, .form-group textarea {
+        .form-group input, .form-group textarea, .form-group select {
             width: 100%;
             padding: 12px;
             border: 2px solid #555;
@@ -429,9 +436,59 @@
             transition: border-color 0.3s;
         }
 
-        .form-group input:focus, .form-group textarea:focus {
+        .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
             outline: none;
             border-color: #00ff00;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+            transform: scale(1.3);
+        }
+
+        .chat-ids-container {
+            background: rgba(64, 64, 64, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .chat-id-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .chat-id-item input {
+            flex: 1;
+        }
+
+        .btn-remove {
+            background: #dc3545;
+            border: none;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .btn-add {
+            background: #28a745;
+            border: none;
+            color: white;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: 10px;
         }
 
         .loading {
@@ -471,6 +528,12 @@
             background: rgba(255, 0, 0, 0.2);
             border: 1px solid #ff0000;
             color: #ff6666;
+        }
+
+        .alert-info {
+            background: rgba(0, 123, 255, 0.2);
+            border: 1px solid #007bff;
+            color: #66b3ff;
         }
 
         @media (max-width: 1200px) {
@@ -560,6 +623,7 @@
         <button class="btn btn-primary" onclick="refreshData()">🔄 Actualiser</button>
         <button class="btn btn-success" onclick="showConfigModal()">⚙️ Configuration</button>
         <button class="btn btn-warning" onclick="showPasswordModal()">🔐 Mots de passe</button>
+        <button class="btn btn-info" onclick="showNotificationModal()">📢 Notifications</button>
         <button class="btn" onclick="exportConfig()">💾 Exporter</button>
         <button class="btn" onclick="importConfig()">📁 Importer</button>
         <button class="btn" onclick="showStatsModal()">📊 Statistiques</button>
@@ -611,6 +675,62 @@
         </div>
     </div>
 
+    <!-- Modal Notifications -->
+    <div id="notificationModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('notificationModal')">&times;</span>
+            <h2>📢 Configuration des Notifications</h2>
+            <div id="notificationContent">
+                <div class="alert alert-info">
+                    <strong>ℹ️ Notifications Telegram :</strong><br>
+                    Recevez des alertes en temps réel lorsque l'état des disques change (déconnexion, remontage, etc.)
+                </div>
+                
+                <!-- Configuration Telegram -->
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="telegramEnabled">
+                        <label for="telegramEnabled">🤖 Activer les notifications Telegram</label>
+                    </div>
+                </div>
+
+                <div id="telegramConfig" style="display: none;">
+                    <div class="form-group">
+                        <label for="botToken">🔑 Token du Bot Telegram :</label>
+                        <input type="password" id="botToken" placeholder="123456789:ABCdefGHIjklMNOpqr...">
+                        <small style="color: #ccc; font-size: 0.9em;">
+                            Obtenez votre token via @BotFather sur Telegram
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label>👥 Chat IDs Telegram :</label>
+                        <div class="chat-ids-container" id="chatIdsContainer">
+                            <!-- Les Chat IDs seront ajoutés ici -->
+                        </div>
+                        <button type="button" class="btn-add" onclick="addChatId()">➕ Ajouter Chat ID</button>
+                        <small style="color: #ccc; font-size: 0.9em; display: block; margin-top: 5px;">
+                            Pour obtenir votre Chat ID : envoyez /start à @userinfobot
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="parseMode">📝 Mode de formatage :</label>
+                        <select id="parseMode">
+                            <option value="HTML">HTML</option>
+                            <option value="Markdown">Markdown</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-success" onclick="saveNotificationConfig()">💾 Sauvegarder</button>
+                <button class="btn btn-info" onclick="testNotification()">🧪 Test</button>
+                <button class="btn" onclick="closeModal('notificationModal')">❌ Annuler</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Statistiques -->
     <div id="statsModal" class="modal">
         <div class="modal-content">
@@ -650,6 +770,7 @@
         let serversData = {};
         let statsData = {};
         let config = {};
+        let notificationConfig = {};
 
         // Initialisation
         document.addEventListener('DOMContentLoaded', function() {
@@ -694,9 +815,24 @@
                 config = statusData.config || {};
                 
                 updateDisplay();
+                
+                // Charger aussi la config des notifications
+                await loadNotificationConfig();
             } catch (error) {
                 console.error('Erreur lors du chargement:', error);
                 updateStatusMessage('❌ Erreur de chargement');
+            }
+        }
+
+        // Chargement de la configuration des notifications
+        async function loadNotificationConfig() {
+            try {
+                const response = await fetch('/api/notifications/config');
+                const data = await response.json();
+                notificationConfig = data || {};
+                console.log('Configuration notifications chargée:', notificationConfig);
+            } catch (error) {
+                console.error('Erreur chargement config notifications:', error);
             }
         }
 
@@ -1071,6 +1207,154 @@
             modal.style.display = 'block';
         }
 
+        // Modal des notifications
+        function showNotificationModal() {
+            const modal = document.getElementById('notificationModal');
+            
+            // Remplir les données actuelles
+            populateNotificationModal();
+            
+            modal.style.display = 'block';
+        }
+
+        // Remplissage du modal des notifications
+        function populateNotificationModal() {
+            const telegramConfig = notificationConfig.telegram || {};
+            
+            // État d'activation
+            document.getElementById('telegramEnabled').checked = telegramConfig.enabled || false;
+            
+            // Token (masqué)
+            document.getElementById('botToken').value = telegramConfig.bot_token === '***' ? '' : '';
+            document.getElementById('botToken').placeholder = telegramConfig.bot_token === '***' ? 'Token configuré (modifiez pour changer)' : 'Entrez votre token de bot';
+            
+            // Mode de formatage
+            document.getElementById('parseMode').value = telegramConfig.parse_mode || 'HTML';
+            
+            // Chat IDs
+            const chatIds = telegramConfig.chat_ids || [];
+            const container = document.getElementById('chatIdsContainer');
+            container.innerHTML = '';
+            
+            if (chatIds.length === 0) {
+                addChatId(); // Ajouter un champ vide
+            } else {
+                chatIds.forEach(chatId => {
+                    addChatId(chatId);
+                });
+            }
+            
+            // Affichage conditionnel de la config Telegram
+            toggleTelegramConfig();
+            
+            // Event listener pour l'activation
+            document.getElementById('telegramEnabled').addEventListener('change', toggleTelegramConfig);
+        }
+
+        // Basculer l'affichage de la configuration Telegram
+        function toggleTelegramConfig() {
+            const enabled = document.getElementById('telegramEnabled').checked;
+            const configDiv = document.getElementById('telegramConfig');
+            configDiv.style.display = enabled ? 'block' : 'none';
+        }
+
+        // Ajouter un champ Chat ID
+        function addChatId(value = '') {
+            const container = document.getElementById('chatIdsContainer');
+            const chatIdItem = document.createElement('div');
+            chatIdItem.className = 'chat-id-item';
+            
+            chatIdItem.innerHTML = `
+                <input type="text" placeholder="Chat ID (ex: 123456789)" value="${value}">
+                <button type="button" class="btn-remove" onclick="removeChatId(this)">❌</button>
+            `;
+            
+            container.appendChild(chatIdItem);
+        }
+
+        // Supprimer un champ Chat ID
+        function removeChatId(button) {
+            button.parentElement.remove();
+        }
+
+        // Sauvegarde de la configuration des notifications
+        async function saveNotificationConfig() {
+            try {
+                const telegramEnabled = document.getElementById('telegramEnabled').checked;
+                const botToken = document.getElementById('botToken').value.trim();
+                const parseMode = document.getElementById('parseMode').value;
+                
+                // Récupérer tous les Chat IDs
+                const chatIdInputs = document.querySelectorAll('#chatIdsContainer input');
+                const chatIds = Array.from(chatIdInputs)
+                    .map(input => input.value.trim())
+                    .filter(chatId => chatId !== '');
+                
+                const config = {
+                    telegram: {
+                        enabled: telegramEnabled,
+                        parse_mode: parseMode,
+                        chat_ids: chatIds
+                    }
+                };
+                
+                // Ajouter le token seulement s'il est fourni
+                if (botToken) {
+                    config.telegram.bot_token = botToken;
+                }
+                
+                const response = await fetch('/api/notifications/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('✅ Configuration des notifications sauvegardée avec succès !');
+                    closeModal('notificationModal');
+                    await loadNotificationConfig(); // Recharger la config
+                } else {
+                    throw new Error(result.error || 'Erreur inconnue');
+                }
+                
+            } catch (error) {
+                console.error('Erreur sauvegarde notifications:', error);
+                alert('❌ Erreur lors de la sauvegarde: ' + error.message);
+            }
+        }
+
+        // Test des notifications
+        async function testNotification() {
+            try {
+                updateStatusMessage('🧪 Envoi du test de notification...');
+                
+                const response = await fetch('/api/notifications/test', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert('🎉 Notification de test envoyée avec succès ! Vérifiez votre Telegram.');
+                    updateStatusMessage('✅ Test de notification réussi');
+                } else {
+                    throw new Error(result.error || 'Erreur lors du test');
+                }
+                
+            } catch (error) {
+                console.error('Erreur test notification:', error);
+                alert('❌ Erreur lors du test: ' + error.message);
+                updateStatusMessage('❌ Échec du test de notification');
+            }
+        }
+
         // Actualisation des données
         function refreshData() {
             updateStatusMessage('🔄 Actualisation en cours...');
@@ -1171,6 +1455,12 @@
                     <p><strong>Serveurs configurés:</strong> ${Object.keys(config).length}</p>
                     <p><strong>Intervalle de rafraîchissement:</strong> 30 secondes</p>
                 </div>
+
+                <div class="form-group">
+                    <label>📢 Notifications:</label>
+                    <p><strong>Telegram:</strong> ${notificationConfig.telegram?.enabled ? '✅ Activé' : '❌ Désactivé'}</p>
+                    ${notificationConfig.telegram?.enabled ? `<p><strong>Chat IDs:</strong> ${(notificationConfig.telegram.chat_ids || []).length} configuré(s)</p>` : ''}
+                </div>
                 
                 <div class="form-group">
                     <label>📋 Détail par Serveur:</label>
@@ -1257,7 +1547,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'passwordModal', 'diskModal', 'statsModal'];
+            const modals = ['configModal', 'passwordModal', 'diskModal', 'statsModal', 'notificationModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {

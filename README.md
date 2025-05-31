@@ -1,6 +1,6 @@
-# Server Disk Monitor - Version Web
+# Server Disk Monitor - Version Web avec Notifications
 
-Dashboard web pour la surveillance des disques durs sur serveurs distants, accessible depuis n'importe quel PC du réseau local et déployable dans Portainer.
+Dashboard web pour la surveillance des disques durs sur serveurs distants, accessible depuis n'importe quel PC du réseau local et déployable dans Portainer. **Nouveauté : Notifications Telegram en temps réel !**
 
 ## 🚀 Fonctionnalités
 
@@ -11,6 +11,69 @@ Dashboard web pour la surveillance des disques durs sur serveurs distants, acces
 - **Sécurité** : Chiffrement des mots de passe
 - **Persistance** : Configuration sauvegardée dans volumes Docker
 - **Déploiement Facile** : Compatible Portainer Stack
+- **🆕 Notifications Telegram** : Alertes instantanées des changements d'état
+- **🆕 Détection Intelligente** : Surveillance des déconnexions/reconnexions de disques
+
+## 📢 Système de Notifications Telegram
+
+### Fonctionnalités des Notifications
+
+- **Alertes en Temps Réel** : Notification immédiate lors de changements d'état
+- **Types d'Alertes** :
+  - 🚨 **Disque disparu** : Détection immédiate d'une déconnexion
+  - ❌ **Disque démonté** : Notification si un disque se démonte
+  - ✅ **Disque remonté** : Confirmation du remontage
+  - 🔄 **Disque réapparu** : Notification de reconnexion
+- **Multi-Destinataires** : Envoi vers plusieurs chats Telegram
+- **Configuration Simple** : Interface web intuitive
+- **Messages Enrichis** : Informations détaillées (serveur, IP, position, etc.)
+- **Test Intégré** : Fonction de test pour vérifier la configuration
+
+### Configuration des Notifications
+
+#### Étape 1 : Créer un Bot Telegram
+
+1. **Contacter @BotFather** sur Telegram
+2. **Créer un nouveau bot** : `/newbot`
+3. **Choisir un nom** pour votre bot
+4. **Récupérer le token** : `123456789:ABCdefGHIjklMNOpqr...`
+
+#### Étape 2 : Obtenir les Chat IDs
+
+1. **Pour un chat personnel** :
+   - Envoyer `/start` à @userinfobot
+   - Noter votre Chat ID (ex: `123456789`)
+
+2. **Pour un groupe** :
+   - Ajouter @userinfobot au groupe
+   - Envoyer `/start` dans le groupe
+   - Noter le Chat ID du groupe (ex: `-987654321`)
+
+#### Étape 3 : Configuration dans l'Interface
+
+1. **Accéder au Dashboard** : `http://votre-serveur:5000`
+2. **Cliquer sur "📢 Notifications"**
+3. **Activer Telegram** : Cocher la case
+4. **Saisir le Token** : Coller le token de @BotFather
+5. **Ajouter les Chat IDs** : Un par ligne
+6. **Tester** : Utiliser le bouton "🧪 Test"
+7. **Sauvegarder** : Confirmer la configuration
+
+### Exemple de Messages Telegram
+
+```
+🚨 Server Disk Monitor - ALERTE
+
+Serveur: PROD-SERVER-01
+IP: 192.168.1.100
+Position: FRONT-2-3
+Disque: Stockage Données
+
+Changement détecté:
+🚨 DISQUE DISPARU: Stockage Données
+
+Timestamp: 2025-01-15 14:30:15
+```
 
 ## 📋 Prérequis
 
@@ -18,6 +81,7 @@ Dashboard web pour la surveillance des disques durs sur serveurs distants, acces
 - Portainer (optionnel mais recommandé)
 - Accès SSH aux serveurs à surveiller
 - `sshpass` installé sur les serveurs cibles
+- **Nouveau** : Bot Telegram (optionnel, pour les notifications)
 
 ## 🔧 Installation et Déploiement
 
@@ -107,6 +171,9 @@ Une fois déployée, l'application est accessible via :
 3. **Définir les mots de passe** :
    - Cliquer sur "🔐 Mots de passe"
    - Entrer les mots de passe SSH pour chaque serveur
+4. **🆕 Configurer les notifications** :
+   - Cliquer sur "📢 Notifications"
+   - Activer Telegram et configurer le bot
 
 ### Format de Configuration JSON
 
@@ -150,6 +217,7 @@ Une fois déployée, l'application est accessible via :
 - **Statistiques Globales** : Vue d'ensemble des serveurs et disques
 - **Cartes Serveurs** : Affichage en temps réel de l'état de chaque serveur
 - **Racks Visuels** : Représentation graphique des faces avant/arrière
+- **🆕 Bouton Notifications** : Configuration des alertes Telegram
 - **Codes Couleur** :
   - 🟢 **Vert** : Disque monté et fonctionnel
   - 🟠 **Orange** : Disque détecté mais non monté
@@ -161,6 +229,7 @@ Une fois déployée, l'application est accessible via :
 - **Clic sur un disque** : Affiche les détails complets
 - **Actualisation** : Bouton de refresh manuel
 - **Export/Import** : Sauvegarde et restauration de configuration
+- **🆕 Test Notifications** : Vérification des alertes Telegram
 
 ## 🔧 Configuration Avancée
 
@@ -189,8 +258,9 @@ Les données sont automatiquement persistées dans le volume `/app/data` :
 
 ```
 data/
-├── config.json        # Configuration des serveurs
-└── cipher.key         # Clé de chiffrement des mots de passe
+├── config.json           # Configuration des serveurs
+├── cipher.key            # Clé de chiffrement des mots de passe
+└── notifications.json    # 🆕 Configuration des notifications
 ```
 
 ### Configuration SSH
@@ -255,11 +325,12 @@ http {
 
 ## 🔒 Sécurité
 
-### Chiffrement des Mots de Passe
+### Chiffrement des Mots de Passe et Tokens
 
-- Tous les mots de passe sont chiffrés avec `cryptography.fernet`
+- Tous les mots de passe SSH sont chiffrés avec `cryptography.fernet`
+- **🆕 Les tokens Telegram sont également chiffrés**
 - La clé de chiffrement est générée automatiquement et stockée de manière sécurisée
-- Les mots de passe ne sont jamais stockés en clair
+- Aucune donnée sensible n'est stockée en clair
 
 ### Recommandations
 
@@ -267,6 +338,8 @@ http {
 2. **Configurez un reverse proxy** avec HTTPS en production
 3. **Limitez l'accès réseau** au dashboard
 4. **Sauvegardez régulièrement** le volume de données
+5. **🆕 Protégez votre token Telegram** : ne le partagez jamais
+6. **🆕 Utilisez des groupes privés** pour les notifications sensibles
 
 ## 📱 Responsive Design
 
@@ -292,17 +365,32 @@ healthcheck:
 
 ### API Endpoints
 
+#### Endpoints Existants
 - `GET /api/status` : État global du système
 - `GET /api/config` : Configuration actuelle
 - `POST /api/config` : Mise à jour de configuration
 - `POST /api/refresh` : Actualisation manuelle
 - `POST /api/server/{name}/password` : Mise à jour mot de passe
 
+#### 🆕 Nouveaux Endpoints pour Notifications
+- `GET /api/notifications/config` : Configuration des notifications
+- `POST /api/notifications/config` : Mise à jour de la config notifications
+- `POST /api/notifications/test` : Test d'envoi de notification
+
 ### WebSocket Events
 
 - `disk_status_update` : Mise à jour des statuts
 - `request_refresh` : Demande d'actualisation
 - `connect/disconnect` : Gestion des connexions
+
+### 🆕 Logique de Détection des Changements
+
+Le système surveille automatiquement :
+
+1. **État précédent** : Stockage de l'état de chaque disque
+2. **Comparaison** : Détection des changements à chaque scan
+3. **Classification** : Types d'alertes selon le changement
+4. **Notification** : Envoi immédiat si changement critique
 
 ## 🔧 Dépannage
 
@@ -327,17 +415,40 @@ healthcheck:
    - Vérifier le montage du volume `/app/data`
    - Sauvegarder la configuration via export
 
+5. **🆕 Notifications Telegram ne fonctionnent pas** :
+   - Vérifier le token du bot avec @BotFather
+   - Confirmer les Chat IDs avec @userinfobot
+   - Tester la connectivité réseau (port 443 HTTPS)
+   - Vérifier les logs : `docker logs server-disk-monitor | grep -i telegram`
+
 ### Logs et Debug
 
 ```bash
 # Logs du conteneur
 docker logs -f server-disk-monitor
 
+# Filtrer les logs de notifications
+docker logs server-disk-monitor | grep -i notification
+
 # Accès au conteneur
 docker exec -it server-disk-monitor /bin/bash
 
 # Vérification des volumes
 docker volume inspect disk_monitor_config
+```
+
+### 🆕 Debug des Notifications
+
+```bash
+# Test manuel depuis le conteneur
+docker exec -it server-disk-monitor python3 -c "
+import requests
+response = requests.post('https://api.telegram.org/bot<YOUR_TOKEN>/getMe')
+print(response.json())
+"
+
+# Vérification des fichiers de config
+docker exec -it server-disk-monitor cat /app/data/notifications.json
 ```
 
 ## 🔄 Mise à Jour
@@ -367,11 +478,14 @@ docker-compose up -d
 ### Fonctionnalités Prévues
 
 - **Éditeur de configuration graphique** complet
-- **Alertes email/Slack** en cas de problème
+- **Alertes email/Slack** en plus de Telegram
 - **Métriques avancées** (SMART, température, etc.)
 - **API REST** étendue pour intégrations
 - **Thèmes personnalisables**
 - **Multi-utilisateurs** avec authentification
+- **🆕 Notifications Discord/Teams** : Autres plateformes de messagerie
+- **🆕 Seuils personnalisables** : Alertes basées sur des métriques
+- **🆕 Historique des alertes** : Journal des notifications envoyées
 
 ### Contributions
 
@@ -389,12 +503,20 @@ Le projet est open source. Les contributions sont les bienvenues :
 - Configuration : Voir exemples JSON fournis
 - API : Documentation Swagger disponible sur `/api/docs`
 - WebSocket : Events listés dans la section surveillance
+- **🆕 Notifications** : Guide complet dans cette documentation
 
 ### Communauté
 
 - Issues GitHub pour les bugs
 - Discussions pour les suggestions
 - Wiki pour la documentation collaborative
+
+### 🆕 Support Telegram
+
+Pour le support des notifications Telegram :
+1. Vérifier la [documentation officielle de l'API Telegram](https://core.telegram.org/bots/api)
+2. Tester avec @BotFather pour valider le token
+3. Utiliser @userinfobot pour confirmer les Chat IDs
 
 ## 📝 Licence
 
@@ -404,8 +526,8 @@ Ce projet est sous licence MIT. Libre d'utilisation, modification et distributio
 
 ## 🎯 Avantages par rapport à la Version Desktop
 
-| Critère | Version Desktop (Tkinter) | Version Web |
-|---------|---------------------------|-------------|
+| Critère | Version Desktop (Tkinter) | Version Web avec Notifications |
+|---------|---------------------------|--------------------------------|
 | **Accessibilité** | Un seul poste | Tout le réseau |
 | **Déploiement** | Installation sur chaque PC | Conteneur unique |
 | **Maintenance** | Mise à jour individuelle | Mise à jour centralisée |
@@ -414,5 +536,28 @@ Ce projet est sous licence MIT. Libre d'utilisation, modification et distributio
 | **Intégration** | Limitée | API + WebSocket |
 | **Scalabilité** | Non scalable | Scalable horizontalement |
 | **Monitoring** | Local uniquement | Surveillance centralisée |
+| **🆕 Alertes** | Aucune | **Telegram en temps réel** |
+| **🆕 Mobilité** | Bureau uniquement | **Notifications mobiles** |
 
-La version web offre une solution moderne, scalable et accessible qui répond parfaitement aux besoins d'infrastructure réseau et s'intègre naturellement dans un environnement Portainer.
+## 🌟 Nouveautés de cette Version
+
+### ✨ Fonctionnalités Ajoutées
+
+- **📢 Bouton Notifications** dans l'interface
+- **🤖 Intégration Telegram Bot API** complète
+- **🔔 Alertes en Temps Réel** pour les changements d'état
+- **🧪 Fonction de Test** intégrée
+- **🔐 Chiffrement des Tokens** pour la sécurité
+- **📱 Support Multi-Chat** (personnel + groupes)
+- **🎨 Interface Responsive** améliorée
+- **📊 Statistiques Notifications** dans le dashboard
+
+### 🛠️ Améliorations Techniques
+
+- **Cache Intelligent** : Évite les faux positifs
+- **Gestion d'Erreurs** : Robustesse accrue
+- **Logs Détaillés** : Debug facilité
+- **API RESTful** : Endpoints pour notifications
+- **Persistance** : Configuration sauvegardée automatiquement
+
+La version web avec notifications offre une solution complète, moderne et alertes en temps réel qui répond parfaitement aux besoins d'infrastructure réseau critique et s'intègre naturellement dans un environnement Portainer tout en gardant les équipes informées 24/7.
