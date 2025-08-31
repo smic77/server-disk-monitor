@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs avec améliorations de performance in
 """
 
 # Version de l'application
-VERSION = "2.0.0"
+VERSION = "2.0.1"
 BUILD_DATE = "2025-08-31"
 
 from flask import Flask, render_template, request, jsonify
