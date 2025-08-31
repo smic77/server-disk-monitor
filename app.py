@@ -1140,13 +1140,20 @@ def update_config():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/server/<server_name>/password', methods=['POST'])
-@validate_json('password_update')
 def update_server_password(server_name):
-    """Met à jour le mot de passe d'un serveur avec validation"""
+    """Met à jour le mot de passe d'un serveur - CORRIGÉ"""
     try:
-        server_name = JSONValidator.validate_server_name(server_name)
-        data = get_validated_json()
+        # Validation simple et directe pour éviter les NetworkError
+        data = request.get_json(force=True, silent=True)
+        if data is None:
+            return jsonify({'success': False, 'error': 'Données JSON manquantes'}), 400
+        
         password = data.get('password', '')
+        logger.info(f"Tentative mise à jour mot de passe pour: {server_name}")
+        
+        # Validation basique du nom du serveur (sans exceptions)
+        if not server_name or not isinstance(server_name, str):
+            return jsonify({'success': False, 'error': 'Nom de serveur invalide'}), 400
         
         # CORRECTION: Verrouillage pour éviter les conflits lors de modifications multiples
         with monitor._config_lock:
@@ -1185,9 +1192,6 @@ def update_server_password(server_name):
             else:
                 return jsonify({'success': False, 'error': 'Serveur non trouvé'}), 404
             
-    except ValidationError as e:
-        logger.warning(f"Erreur validation pour {server_name}: {e}")
-        return jsonify({'success': False, 'error': f"Données invalides: {str(e)}"}), 400
     except Exception as e:
         logger.error(f"Erreur générale mot de passe pour {server_name}: {e}")
         return jsonify({'success': False, 'error': f"Erreur inattendue: {str(e)}"}), 500
