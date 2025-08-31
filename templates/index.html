@@ -317,82 +317,110 @@
             flex-wrap: wrap;
         }
 
-        /* Server chassis container avec rendu réaliste */
-        .server-chassis {
-            background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 50%, #0f0f0f 100%);
-            border: 2px solid #4a4a4a;
-            border-radius: 12px;
+        /* HP ProLiant Gen9 Server Chassis */
+        .server-chassis.hp-proliant {
+            background: linear-gradient(145deg, #c8c8c8 0%, #a0a0a0 50%, #8a8a8a 100%);
+            border: 3px solid #666;
+            border-radius: 8px;
             box-shadow: 
-                0 8px 32px rgba(0, 0, 0, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1),
-                inset 0 -1px 0 rgba(0, 0, 0, 0.8);
+                0 8px 32px rgba(0, 0, 0, 0.3),
+                inset 0 2px 0 rgba(255, 255, 255, 0.3),
+                inset 0 -2px 0 rgba(0, 0, 0, 0.4);
             position: relative;
             overflow: hidden;
-            padding: 16px;
-            margin-bottom: 20px;
+            padding: 0;
+            margin-bottom: 30px;
+            min-height: 120px;
         }
         
-        .server-chassis::before {
+        /* HP Status LED Strip */
+        .server-chassis.hp-proliant::before {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #ff4444 0%, #44ff44 50%, #4444ff 100%);
-            opacity: 0.6;
+            top: 8px;
+            left: 20px;
+            width: 60px;
+            height: 6px;
+            background: linear-gradient(90deg, #00ff00 0%, #00ff00 80%, #ff0000 100%);
+            border-radius: 3px;
+            box-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+        }
+        
+        /* HP Logo and Model Label */
+        .server-chassis.hp-proliant::after {
+            content: 'ProLiant DL Gen9';
+            position: absolute;
+            top: 8px;
+            right: 20px;
+            color: #333;
+            font-size: 0.7em;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        /* Ventilation grilles */
+        .server-chassis.hp-proliant {
+            background-image: 
+                repeating-linear-gradient(
+                    0deg,
+                    transparent 0px,
+                    transparent 3px,
+                    rgba(0, 0, 0, 0.1) 4px,
+                    rgba(0, 0, 0, 0.1) 5px
+                );
         }
 
         .rack {
             flex: 1;
-            min-width: 300px;
+            min-width: 400px;
             position: relative;
+            background: rgba(255, 255, 255, 0.1);
+            margin: 15px;
+            border-radius: 6px;
+            padding: 15px;
+        }
+
+        .front-rack {
+            border-left: 4px solid #00aa44;
+        }
+
+        .back-rack {
+            border-left: 4px solid #0066cc;
         }
 
         .rack-header {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            margin-bottom: 16px;
-            padding: 12px 16px;
-            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-            border-radius: 8px;
-            border: 1px solid #4a5568;
+            justify-content: flex-start;
+            margin-bottom: 12px;
+            padding: 8px 12px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
         }
 
         .rack-title {
             font-weight: 600;
             display: flex;
             align-items: center;
-            gap: 8px;
-            color: var(--accent-primary);
+            gap: 12px;
+            color: #333;
+            font-size: 0.9em;
         }
 
-        .rack-toggle {
-            background: linear-gradient(145deg, #4a5568 0%, #2d3748 100%);
-            border: 1px solid #6b7280;
-            color: var(--text-primary);
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.85em;
-            transition: all 0.3s ease;
-        }
-
-        .rack-toggle:hover {
-            background: linear-gradient(145deg, #5a6578 0%, #3d4758 100%);
-            transform: translateY(-1px);
+        .hp-logo {
+            background: #0073e6;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.8em;
+            letter-spacing: 1px;
         }
 
         .rack-face {
-            transition: all 0.3s ease;
-        }
-
-        .rack-face.hidden {
-            opacity: 0;
-            transform: translateX(-20px);
-            pointer-events: none;
-            position: absolute;
+            transition: none;
         }
 
         .disk-grid {
@@ -401,16 +429,17 @@
             margin-bottom: 20px;
         }
 
+        /* HP ProLiant Disk Slots */
         .disk-slot {
-            background: linear-gradient(145deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
-            border: 2px solid #3a3a3a;
-            border-radius: 8px;
-            padding: 8px;
+            background: linear-gradient(145deg, #f0f0f0 0%, #d0d0d0 50%, #b0b0b0 100%);
+            border: 2px solid #888;
+            border-radius: 4px;
+            padding: 6px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            min-height: 85px;
-            max-height: 120px;
+            min-height: 80px;
+            max-height: 110px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -418,52 +447,78 @@
             word-wrap: break-word;
             position: relative;
             box-shadow: 
-                0 2px 8px rgba(0, 0, 0, 0.3),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1),
-                inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+                0 2px 6px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.2);
         }
 
+        /* HP Handle/Tab sur le côté droit */
         .disk-slot::before {
             content: '';
             position: absolute;
-            top: 4px;
-            left: 4px;
+            top: 10px;
+            right: -2px;
             width: 8px;
-            height: 8px;
+            height: 60%;
+            background: linear-gradient(180deg, #d946ef 0%, #c026d3 50%, #a21caf 100%);
+            border-radius: 0 4px 4px 0;
+            box-shadow: 2px 0 4px rgba(0, 0, 0, 0.3);
+        }
+
+        /* HP LED d'état */
+        .disk-slot::after {
+            content: '';
+            position: absolute;
+            top: 6px;
+            left: 6px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             background: #666;
-            box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
         }
 
-        .disk-slot.has-disk::before {
-            background: #4ade80;
-            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
-            animation: diskLed 2s infinite;
+        .disk-slot.has-disk::after {
+            background: #00ff00;
+            box-shadow: 0 0 6px rgba(0, 255, 0, 0.8);
+            animation: hpDiskLed 2s infinite;
         }
 
-        .disk-slot.disk-unmounted::before {
-            background: #fbbf24;
-            box-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
-            animation: warningLed 1s infinite;
+        .disk-slot.disk-unmounted::after {
+            background: #ff8800;
+            box-shadow: 0 0 6px rgba(255, 136, 0, 0.8);
+            animation: hpWarningLed 1s infinite;
         }
 
-        .disk-slot.disk-error::before {
-            background: #ef4444;
-            box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
-            animation: errorLed 0.5s infinite;
+        .disk-slot.disk-error::after {
+            background: #ff0000;
+            box-shadow: 0 0 6px rgba(255, 0, 0, 0.8);
+            animation: hpErrorLed 0.5s infinite;
         }
 
-        @keyframes diskLed {
+        /* HP Disk Label Style */
+        .disk-slot .disk-label {
+            font-size: 0.65em;
+            font-weight: bold;
+            color: #333;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 2px 4px;
+            border-radius: 2px;
+            margin: 2px 0;
+        }
+
+        /* HP Animations */
+        @keyframes hpDiskLed {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.6; }
         }
 
-        @keyframes warningLed {
+        @keyframes hpWarningLed {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
         }
 
-        @keyframes errorLed {
+        @keyframes hpErrorLed {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.2; }
         }
@@ -1336,19 +1391,19 @@
             
             if (!hasFront && !hasBack) return '';
             
-            let html = '<div class="server-chassis">';
+            let html = '<div class="server-chassis hp-proliant">';
             
             // Face avant
             if (hasFront) {
                 html += `
-                    <div class="rack" id="rack-front-${serverName}">
+                    <div class="rack front-rack">
                         <div class="rack-header">
                             <div class="rack-title">
-                                <span>🔲 Face Avant (${serverConfig.front_rack.rows}×${serverConfig.front_rack.cols})</span>
+                                <span class="hp-logo">HP</span>
+                                <span>Face Avant (${serverConfig.front_rack.rows}×${serverConfig.front_rack.cols})</span>
                             </div>
-                            ${hasBack ? `<button class="rack-toggle" onclick="toggleRackFace('${serverName}')">🔄 Retourner</button>` : ''}
                         </div>
-                        <div class="rack-face" id="face-front-${serverName}">
+                        <div class="rack-face">
                             ${createDiskGrid(serverName, 'front', serverConfig.front_rack, serverData)}
                         </div>
                     </div>
@@ -1358,14 +1413,14 @@
             // Face arrière
             if (hasBack) {
                 html += `
-                    <div class="rack ${!hasFront ? '' : 'hidden'}" id="rack-back-${serverName}">
+                    <div class="rack back-rack">
                         <div class="rack-header">
                             <div class="rack-title">
-                                <span>🔳 Face Arrière (${serverConfig.back_rack.rows}×${serverConfig.back_rack.cols})</span>
+                                <span class="hp-logo">HP</span>
+                                <span>Face Arrière (${serverConfig.back_rack.rows}×${serverConfig.back_rack.cols})</span>
                             </div>
-                            ${hasFront ? `<button class="rack-toggle" onclick="toggleRackFace('${serverName}')">🔄 Retourner</button>` : ''}
                         </div>
-                        <div class="rack-face ${hasFront ? 'hidden' : ''}" id="face-back-${serverName}">
+                        <div class="rack-face">
                             ${createDiskGrid(serverName, 'back', serverConfig.back_rack, serverData)}
                         </div>
                     </div>
@@ -2059,48 +2114,6 @@
             }
         }
 
-        // Fonction pour basculer entre face avant et arrière
-        function toggleRackFace(serverName) {
-            const frontRack = document.getElementById(`rack-front-${serverName}`);
-            const backRack = document.getElementById(`rack-back-${serverName}`);
-            
-            if (!frontRack || !backRack) return;
-            
-            // Animation de transition
-            if (frontRack.classList.contains('hidden')) {
-                // Afficher face avant, cacher face arrière
-                backRack.style.transform = 'translateX(-20px)';
-                backRack.style.opacity = '0';
-                
-                setTimeout(() => {
-                    backRack.classList.add('hidden');
-                    frontRack.classList.remove('hidden');
-                    frontRack.style.transform = 'translateX(20px)';
-                    frontRack.style.opacity = '0';
-                    
-                    setTimeout(() => {
-                        frontRack.style.transform = 'translateX(0)';
-                        frontRack.style.opacity = '1';
-                    }, 50);
-                }, 150);
-            } else {
-                // Afficher face arrière, cacher face avant
-                frontRack.style.transform = 'translateX(-20px)';
-                frontRack.style.opacity = '0';
-                
-                setTimeout(() => {
-                    frontRack.classList.add('hidden');
-                    backRack.classList.remove('hidden');
-                    backRack.style.transform = 'translateX(20px)';
-                    backRack.style.opacity = '0';
-                    
-                    setTimeout(() => {
-                        backRack.style.transform = 'translateX(0)';
-                        backRack.style.opacity = '1';
-                    }, 50);
-                }, 150);
-            }
-        }
 
         function updateLastUpdateTime() {
             const timeElement = document.getElementById('lastUpdateTime');
