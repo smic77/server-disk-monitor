@@ -513,6 +513,37 @@
             margin-top: 10px;
         }
 
+        .btn-mini {
+            background: linear-gradient(145deg, #404040, #303030);
+            border: none;
+            color: white;
+            padding: 6px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9em;
+            margin-right: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .btn-mini:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-password {
+            background: linear-gradient(145deg, #cc6600, #994d00);
+        }
+
+        .btn-password:hover {
+            background: linear-gradient(145deg, #ff8000, #cc6600);
+        }
+
+        .server-actions {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+        }
+
         .loading {
             text-align: center;
             padding: 50px;
@@ -648,7 +679,6 @@
     <div class="controls">
         <button class="btn btn-primary" onclick="refreshData()">🔄 Actualiser</button>
         <button class="btn btn-success" onclick="showConfigModal()">⚙️ Configuration</button>
-        <button class="btn btn-warning" onclick="showPasswordModal()">🔐 Mots de passe</button>
         <button class="btn btn-info" onclick="showNotificationModal()">📢 Notifications</button>
         <button class="btn" onclick="exportConfig()">💾 Exporter</button>
         <button class="btn" onclick="importConfig()">📁 Importer</button>
@@ -686,17 +716,37 @@
         </div>
     </div>
 
-    <!-- Modal Mots de passe -->
-    <div id="passwordModal" class="modal">
+
+    <!-- Modal Mot de passe individuel -->
+    <div id="serverPasswordModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('passwordModal')">&times;</span>
-            <h2>🔐 Configuration des Mots de passe</h2>
-            <div id="passwordContent">
-                <!-- Contenu des mots de passe -->
+            <span class="close" onclick="closeModal('serverPasswordModal')">&times;</span>
+            <h2 id="serverPasswordTitle">🔐 Configuration Mot de Passe SSH</h2>
+            <div id="serverPasswordContent">
+                <div class="alert alert-info">
+                    <strong>ℹ️ Mot de passe SSH :</strong><br>
+                    Configurez le mot de passe SSH pour permettre la surveillance des disques en temps réel.
+                </div>
+                
+                <div class="form-group">
+                    <label for="serverPasswordInput">🔑 Mot de passe SSH :</label>
+                    <input type="password" id="serverPasswordInput" placeholder="Entrez le mot de passe SSH">
+                    <small style="color: #ccc; font-size: 0.9em; display: block; margin-top: 5px;">
+                        Le mot de passe sera chiffré et stocké de manière sécurisée
+                    </small>
+                </div>
+
+                <div class="form-group">
+                    <div class="checkbox-group">
+                        <input type="checkbox" id="showPassword" onchange="togglePasswordVisibility()">
+                        <label for="showPassword">👁️ Afficher le mot de passe</label>
+                    </div>
+                </div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
-                <button class="btn btn-success" onclick="savePasswords()">💾 Sauvegarder</button>
-                <button class="btn" onclick="closeModal('passwordModal')">❌ Annuler</button>
+                <button class="btn btn-success" onclick="saveServerPassword()">💾 Sauvegarder</button>
+                <button class="btn btn-info" onclick="testSSHConnection()">🧪 Tester</button>
+                <button class="btn" onclick="closeModal('serverPasswordModal')">❌ Annuler</button>
             </div>
         </div>
     </div>
@@ -997,8 +1047,13 @@
                             ${serverData.username}@${serverData.ip}
                         </div>
                     </div>
-                    <div class="server-status ${statusClass}">
-                        ${statusText}
+                    <div class="server-actions">
+                        <button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" title="Configurer mot de passe SSH">
+                            🔐
+                        </button>
+                        <div class="server-status ${statusClass}">
+                            ${statusText}
+                        </div>
                     </div>
                 </div>
                 <div class="racks-container">
@@ -1452,6 +1507,116 @@
             }
         }
 
+        // NOUVELLES FONCTIONS - Gestion mot de passe individuel par serveur
+        let currentServerName = null;
+
+        function showServerPasswordModal(serverName) {
+            currentServerName = serverName;
+            const modal = document.getElementById('serverPasswordModal');
+            const title = document.getElementById('serverPasswordTitle');
+            const input = document.getElementById('serverPasswordInput');
+            
+            const serverConfig = config[serverName];
+            title.textContent = `🔐 Configuration SSH - ${serverName}`;
+            
+            // Info du serveur dans le titre
+            const serverInfo = document.createElement('div');
+            serverInfo.style.fontSize = '0.9em';
+            serverInfo.style.color = '#ccc';
+            serverInfo.style.marginTop = '5px';
+            serverInfo.textContent = `${serverConfig.username}@${serverConfig.ip}`;
+            title.appendChild(serverInfo);
+            
+            // Vider le champ de mot de passe
+            input.value = '';
+            document.getElementById('showPassword').checked = false;
+            input.type = 'password';
+            
+            modal.style.display = 'block';
+        }
+
+        function togglePasswordVisibility() {
+            const input = document.getElementById('serverPasswordInput');
+            const checkbox = document.getElementById('showPassword');
+            
+            input.type = checkbox.checked ? 'text' : 'password';
+        }
+
+        async function saveServerPassword() {
+            const input = document.getElementById('serverPasswordInput');
+            const password = input.value.trim();
+            
+            if (!password) {
+                alert('Veuillez entrer un mot de passe');
+                return;
+            }
+            
+            if (!currentServerName) {
+                alert('Erreur: serveur non sélectionné');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/server/${currentServerName}/password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password: password })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`Mot de passe sauvegardé pour ${currentServerName}`);
+                    closeModal('serverPasswordModal');
+                    refreshData();
+                } else {
+                    alert('Erreur: ' + result.error);
+                }
+            } catch (error) {
+                alert('Erreur lors de la sauvegarde: ' + error.message);
+            }
+        }
+
+        async function testSSHConnection() {
+            if (!currentServerName) {
+                alert('Erreur: serveur non sélectionné');
+                return;
+            }
+            
+            const password = document.getElementById('serverPasswordInput').value.trim();
+            if (!password) {
+                alert('Veuillez entrer un mot de passe pour le test');
+                return;
+            }
+            
+            try {
+                // D'abord sauvegarder le mot de passe
+                const saveResponse = await fetch(`/api/server/${currentServerName}/password`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password: password })
+                });
+                
+                const saveResult = await saveResponse.json();
+                if (!saveResult.success) {
+                    alert('Erreur lors de la sauvegarde: ' + saveResult.error);
+                    return;
+                }
+                
+                // Puis faire un refresh pour tester la connexion
+                alert('Test en cours... Vérifiez le statut du serveur après rafraîchissement');
+                closeModal('serverPasswordModal');
+                refreshData();
+                
+            } catch (error) {
+                alert('Erreur lors du test: ' + error.message);
+            }
+        }
+
         // Statistiques détaillées
         function showStatsModal() {
             const modal = document.getElementById('statsModal');
@@ -1573,7 +1738,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'passwordModal', 'diskModal', 'statsModal', 'notificationModal'];
+            const modals = ['configModal', 'serverPasswordModal', 'diskModal', 'statsModal', 'notificationModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
