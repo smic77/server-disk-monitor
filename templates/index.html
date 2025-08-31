@@ -371,19 +371,35 @@
             bottom: 0;
             left: 0;
             right: 0;
-            background: rgba(64, 64, 64, 0.95);
-            padding: 10px 20px;
+            background: rgba(32, 32, 32, 0.98);
+            padding: 12px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
             backdrop-filter: blur(10px);
-            border-top: 1px solid #555;
+            border-top: 2px solid #00ff00;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+            font-size: 0.85em;
         }
 
         .connection-status {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
+        }
+
+        .status-details {
+            display: flex;
+            align-items: center;
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        .monitoring-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
         }
 
         .connection-indicator {
@@ -835,9 +851,16 @@
     <div class="status-bar">
         <div class="connection-status">
             <div class="connection-indicator" id="connectionIndicator"></div>
-            <span id="connectionStatus">Connexion...</span>
+            <span id="connectionStatus">Connexion WebSocket...</span>
         </div>
-        <div id="statusMessage">Initialisation...</div>
+        <div class="status-details">
+            <span id="statusMessage">Initialisation de l'application...</span>
+            <span id="lastUpdateTime" style="margin-left: 20px; color: #ccc; font-size: 0.9em;"></span>
+        </div>
+        <div class="monitoring-status">
+            <span id="monitoringIndicator">🔄</span>
+            <span id="monitoringStatus">Surveillance en cours...</span>
+        </div>
     </div>
 
     <script>
@@ -860,12 +883,14 @@
 
             socket.on('connect', function() {
                 updateConnectionStatus(true);
-                updateStatusMessage('✅ Connecté au serveur');
+                updateStatusMessage('✅ Interface connectée au serveur de monitoring');
+                updateMonitoringStatus(true);
             });
 
             socket.on('disconnect', function() {
                 updateConnectionStatus(false);
-                updateStatusMessage('❌ Connexion perdue');
+                updateStatusMessage('❌ Connexion au serveur perdue - Données non actualisées');
+                updateMonitoringStatus(false);
             });
 
             socket.on('disk_status_update', function(data) {
@@ -873,6 +898,8 @@
                 statsData = data.stats || {};
                 config = data.config || {};
                 updateDisplay();
+                updateLastUpdateTime();
+                updateStatusMessage('📊 Données des disques mises à jour en temps réel');
             });
 
             socket.on('connected', function(data) {
@@ -1438,7 +1465,8 @@
 
         // Actualisation des données
         function refreshData() {
-            updateStatusMessage('🔄 Actualisation en cours...');
+            updateStatusMessage('🔄 Actualisation manuelle demandée - Vérification des serveurs...');
+            updateMonitoringStatus(true);
             socket.emit('request_refresh');
         }
 
@@ -1754,11 +1782,37 @@
             
             if (connected) {
                 indicator.classList.add('connected');
-                status.textContent = 'Connecté';
+                status.textContent = '🟢 WebSocket Actif';
             } else {
                 indicator.classList.remove('connected');
-                status.textContent = 'Déconnecté';
+                status.textContent = '🔴 WebSocket Déconnecté';
             }
+        }
+
+        function updateMonitoringStatus(monitoring) {
+            const indicator = document.getElementById('monitoringIndicator');
+            const status = document.getElementById('monitoringStatus');
+            
+            if (monitoring) {
+                indicator.textContent = '👁️';
+                status.textContent = 'Surveillance des serveurs ACTIVE';
+                status.style.color = '#00ff00';
+            } else {
+                indicator.textContent = '⏸️';
+                status.textContent = 'Surveillance INTERROMPUE';
+                status.style.color = '#ff6600';
+            }
+        }
+
+        function updateLastUpdateTime() {
+            const timeElement = document.getElementById('lastUpdateTime');
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('fr-FR', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            timeElement.textContent = `Dernière MÀJ: ${timeStr}`;
         }
 
         // Mise à jour du message de statut
