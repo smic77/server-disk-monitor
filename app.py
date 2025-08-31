@@ -745,6 +745,7 @@ class ServerDiskMonitorWeb:
         self.data_dir = "/app/data"
         self.config_file = os.path.join(self.data_dir, "config.json")
         self.cipher_key_file = os.path.join(self.data_dir, "cipher.key")
+        self._config_lock = threading.Lock()  # Verrouillage pour éviter les conflits
         
         os.makedirs(self.data_dir, exist_ok=True)
         self.init_encryption()
@@ -860,14 +861,42 @@ class ServerDiskMonitorWeb:
         return self.save_config_to_file(self.servers_config)
     
     def save_config_to_file(self, config):
-        try:
-            with open(self.config_file, 'w', encoding='utf-8') as f:
-                json.dump(config, f, indent=4, ensure_ascii=False)
-            logger.info("Configuration sauvegardée")
-            return True
-        except Exception as e:
-            logger.error(f"Erreur sauvegarde: {e}")
-            return False
+        with self._config_lock:  # Verrouillage pour éviter les conflits de sauvegarde
+            try:
+                # Créer une sauvegarde avant la modification
+                backup_file = f"{self.config_file}.backup"
+                if os.path.exists(self.config_file):
+                    import shutil
+                    shutil.copy2(self.config_file, backup_file)
+                    logger.debug(f"Sauvegarde créée: {backup_file}")
+                
+                # Sauvegarder avec verrouillage de fichier
+                with open(self.config_file, 'w', encoding='utf-8') as f:
+                    json.dump(config, f, indent=4, ensure_ascii=False)
+                    f.flush()  # Force l'écriture
+                    os.fsync(f.fileno())  # Force la synchronisation disque
+                
+                logger.info(f"Configuration sauvegardée ({len(config.get('servers', {}))} serveurs)")
+                
+                # Vérification de l'intégrité
+                try:
+                    with open(self.config_file, 'r', encoding='utf-8') as f:
+                        verification = json.load(f)
+                        if len(verification.get('servers', {})) != len(config.get('servers', {})):
+                            logger.error("ERREUR: Nombre de serveurs différent après sauvegarde!")
+                            if os.path.exists(backup_file):
+                                shutil.copy2(backup_file, self.config_file)
+                                logger.info("Configuration restaurée depuis la sauvegarde")
+                            return False
+                except Exception as e:
+                    logger.error(f"Erreur vérification intégrité: {e}")
+                    return False
+                
+                return True
+            except Exception as e:
+                logger.error(f"Erreur sauvegarde: {e}")
+                logger.error(f"Tentative de sauvegarde pour {len(config.get('servers', {}))} serveurs")
+                return False
     
     def encrypt_password(self, password):
         if not password:
@@ -1115,31 +1144,42 @@ def update_server_password(server_name):
         data = get_validated_json()
         password = data.get('password', '')
         
-        if server_name in monitor.servers_config.get('servers', {}):
-            try:
-                encrypted_password = monitor.encrypt_password(password)
-                monitor.servers_config['servers'][server_name]['password'] = encrypted_password
-                
-                # Sauvegarder la configuration
-                if monitor.save_config():
-                    # Invalider le cache SSH pour ce serveur seulement si sauvegarde réussie
-                    try:
-                        server_ip = monitor.servers_config['servers'][server_name]['ip']
-                        monitor.cache.invalidate(f"disk_{server_ip}")
-                        monitor.cache.invalidate(f"ping_{server_ip}")
-                        logger.info(f"Mot de passe mis à jour pour {server_name} ({server_ip})")
-                    except Exception as cache_error:
-                        logger.warning(f"Erreur invalidation cache pour {server_name}: {cache_error}")
+        # CORRECTION: Verrouillage pour éviter les conflits lors de modifications multiples
+        with monitor._config_lock:
+            logger.info(f"Mise à jour mot de passe pour {server_name} (config actuelle: {len(monitor.servers_config.get('servers', {}))} serveurs)")
+            
+            if server_name in monitor.servers_config.get('servers', {}):
+                try:
+                    encrypted_password = monitor.encrypt_password(password)
                     
-                    return jsonify({'success': True, 'message': 'Mot de passe mis à jour avec succès'})
-                else:
-                    return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
+                    # Modification atomique de la configuration (copie profonde)
+                    import copy
+                    config_copy = copy.deepcopy(monitor.servers_config)
+                    config_copy['servers'][server_name]['password'] = encrypted_password
                     
-            except Exception as encrypt_error:
-                logger.error(f"Erreur chiffrement mot de passe pour {server_name}: {encrypt_error}")
-                return jsonify({'success': False, 'error': 'Erreur lors du chiffrement du mot de passe'}), 500
-        else:
-            return jsonify({'success': False, 'error': 'Serveur non trouvé'}), 404
+                    # Sauvegarder la configuration modifiée
+                    if monitor.save_config_to_file(config_copy):
+                        # Mettre à jour la configuration en mémoire seulement si sauvegarde réussie
+                        monitor.servers_config = config_copy
+                        
+                        # Invalider le cache SSH pour ce serveur
+                        try:
+                            server_ip = monitor.servers_config['servers'][server_name]['ip']
+                            monitor.cache.invalidate(f"disk_{server_ip}")
+                            monitor.cache.invalidate(f"ping_{server_ip}")
+                            logger.info(f"Mot de passe mis à jour pour {server_name} ({server_ip})")
+                        except Exception as cache_error:
+                            logger.warning(f"Erreur invalidation cache pour {server_name}: {cache_error}")
+                        
+                        return jsonify({'success': True, 'message': 'Mot de passe mis à jour avec succès'})
+                    else:
+                        return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
+                        
+                except Exception as encrypt_error:
+                    logger.error(f"Erreur chiffrement mot de passe pour {server_name}: {encrypt_error}")
+                    return jsonify({'success': False, 'error': 'Erreur lors du chiffrement du mot de passe'}), 500
+            else:
+                return jsonify({'success': False, 'error': 'Serveur non trouvé'}), 404
             
     except ValidationError as e:
         logger.warning(f"Erreur validation pour {server_name}: {e}")
