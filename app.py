@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "2.2.2"
+VERSION = "2.2.3"
 BUILD_DATE = "2025-08-31"
 
 from flask import Flask, render_template, request, jsonify
@@ -604,8 +604,20 @@ class ServerDiskMonitorWeb:
         """Met à jour l'intervalle de rafraîchissement"""
         self.refresh_interval = max(10, new_interval)
         self.servers_config['refresh_interval'] = self.refresh_interval
-        if self.monitoring:
-            self.scheduler.modify_job('disk_monitoring', seconds=self.refresh_interval)
+        
+        # Si la surveillance est active, recréer le job avec le nouvel intervalle
+        if self.monitoring and self.scheduler.get_job('disk_monitoring'):
+            # Supprimer l'ancien job
+            self.scheduler.remove_job('disk_monitoring')
+            # Créer un nouveau job avec le nouvel intervalle
+            self.scheduler.add_job(
+                func=self.update_all_disk_status,
+                trigger="interval",
+                seconds=self.refresh_interval,
+                id='disk_monitoring',
+                replace_existing=True
+            )
+            logger.info(f"Intervalle de surveillance mis à jour: {self.refresh_interval}s")
 
 # Instance globale
 monitor = ServerDiskMonitorWeb()
@@ -641,8 +653,12 @@ def update_config():
             monitor.save_config()
         
         if 'refresh_interval' in data:
-            monitor.update_refresh_interval(data['refresh_interval'])
-            monitor.save_config()
+            try:
+                monitor.update_refresh_interval(data['refresh_interval'])
+                monitor.save_config()
+            except Exception as e:
+                logger.warning(f"Erreur mise à jour intervalle: {e}")
+                # Continuer malgré l'erreur - l'intervalle sera appliqué au prochain démarrage
         
         return jsonify({'success': True, 'message': 'Configuration mise à jour'})
     
