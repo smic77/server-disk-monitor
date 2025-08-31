@@ -317,105 +317,113 @@
             flex-wrap: wrap;
         }
 
-        /* HP ProLiant Gen9 Server Chassis */
+        /* HP ProLiant Gen9 Server Chassis - Authentique */
         .server-chassis.hp-proliant {
-            background: linear-gradient(145deg, #c8c8c8 0%, #a0a0a0 50%, #8a8a8a 100%);
-            border: 3px solid #666;
-            border-radius: 8px;
+            background: linear-gradient(145deg, #2c2c2c 0%, #1a1a1a 50%, #0f0f0f 100%);
+            border: 2px solid #333;
+            border-radius: 4px;
             box-shadow: 
-                0 8px 32px rgba(0, 0, 0, 0.3),
-                inset 0 2px 0 rgba(255, 255, 255, 0.3),
-                inset 0 -2px 0 rgba(0, 0, 0, 0.4);
+                0 4px 20px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                inset 0 -2px 0 rgba(0, 0, 0, 0.6);
             position: relative;
             overflow: hidden;
             padding: 0;
-            margin-bottom: 30px;
-            min-height: 120px;
+            margin-bottom: 25px;
+            min-height: 100px;
         }
         
-        /* HP Status LED Strip */
+        /* HPE Power LED - Bleu authentique */
         .server-chassis.hp-proliant::before {
             content: '';
             position: absolute;
-            top: 8px;
-            left: 20px;
-            width: 60px;
-            height: 6px;
-            background: linear-gradient(90deg, #00ff00 0%, #00ff00 80%, #ff0000 100%);
-            border-radius: 3px;
-            box-shadow: 0 0 8px rgba(0, 255, 0, 0.6);
+            top: 10px;
+            left: 15px;
+            width: 8px;
+            height: 8px;
+            background: #0073e7;
+            border-radius: 50%;
+            box-shadow: 0 0 8px rgba(0, 115, 231, 0.8);
+            animation: hpePowerLed 3s infinite;
         }
         
-        /* HP Logo and Model Label */
+        /* HPE Branding */
         .server-chassis.hp-proliant::after {
-            content: 'ProLiant DL Gen9';
+            content: 'HPE';
             position: absolute;
             top: 8px;
-            right: 20px;
-            color: #333;
-            font-size: 0.7em;
+            right: 15px;
+            color: #0073e7;
+            font-size: 0.8em;
             font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 1px;
+            font-family: 'Arial', sans-serif;
+            letter-spacing: 2px;
         }
         
-        /* Ventilation grilles */
+        /* Grilles de ventilation subtiles */
         .server-chassis.hp-proliant {
             background-image: 
                 repeating-linear-gradient(
-                    0deg,
+                    90deg,
                     transparent 0px,
-                    transparent 3px,
-                    rgba(0, 0, 0, 0.1) 4px,
-                    rgba(0, 0, 0, 0.1) 5px
+                    transparent 8px,
+                    rgba(255, 255, 255, 0.02) 9px,
+                    rgba(255, 255, 255, 0.02) 10px
                 );
+        }
+
+        @keyframes hpePowerLed {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
         }
 
         .rack {
             flex: 1;
-            min-width: 400px;
+            min-width: 450px;
             position: relative;
-            background: rgba(255, 255, 255, 0.1);
-            margin: 15px;
-            border-radius: 6px;
-            padding: 15px;
+            background: rgba(0, 0, 0, 0.3);
+            margin: 12px;
+            border-radius: 2px;
+            padding: 12px;
+            border: 1px solid #444;
         }
 
         .front-rack {
-            border-left: 4px solid #00aa44;
+            border-left: 3px solid #0073e7;
         }
 
         .back-rack {
-            border-left: 4px solid #0066cc;
+            border-left: 3px solid #666;
         }
 
         .rack-header {
             display: flex;
             align-items: center;
             justify-content: flex-start;
-            margin-bottom: 12px;
-            padding: 8px 12px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 10px;
+            padding: 6px 10px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 2px;
+            border: 1px solid #555;
         }
 
         .rack-title {
-            font-weight: 600;
+            font-weight: 500;
             display: flex;
             align-items: center;
-            gap: 12px;
-            color: #333;
-            font-size: 0.9em;
+            gap: 8px;
+            color: #ccc;
+            font-size: 0.8em;
+            text-transform: uppercase;
         }
 
         .hp-logo {
-            background: #0073e6;
+            background: #0073e7;
             color: white;
-            padding: 2px 8px;
-            border-radius: 3px;
+            padding: 1px 4px;
+            border-radius: 2px;
             font-weight: bold;
-            font-size: 0.8em;
+            font-size: 0.7em;
             letter-spacing: 1px;
         }
 
@@ -429,17 +437,17 @@
             margin-bottom: 20px;
         }
 
-        /* HP ProLiant Disk Slots */
+        /* HP ProLiant Disk Slots - AUTHENTIQUES NOIRES */
         .disk-slot {
-            background: linear-gradient(145deg, #f0f0f0 0%, #d0d0d0 50%, #b0b0b0 100%);
-            border: 2px solid #888;
-            border-radius: 4px;
+            background: linear-gradient(145deg, #1a1a1a 0%, #0f0f0f 50%, #0a0a0a 100%);
+            border: 1px solid #333;
+            border-radius: 3px;
             padding: 6px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
-            min-height: 80px;
-            max-height: 110px;
+            min-height: 75px;
+            max-height: 100px;
             display: flex;
             flex-direction: column;
             justify-content: center;
@@ -447,80 +455,83 @@
             word-wrap: break-word;
             position: relative;
             box-shadow: 
-                0 2px 6px rgba(0, 0, 0, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.4),
-                inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+                0 1px 4px rgba(0, 0, 0, 0.6),
+                inset 0 1px 0 rgba(255, 255, 255, 0.05),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.8);
         }
 
-        /* HP Handle/Tab sur le côté droit */
+        /* HP Handle NOIR authentique sur le côté droit */
         .disk-slot::before {
             content: '';
             position: absolute;
-            top: 10px;
-            right: -2px;
-            width: 8px;
-            height: 60%;
-            background: linear-gradient(180deg, #d946ef 0%, #c026d3 50%, #a21caf 100%);
-            border-radius: 0 4px 4px 0;
-            box-shadow: 2px 0 4px rgba(0, 0, 0, 0.3);
+            top: 8px;
+            right: -1px;
+            width: 6px;
+            height: 70%;
+            background: linear-gradient(180deg, #333 0%, #1a1a1a 50%, #000 100%);
+            border-radius: 0 2px 2px 0;
+            box-shadow: 
+                1px 0 2px rgba(0, 0, 0, 0.5),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1);
         }
 
-        /* HP LED d'état */
+        /* HP LED d'état authentique - petite et ronde */
         .disk-slot::after {
             content: '';
             position: absolute;
-            top: 6px;
-            left: 6px;
-            width: 6px;
-            height: 6px;
+            top: 4px;
+            left: 4px;
+            width: 4px;
+            height: 4px;
             border-radius: 50%;
-            background: #666;
-            box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+            background: #444;
+            box-shadow: 0 0 2px rgba(0, 0, 0, 0.5);
         }
 
         .disk-slot.has-disk::after {
-            background: #00ff00;
-            box-shadow: 0 0 6px rgba(0, 255, 0, 0.8);
-            animation: hpDiskLed 2s infinite;
+            background: #00aa00;
+            box-shadow: 0 0 4px rgba(0, 170, 0, 0.6);
+            animation: hpeActiveLed 2s infinite;
         }
 
         .disk-slot.disk-unmounted::after {
             background: #ff8800;
-            box-shadow: 0 0 6px rgba(255, 136, 0, 0.8);
-            animation: hpWarningLed 1s infinite;
+            box-shadow: 0 0 4px rgba(255, 136, 0, 0.6);
+            animation: hpeWarningLed 1s infinite;
         }
 
         .disk-slot.disk-error::after {
-            background: #ff0000;
-            box-shadow: 0 0 6px rgba(255, 0, 0, 0.8);
-            animation: hpErrorLed 0.5s infinite;
+            background: #cc0000;
+            box-shadow: 0 0 4px rgba(204, 0, 0, 0.6);
+            animation: hpeErrorLed 0.5s infinite;
         }
 
-        /* HP Disk Label Style */
+        /* HP Disk Label Style - sobre et professionnel */
         .disk-slot .disk-label {
-            font-size: 0.65em;
-            font-weight: bold;
-            color: #333;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 2px 4px;
-            border-radius: 2px;
-            margin: 2px 0;
+            font-size: 0.6em;
+            font-weight: 500;
+            color: #ccc;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 1px 3px;
+            border-radius: 1px;
+            margin: 1px 0;
+            border: 1px solid #333;
         }
 
-        /* HP Animations */
-        @keyframes hpDiskLed {
+        /* HP Animations subtiles */
+        @keyframes hpeActiveLed {
             0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
+            50% { opacity: 0.7; }
         }
 
-        @keyframes hpWarningLed {
+        @keyframes hpeWarningLed {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes hpeErrorLed {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.3; }
-        }
-
-        @keyframes hpErrorLed {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.2; }
         }
 
         .disk-slot:hover {
