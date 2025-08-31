@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "2.3.0"
+VERSION = "2.3.1"
 BUILD_DATE = "2025-08-31"
 
 from flask import Flask, render_template, request, jsonify
@@ -602,22 +602,37 @@ class ServerDiskMonitorWeb:
     
     def update_refresh_interval(self, new_interval):
         """Met à jour l'intervalle de rafraîchissement"""
-        self.refresh_interval = max(10, new_interval)
-        self.servers_config['refresh_interval'] = self.refresh_interval
-        
-        # Si la surveillance est active, recréer le job avec le nouvel intervalle
-        if self.monitoring and self.scheduler.get_job('disk_monitoring'):
-            # Supprimer l'ancien job
-            self.scheduler.remove_job('disk_monitoring')
-            # Créer un nouveau job avec le nouvel intervalle
-            self.scheduler.add_job(
-                func=self.update_all_disk_status,
-                trigger="interval",
-                seconds=self.refresh_interval,
-                id='disk_monitoring',
-                replace_existing=True
-            )
-            logger.info(f"Intervalle de surveillance mis à jour: {self.refresh_interval}s")
+        try:
+            self.refresh_interval = max(10, new_interval)
+            self.servers_config['refresh_interval'] = self.refresh_interval
+            
+            # Si la surveillance est active, recréer le job avec le nouvel intervalle
+            if self.monitoring:
+                # Vérifier et supprimer tous les anciens jobs de monitoring
+                try:
+                    if self.scheduler.get_job('disk_monitoring'):
+                        self.scheduler.remove_job('disk_monitoring')
+                        logger.info("Ancien job de monitoring supprimé")
+                except Exception as e:
+                    logger.warning(f"Erreur suppression ancien job: {e}")
+                
+                # Créer un nouveau job avec le nouvel intervalle
+                try:
+                    self.scheduler.add_job(
+                        func=self.update_all_disk_status,
+                        trigger="interval",
+                        seconds=self.refresh_interval,
+                        id='disk_monitoring',
+                        replace_existing=True
+                    )
+                    logger.info(f"Nouveau job créé avec intervalle: {self.refresh_interval}s")
+                except Exception as e:
+                    logger.error(f"Erreur création nouveau job: {e}")
+                    # En cas d'erreur, la surveillance continuera au prochain redémarrage
+                    
+        except Exception as e:
+            logger.error(f"Erreur globale update_refresh_interval: {e}")
+            # L'erreur n'est pas fatale, l'intervalle sera appliqué au redémarrage
 
 # Instance globale
 monitor = ServerDiskMonitorWeb()
