@@ -317,21 +317,82 @@
             flex-wrap: wrap;
         }
 
+        /* Server chassis container avec rendu réaliste */
+        .server-chassis {
+            background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 50%, #0f0f0f 100%);
+            border: 2px solid #4a4a4a;
+            border-radius: 12px;
+            box-shadow: 
+                0 8px 32px rgba(0, 0, 0, 0.4),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.8);
+            position: relative;
+            overflow: hidden;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        
+        .server-chassis::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff4444 0%, #44ff44 50%, #4444ff 100%);
+            opacity: 0.6;
+        }
+
         .rack {
             flex: 1;
-            min-width: 250px;
+            min-width: 300px;
+            position: relative;
+        }
+
+        .rack-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
+            border-radius: 8px;
+            border: 1px solid #4a5568;
         }
 
         .rack-title {
             font-weight: 600;
-            margin-bottom: 16px;
-            padding: 12px 16px;
-            background: var(--bg-secondary);
-            border-radius: 8px;
-            border-left: 4px solid var(--accent-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
             color: var(--accent-primary);
-            border: 1px solid var(--border-primary);
-            border-left: 4px solid var(--accent-primary);
+        }
+
+        .rack-toggle {
+            background: linear-gradient(145deg, #4a5568 0%, #2d3748 100%);
+            border: 1px solid #6b7280;
+            color: var(--text-primary);
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85em;
+            transition: all 0.3s ease;
+        }
+
+        .rack-toggle:hover {
+            background: linear-gradient(145deg, #5a6578 0%, #3d4758 100%);
+            transform: translateY(-1px);
+        }
+
+        .rack-face {
+            transition: all 0.3s ease;
+        }
+
+        .rack-face.hidden {
+            opacity: 0;
+            transform: translateX(-20px);
+            pointer-events: none;
+            position: absolute;
         }
 
         .disk-grid {
@@ -341,10 +402,10 @@
         }
 
         .disk-slot {
-            background: var(--bg-card);
-            border: 2px solid var(--border-primary);
-            border-radius: 10px;
-            padding: 10px;
+            background: linear-gradient(145deg, #1a1a1a 0%, #2d2d2d 50%, #1a1a1a 100%);
+            border: 2px solid #3a3a3a;
+            border-radius: 8px;
+            padding: 8px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -356,7 +417,55 @@
             overflow: hidden;
             word-wrap: break-word;
             position: relative;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+            box-shadow: 
+                0 2px 8px rgba(0, 0, 0, 0.3),
+                inset 0 1px 0 rgba(255, 255, 255, 0.1),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .disk-slot::before {
+            content: '';
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #666;
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .disk-slot.has-disk::before {
+            background: #4ade80;
+            box-shadow: 0 0 8px rgba(74, 222, 128, 0.6);
+            animation: diskLed 2s infinite;
+        }
+
+        .disk-slot.disk-unmounted::before {
+            background: #fbbf24;
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.6);
+            animation: warningLed 1s infinite;
+        }
+
+        .disk-slot.disk-error::before {
+            background: #ef4444;
+            box-shadow: 0 0 8px rgba(239, 68, 68, 0.6);
+            animation: errorLed 0.5s infinite;
+        }
+
+        @keyframes diskLed {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        @keyframes warningLed {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        @keyframes errorLed {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
         }
 
         .disk-slot:hover {
@@ -785,7 +894,7 @@
 <body>
     <div class="header">
         <div class="header-content">
-            <h1>🖥️💾 Server Disk Monitor</h1>
+            <h1>🔍💽 Server Disk Monitor</h1>
             <p>Dashboard de surveillance des disques en temps réel</p>
             <div class="version-info">
                 <span class="version-badge">v{{ version }}</span>
@@ -1222,32 +1331,48 @@
 
         // Création du HTML des racks
         function createRacksHTML(serverName, serverConfig, serverData) {
-            let html = '';
-
+            const hasFront = serverConfig.front_rack && serverConfig.front_rack.enabled && serverConfig.front_rack.total_slots > 0;
+            const hasBack = serverConfig.back_rack && serverConfig.back_rack.enabled && serverConfig.back_rack.total_slots > 0;
+            
+            if (!hasFront && !hasBack) return '';
+            
+            let html = '<div class="server-chassis">';
+            
             // Face avant
-            if (serverConfig.front_rack && serverConfig.front_rack.enabled && serverConfig.front_rack.total_slots > 0) {
+            if (hasFront) {
                 html += `
-                    <div class="rack">
-                        <div class="rack-title">
-                            🔲 Face Avant (${serverConfig.front_rack.rows}×${serverConfig.front_rack.cols})
+                    <div class="rack" id="rack-front-${serverName}">
+                        <div class="rack-header">
+                            <div class="rack-title">
+                                <span>🔲 Face Avant (${serverConfig.front_rack.rows}×${serverConfig.front_rack.cols})</span>
+                            </div>
+                            ${hasBack ? `<button class="rack-toggle" onclick="toggleRackFace('${serverName}')">🔄 Retourner</button>` : ''}
                         </div>
-                        ${createDiskGrid(serverName, 'front', serverConfig.front_rack, serverData)}
+                        <div class="rack-face" id="face-front-${serverName}">
+                            ${createDiskGrid(serverName, 'front', serverConfig.front_rack, serverData)}
+                        </div>
                     </div>
                 `;
             }
-
+            
             // Face arrière
-            if (serverConfig.back_rack && serverConfig.back_rack.enabled && serverConfig.back_rack.total_slots > 0) {
+            if (hasBack) {
                 html += `
-                    <div class="rack">
-                        <div class="rack-title">
-                            🔳 Face Arrière (${serverConfig.back_rack.rows}×${serverConfig.back_rack.cols})
+                    <div class="rack ${!hasFront ? '' : 'hidden'}" id="rack-back-${serverName}">
+                        <div class="rack-header">
+                            <div class="rack-title">
+                                <span>🔳 Face Arrière (${serverConfig.back_rack.rows}×${serverConfig.back_rack.cols})</span>
+                            </div>
+                            ${hasFront ? `<button class="rack-toggle" onclick="toggleRackFace('${serverName}')">🔄 Retourner</button>` : ''}
                         </div>
-                        ${createDiskGrid(serverName, 'back', serverConfig.back_rack, serverData)}
+                        <div class="rack-face ${hasFront ? 'hidden' : ''}" id="face-back-${serverName}">
+                            ${createDiskGrid(serverName, 'back', serverConfig.back_rack, serverData)}
+                        </div>
                     </div>
                 `;
             }
-
+            
+            html += '</div>';
             return html;
         }
 
@@ -1288,24 +1413,24 @@
             let statusColor = '#666';
             let statusText = 'Inconnu';
 
-            // Détermination du statut
+            // Détermination du statut avec classes LED
             if (!serverOnline) {
-                statusClass += ' offline';
+                statusClass += ' offline disk-error';
                 statusColor = '#ff0000';
                 statusIndicator = '⚫';
                 statusText = 'Serveur hors ligne';
             } else if (diskData.status === 'no_password') {
-                statusClass += ' no-credentials';
+                statusClass += ' no-credentials disk-unmounted';
                 statusColor = '#ffaa00';
                 statusIndicator = '🔐';
                 statusText = 'Pas de mot de passe SSH';
             } else if (diskData.status === 'auth_error') {
-                statusClass += ' auth-error';
+                statusClass += ' auth-error disk-error';
                 statusColor = '#ff6600';
                 statusIndicator = '🚫';
                 statusText = 'Erreur d\'authentification';
             } else if (diskData.status === 'ssh_error') {
-                statusClass += ' ssh-error';
+                statusClass += ' ssh-error disk-error';
                 statusColor = '#ff3300';
                 statusIndicator = '❌';
                 statusText = 'Erreur SSH';
@@ -1315,11 +1440,12 @@
                 statusIndicator = '✅';
                 statusText = 'Monté';
             } else if (diskData.exists) {
-                statusClass += ' unmounted';
+                statusClass += ' unmounted disk-unmounted';
                 statusColor = '#ff6600';
                 statusIndicator = '⚠️';
                 statusText = 'Non monté';
             } else {
+                statusClass += ' disk-error';
                 statusColor = '#ff0000';
                 statusIndicator = '❌';
                 statusText = 'Non détecté';
@@ -1930,6 +2056,49 @@
                 indicator.textContent = '⏸️';
                 status.textContent = 'Surveillance INTERROMPUE';
                 status.style.color = '#ff6600';
+            }
+        }
+
+        // Fonction pour basculer entre face avant et arrière
+        function toggleRackFace(serverName) {
+            const frontRack = document.getElementById(`rack-front-${serverName}`);
+            const backRack = document.getElementById(`rack-back-${serverName}`);
+            
+            if (!frontRack || !backRack) return;
+            
+            // Animation de transition
+            if (frontRack.classList.contains('hidden')) {
+                // Afficher face avant, cacher face arrière
+                backRack.style.transform = 'translateX(-20px)';
+                backRack.style.opacity = '0';
+                
+                setTimeout(() => {
+                    backRack.classList.add('hidden');
+                    frontRack.classList.remove('hidden');
+                    frontRack.style.transform = 'translateX(20px)';
+                    frontRack.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        frontRack.style.transform = 'translateX(0)';
+                        frontRack.style.opacity = '1';
+                    }, 50);
+                }, 150);
+            } else {
+                // Afficher face arrière, cacher face avant
+                frontRack.style.transform = 'translateX(-20px)';
+                frontRack.style.opacity = '0';
+                
+                setTimeout(() => {
+                    frontRack.classList.add('hidden');
+                    backRack.classList.remove('hidden');
+                    backRack.style.transform = 'translateX(20px)';
+                    backRack.style.opacity = '0';
+                    
+                    setTimeout(() => {
+                        backRack.style.transform = 'translateX(0)';
+                        backRack.style.opacity = '1';
+                    }, 50);
+                }, 150);
             }
         }
 
