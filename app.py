@@ -4,6 +4,10 @@ Server Disk Monitor - Version Optimisée pour Portainer
 Dashboard de surveillance des disques durs avec améliorations de performance intégrées
 """
 
+# Version de l'application
+VERSION = "2.0.0"
+BUILD_DATE = "2025-08-31"
+
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
@@ -1089,7 +1093,7 @@ def security_middleware():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', version=VERSION, build_date=BUILD_DATE)
 
 @app.route('/api/config', methods=['GET'])
 def get_config():
@@ -1241,6 +1245,16 @@ def manual_refresh():
     except Exception as e:
         logger.error(f"Erreur refresh: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/version', methods=['GET'])
+def get_version():
+    """Retourne les informations de version de l'application"""
+    return jsonify({
+        'version': VERSION,
+        'build_date': BUILD_DATE,
+        'name': 'Server Disk Monitor',
+        'description': 'Dashboard de surveillance des disques durs avec pool SSH optimisé'
+    })
 
 @app.route('/api/status', methods=['GET'])
 def get_status():

@@ -35,6 +35,28 @@
             margin-bottom: 10px;
         }
 
+        .version-info {
+            margin-top: 10px;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .version-badge {
+            background: linear-gradient(135deg, #00ff00, #00cc00);
+            color: #000;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: bold;
+            margin-right: 15px;
+            text-shadow: none;
+            box-shadow: 0 2px 4px rgba(0, 255, 0, 0.3);
+        }
+
+        .build-date {
+            color: #cccccc;
+            font-size: 0.85em;
+        }
+
         .stats-bar {
             background: rgba(64, 64, 64, 0.9);
             padding: 15px;
@@ -594,6 +616,10 @@
     <div class="header">
         <h1>🖥️💾 Server Disk Monitor</h1>
         <p>Dashboard de surveillance des disques en temps réel</p>
+        <div class="version-info">
+            <span class="version-badge">v{{ version }}</span>
+            <span class="build-date">Build: {{ build_date }}</span>
+        </div>
     </div>
 
     <div class="stats-bar" id="statsBar">
