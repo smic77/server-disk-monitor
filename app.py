@@ -501,7 +501,12 @@ def validate_json(schema_name: str):
                 
                 # Validation basique selon le schéma
                 if schema_name == 'password_update':
-                    password = JSONValidator.sanitize_string(data.get('password', ''), max_length=256)
+                    # Validation spéciale pour les mots de passe - PAS de sanitization
+                    password = data.get('password', '')
+                    if not isinstance(password, str):
+                        raise ValidationError("Le mot de passe doit être une chaîne")
+                    if len(password) > 512:  # Limite généreuse
+                        raise ValidationError("Mot de passe trop long (max 512 caractères)")
                     request.validated_json = {'password': password}
                 else:
                     request.validated_json = data
@@ -1111,23 +1116,81 @@ def update_server_password(server_name):
         password = data.get('password', '')
         
         if server_name in monitor.servers_config.get('servers', {}):
-            encrypted_password = monitor.encrypt_password(password)
-            monitor.servers_config['servers'][server_name]['password'] = encrypted_password
-            monitor.save_config()
-            
-            # Invalider le cache SSH pour ce serveur
-            monitor.cache.invalidate(f"disk_{monitor.servers_config['servers'][server_name]['ip']}")
-            monitor.cache.invalidate(f"ping_{monitor.servers_config['servers'][server_name]['ip']}")
-            
-            return jsonify({'success': True, 'message': 'Mot de passe mis à jour'})
+            try:
+                encrypted_password = monitor.encrypt_password(password)
+                monitor.servers_config['servers'][server_name]['password'] = encrypted_password
+                
+                # Sauvegarder la configuration
+                if monitor.save_config():
+                    # Invalider le cache SSH pour ce serveur seulement si sauvegarde réussie
+                    try:
+                        server_ip = monitor.servers_config['servers'][server_name]['ip']
+                        monitor.cache.invalidate(f"disk_{server_ip}")
+                        monitor.cache.invalidate(f"ping_{server_ip}")
+                        logger.info(f"Mot de passe mis à jour pour {server_name} ({server_ip})")
+                    except Exception as cache_error:
+                        logger.warning(f"Erreur invalidation cache pour {server_name}: {cache_error}")
+                    
+                    return jsonify({'success': True, 'message': 'Mot de passe mis à jour avec succès'})
+                else:
+                    return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
+                    
+            except Exception as encrypt_error:
+                logger.error(f"Erreur chiffrement mot de passe pour {server_name}: {encrypt_error}")
+                return jsonify({'success': False, 'error': 'Erreur lors du chiffrement du mot de passe'}), 500
         else:
             return jsonify({'success': False, 'error': 'Serveur non trouvé'}), 404
             
     except ValidationError as e:
-        return jsonify({'success': False, 'error': str(e)}), 400
+        logger.warning(f"Erreur validation pour {server_name}: {e}")
+        return jsonify({'success': False, 'error': f"Données invalides: {str(e)}"}), 400
     except Exception as e:
-        logger.error(f"Erreur mot de passe: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        logger.error(f"Erreur générale mot de passe pour {server_name}: {e}")
+        return jsonify({'success': False, 'error': f"Erreur inattendue: {str(e)}"}), 500
+
+@app.route('/api/debug/password/<server_name>', methods=['POST'])
+def debug_password_update(server_name):
+    """Route de debug pour tester la sauvegarde des mots de passe"""
+    try:
+        # Validation simple sans décorateur
+        data = request.get_json(force=True, silent=True)
+        if data is None:
+            return jsonify({'success': False, 'error': 'JSON invalide ou manquant'}), 400
+        
+        password = data.get('password', '')
+        logger.info(f"DEBUG - Tentative de mise à jour mot de passe pour: {server_name}")
+        logger.info(f"DEBUG - Longueur mot de passe: {len(password)}")
+        logger.info(f"DEBUG - Serveurs configurés: {list(monitor.servers_config.get('servers', {}).keys())}")
+        
+        if server_name not in monitor.servers_config.get('servers', {}):
+            return jsonify({'success': False, 'error': f'Serveur "{server_name}" non trouvé'}), 404
+        
+        # Test du chiffrement
+        try:
+            encrypted = monitor.encrypt_password(password)
+            logger.info(f"DEBUG - Chiffrement réussi: {len(encrypted)} caractères")
+        except Exception as e:
+            logger.error(f"DEBUG - Erreur chiffrement: {e}")
+            return jsonify({'success': False, 'error': f'Erreur chiffrement: {str(e)}'}), 500
+        
+        # Test de la sauvegarde
+        try:
+            monitor.servers_config['servers'][server_name]['password'] = encrypted
+            save_result = monitor.save_config()
+            logger.info(f"DEBUG - Résultat sauvegarde: {save_result}")
+            
+            if save_result:
+                return jsonify({'success': True, 'message': f'Debug: Mot de passe mis à jour pour {server_name}'})
+            else:
+                return jsonify({'success': False, 'error': 'Échec de la sauvegarde'}), 500
+                
+        except Exception as e:
+            logger.error(f"DEBUG - Erreur sauvegarde: {e}")
+            return jsonify({'success': False, 'error': f'Erreur sauvegarde: {str(e)}'}), 500
+    
+    except Exception as e:
+        logger.error(f"DEBUG - Erreur générale: {e}")
+        return jsonify({'success': False, 'error': f'Erreur générale: {str(e)}'}), 500
 
 @app.route('/api/refresh', methods=['POST'])
 def manual_refresh():
