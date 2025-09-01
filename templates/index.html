@@ -353,6 +353,7 @@
             border-radius: 12px;
             border: 2px solid var(--border-primary);
             padding: 15px;
+            width: 100%;
         }
 
         .server-section {
@@ -361,6 +362,7 @@
             border-radius: 8px;
             padding: 15px;
             border: 1px solid var(--border-primary);
+            width: 100%;
         }
 
         .section-header {
@@ -390,6 +392,7 @@
             display: flex;
             flex-direction: column;
             gap: 5px;
+            width: 100%;
         }
 
         .section-grid.vertical .disk-row {
@@ -403,6 +406,9 @@
         .disk-row {
             display: flex;
             gap: 5px;
+            width: 100%;
+            justify-content: flex-start;
+            flex-wrap: wrap;
         }
 
         .disk-row.vertical {
@@ -411,6 +417,12 @@
 
         .disk-row.horizontal {
             flex-direction: row;
+        }
+
+        .disk-slot {
+            flex: 1;
+            min-width: 80px;
+            max-width: 120px;
         }
 
         .container {
@@ -494,6 +506,11 @@
             display: flex;
             gap: 20px;
             flex-wrap: wrap;
+            width: 100%;
+        }
+
+        .racks-container .template-server {
+            width: 100%;
         }
 
         /* HP ProLiant Gen9 2U Server - AUTHENTIQUE */
