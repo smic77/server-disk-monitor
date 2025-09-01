@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.3.0"
+VERSION = "3.3.1"
 BUILD_DATE = "2025-09-01"
 
 from flask import Flask, render_template, request, jsonify
@@ -400,28 +400,16 @@ class ServerDiskMonitorWeb:
                     "ip": "192.168.1.100",
                     "username": "root",
                     "password": "",
-                    "server_type": "Custom",
-                    "front_rack": {
-                        "enabled": True,
-                        "rows": 2,
-                        "cols": 3,
-                        "total_slots": 6
-                    },
-                    "back_rack": {
-                        "enabled": False,
-                        "rows": 0,
-                        "cols": 0,
-                        "total_slots": 0
-                    },
+                    "server_template": "Custom",
                     "disk_mappings": {
-                        "front_0_0": {
+                        "main-bay_0_0": {
                             "uuid": "example-uuid-1234-5678-90ab-cdef12345678",
                             "device": "/dev/sda",
                             "label": "Système",
                             "description": "Disque système principal",
                             "capacity": "256GB SSD"
                         },
-                        "front_0_1": {
+                        "main-bay_0_1": {
                             "uuid": "example-uuid-2345-6789-01bc-def123456789",
                             "device": "/dev/sdb",
                             "label": "Données",
@@ -723,6 +711,26 @@ class ServerDiskMonitorWeb:
             safe_config[server_name]['password'] = '***' if config.get('password') else ''
         return safe_config
     
+    def get_clean_config_for_export(self):
+        """Retourne la configuration nettoyée pour l'export (sans données obsolètes)"""
+        clean_config = {}
+        for server_name, config in self.servers_config.get('servers', {}).items():
+            clean_server = {}
+            
+            # Garder seulement les données nécessaires
+            essential_fields = ['ip', 'username', 'disk_mappings', 'server_template']
+            
+            for field in essential_fields:
+                if field in config:
+                    clean_server[field] = config[field]
+            
+            # Masquer le mot de passe mais l'inclure pour indiquer qu'il existe
+            clean_server['password'] = '***' if config.get('password') else ''
+            
+            clean_config[server_name] = clean_server
+            
+        return clean_config
+    
     def start_monitoring(self):
         """Démarre la surveillance automatique"""
         if not self.monitoring:
@@ -1019,8 +1027,8 @@ def save_server_templates():
 def export_complete_config():
     """Export complet de toute la configuration dans un format unifié"""
     try:
-        # Configuration serveurs (masquer les mots de passe)
-        servers_config = monitor.get_safe_config()
+        # Configuration serveurs (nettoyée, sans données obsolètes)
+        servers_config = monitor.get_clean_config_for_export()
         
         # Templates de serveurs
         server_templates = monitor.load_server_templates()
