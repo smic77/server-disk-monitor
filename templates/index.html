@@ -1431,7 +1431,64 @@
             </div>
             <div style="text-align: center; margin-top: 20px;">
                 <button class="btn btn-success" onclick="saveServerType()">💾 Sauvegarder</button>
+                <button class="btn btn-info" onclick="showTemplateManagerModal()">⚙️ Gérer Templates</button>
                 <button class="btn" onclick="closeModal('serverTypeModal')">❌ Annuler</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Gestionnaire de Templates -->
+    <div id="templateManagerModal" class="modal">
+        <div class="modal-content" style="max-width: 900px;">
+            <span class="close" onclick="closeModal('templateManagerModal')">&times;</span>
+            <h2>⚙️ Gestionnaire de Templates de Serveurs</h2>
+            <div id="templateManagerContent">
+                <div class="alert alert-info">
+                    <strong>ℹ️ Templates de serveurs :</strong><br>
+                    Créez et modifiez des modèles de serveurs avec des configurations pré-définies (sections, HDD, orientations).
+                </div>
+                
+                <!-- Liste des templates existants -->
+                <div class="form-group">
+                    <label>📋 Templates existants :</label>
+                    <div id="templatesList" style="max-height: 300px; overflow-y: auto;">
+                        <!-- Templates seront générés dynamiquement -->
+                    </div>
+                </div>
+                
+                <!-- Formulaire d'édition de template -->
+                <div class="form-group">
+                    <label>✏️ Édition de template :</label>
+                    <div id="templateEditor" style="background: var(--bg-tertiary); padding: 20px; border-radius: 8px; display: none;">
+                        <div style="display: flex; gap: 20px; margin-bottom: 15px;">
+                            <div style="flex: 1;">
+                                <label for="templateNameInput">Nom du template :</label>
+                                <input type="text" id="templateNameInput" placeholder="Ex: Mon Serveur Custom" class="server-type-select">
+                            </div>
+                            <div style="flex: 1;">
+                                <label for="templateBrandInput">Marque :</label>
+                                <input type="text" id="templateBrandInput" placeholder="Ex: HPE, DELL, CUSTOM" class="server-type-select">
+                            </div>
+                            <div style="flex: 1;">
+                                <label for="templateColorInput">Couleur :</label>
+                                <input type="color" id="templateColorInput" value="#6c757d" class="server-type-select">
+                            </div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>🗂️ Sections :</label>
+                            <div id="sectionsContainer">
+                                <!-- Sections seront générées dynamiquement -->
+                            </div>
+                            <button type="button" class="btn btn-info" onclick="addSection()" style="margin-top: 10px;">➕ Ajouter Section</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-success" onclick="saveCurrentTemplate()" id="saveTemplateBtn" style="display: none;">💾 Sauvegarder Template</button>
+                <button class="btn btn-primary" onclick="createNewTemplate()">➕ Nouveau Template</button>
+                <button class="btn" onclick="closeModal('templateManagerModal')">❌ Fermer</button>
             </div>
         </div>
     </div>
@@ -2545,6 +2602,290 @@
             }
         }
 
+        // NOUVELLES FONCTIONS - Gestion des templates de serveurs
+        let serverTemplates = {};
+        let currentEditingTemplate = null;
+
+        async function showTemplateManagerModal() {
+            const modal = document.getElementById('templateManagerModal');
+            await loadServerTemplates();
+            populateTemplatesList();
+            modal.style.display = 'block';
+        }
+
+        async function loadServerTemplates() {
+            try {
+                const response = await fetch('/api/server-templates');
+                const result = await response.json();
+                if (result.success) {
+                    serverTemplates = result.templates;
+                } else {
+                    console.error('Erreur chargement templates:', result.error);
+                }
+            } catch (error) {
+                console.error('Erreur:', error);
+            }
+        }
+
+        function populateTemplatesList() {
+            const container = document.getElementById('templatesList');
+            let html = '';
+
+            for (const [name, template] of Object.entries(serverTemplates)) {
+                html += `
+                    <div class="server-type-config" style="margin-bottom: 10px;">
+                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                            <div>
+                                <h4 style="margin: 0;">
+                                    <span class="brand-logo" style="background: ${template.brand_color}; margin-right: 10px;">${template.brand}</span>
+                                    ${template.name}
+                                </h4>
+                                <small style="color: var(--text-secondary);">
+                                    ${template.sections.length} section(s) • 
+                                    ${template.sections.reduce((total, section) => total + (section.rows * section.cols), 0)} slots total
+                                </small>
+                            </div>
+                            <div>
+                                <button class="btn btn-mini" onclick="editTemplate('${name}')" title="Éditer">✏️</button>
+                                <button class="btn btn-mini" onclick="duplicateTemplate('${name}')" title="Dupliquer">📋</button>
+                                ${name !== 'Custom' ? `<button class="btn btn-mini" onclick="deleteTemplate('${name}')" title="Supprimer">🗑️</button>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            container.innerHTML = html;
+        }
+
+        function createNewTemplate() {
+            currentEditingTemplate = null;
+            const editor = document.getElementById('templateEditor');
+            const saveBtn = document.getElementById('saveTemplateBtn');
+            
+            // Réinitialiser le formulaire
+            document.getElementById('templateNameInput').value = '';
+            document.getElementById('templateBrandInput').value = '';
+            document.getElementById('templateColorInput').value = '#6c757d';
+            
+            // Ajouter une section par défaut
+            clearSections();
+            addSection();
+            
+            editor.style.display = 'block';
+            saveBtn.style.display = 'inline-block';
+        }
+
+        function editTemplate(templateName) {
+            const template = serverTemplates[templateName];
+            if (!template) return;
+            
+            currentEditingTemplate = templateName;
+            const editor = document.getElementById('templateEditor');
+            const saveBtn = document.getElementById('saveTemplateBtn');
+            
+            // Remplir le formulaire
+            document.getElementById('templateNameInput').value = template.name;
+            document.getElementById('templateBrandInput').value = template.brand;
+            document.getElementById('templateColorInput').value = template.brand_color;
+            
+            // Remplir les sections
+            clearSections();
+            template.sections.forEach(section => {
+                addSection(section);
+            });
+            
+            editor.style.display = 'block';
+            saveBtn.style.display = 'inline-block';
+        }
+
+        function duplicateTemplate(templateName) {
+            const template = serverTemplates[templateName];
+            if (!template) return;
+            
+            currentEditingTemplate = null;
+            const editor = document.getElementById('templateEditor');
+            const saveBtn = document.getElementById('saveTemplateBtn');
+            
+            // Remplir le formulaire avec les données du template à dupliquer
+            document.getElementById('templateNameInput').value = template.name + ' (Copie)';
+            document.getElementById('templateBrandInput').value = template.brand;
+            document.getElementById('templateColorInput').value = template.brand_color;
+            
+            // Remplir les sections
+            clearSections();
+            template.sections.forEach(section => {
+                addSection(section);
+            });
+            
+            editor.style.display = 'block';
+            saveBtn.style.display = 'inline-block';
+        }
+
+        async function deleteTemplate(templateName) {
+            if (!confirm(`Êtes-vous sûr de vouloir supprimer le template "${templateName}" ?`)) {
+                return;
+            }
+            
+            delete serverTemplates[templateName];
+            
+            try {
+                const response = await fetch('/api/server-templates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ templates: serverTemplates })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    updateStatusMessage(`✅ Template "${templateName}" supprimé`);
+                    populateTemplatesList();
+                    await refreshServerTypeOptions();
+                } else {
+                    updateStatusMessage(`❌ Erreur: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateStatusMessage('❌ Erreur de communication', 'error');
+            }
+        }
+
+        function clearSections() {
+            document.getElementById('sectionsContainer').innerHTML = '';
+        }
+
+        function addSection(sectionData = null) {
+            const container = document.getElementById('sectionsContainer');
+            const sectionId = 'section_' + Date.now();
+            
+            const sectionHtml = `
+                <div class="server-type-config" id="${sectionId}" style="margin-bottom: 10px;">
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div style="flex: 2;">
+                            <label>Nom de la section :</label>
+                            <input type="text" class="section-name" placeholder="Ex: Front Bays" value="${sectionData?.name || ''}" style="width: 100%;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Lignes :</label>
+                            <input type="number" class="section-rows" min="1" max="10" value="${sectionData?.rows || 1}" style="width: 100%;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Colonnes :</label>
+                            <input type="number" class="section-cols" min="1" max="20" value="${sectionData?.cols || 4}" style="width: 100%;">
+                        </div>
+                        <div style="flex: 1;">
+                            <label>Orientation :</label>
+                            <select class="section-orientation" style="width: 100%;">
+                                <option value="horizontal" ${sectionData?.orientation === 'horizontal' ? 'selected' : ''}>Horizontale</option>
+                                <option value="vertical" ${sectionData?.orientation === 'vertical' ? 'selected' : ''}>Verticale</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button type="button" class="btn btn-mini" onclick="removeSection('${sectionId}')" title="Supprimer section">🗑️</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', sectionHtml);
+        }
+
+        function removeSection(sectionId) {
+            document.getElementById(sectionId).remove();
+        }
+
+        async function saveCurrentTemplate() {
+            const name = document.getElementById('templateNameInput').value.trim();
+            const brand = document.getElementById('templateBrandInput').value.trim().toUpperCase();
+            const color = document.getElementById('templateColorInput').value;
+            
+            if (!name || !brand) {
+                alert('Veuillez remplir le nom et la marque du template');
+                return;
+            }
+            
+            // Collecter les sections
+            const sections = [];
+            document.querySelectorAll('#sectionsContainer .server-type-config').forEach(sectionDiv => {
+                const sectionName = sectionDiv.querySelector('.section-name').value.trim();
+                const rows = parseInt(sectionDiv.querySelector('.section-rows').value);
+                const cols = parseInt(sectionDiv.querySelector('.section-cols').value);
+                const orientation = sectionDiv.querySelector('.section-orientation').value;
+                
+                if (sectionName && rows > 0 && cols > 0) {
+                    sections.push({
+                        name: sectionName,
+                        rows: rows,
+                        cols: cols,
+                        orientation: orientation
+                    });
+                }
+            });
+            
+            if (sections.length === 0) {
+                alert('Veuillez ajouter au moins une section');
+                return;
+            }
+            
+            // Si on édite un template existant, supprimer l'ancien
+            if (currentEditingTemplate && currentEditingTemplate !== name) {
+                delete serverTemplates[currentEditingTemplate];
+            }
+            
+            // Créer le nouveau template
+            serverTemplates[name] = {
+                name: name,
+                brand: brand,
+                brand_color: color,
+                sections: sections
+            };
+            
+            try {
+                const response = await fetch('/api/server-templates', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ templates: serverTemplates })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    updateStatusMessage(`✅ Template "${name}" sauvegardé`);
+                    populateTemplatesList();
+                    await refreshServerTypeOptions();
+                    
+                    // Masquer l'éditeur
+                    document.getElementById('templateEditor').style.display = 'none';
+                    document.getElementById('saveTemplateBtn').style.display = 'none';
+                } else {
+                    updateStatusMessage(`❌ Erreur: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                updateStatusMessage('❌ Erreur de communication', 'error');
+            }
+        }
+
+        async function refreshServerTypeOptions() {
+            // Recharger les options de la liste déroulante de type de serveur
+            const select = document.getElementById('serverTypeSelect');
+            if (select) {
+                const currentValue = select.value;
+                select.innerHTML = '';
+                
+                for (const templateName of Object.keys(serverTemplates)) {
+                    const option = document.createElement('option');
+                    option.value = templateName;
+                    option.textContent = templateName;
+                    select.appendChild(option);
+                }
+                
+                // Restaurer la sélection si possible
+                if (serverTemplates[currentValue]) {
+                    select.value = currentValue;
+                } else {
+                    select.value = 'Custom';
+                }
+            }
+        }
+
         // Statistiques détaillées
         function showStatsModal() {
             const modal = document.getElementById('statsModal');
@@ -2666,7 +3007,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'serverPasswordModal', 'serverTypeModal', 'diskModal', 'statsModal', 'notificationModal'];
+            const modals = ['configModal', 'serverPasswordModal', 'serverTypeModal', 'templateManagerModal', 'diskModal', 'statsModal', 'notificationModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {

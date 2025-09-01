@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.1.5"
+VERSION = "3.2.0"
 BUILD_DATE = "2025-09-01"
 
 from flask import Flask, render_template, request, jsonify
@@ -305,6 +305,94 @@ class ServerDiskMonitorWeb:
         # Initialisation du chiffrement
         self.init_encryption()
         
+        # Templates de serveurs par défaut
+        self.default_server_templates = {
+            "Custom": {
+                "name": "Custom",
+                "brand": "CUSTOM",
+                "brand_color": "#6c757d",
+                "sections": [
+                    {
+                        "name": "Main Bay",
+                        "rows": 2,
+                        "cols": 3,
+                        "orientation": "horizontal"
+                    }
+                ]
+            },
+            "HPE ProLiant DL380 Gen9": {
+                "name": "HPE ProLiant DL380 Gen9",
+                "brand": "HPE",
+                "brand_color": "#0073e7",
+                "sections": [
+                    {
+                        "name": "Front Bays",
+                        "rows": 2,
+                        "cols": 4,
+                        "orientation": "horizontal"
+                    },
+                    {
+                        "name": "Rear Bays",
+                        "rows": 1,
+                        "cols": 2,
+                        "orientation": "horizontal"
+                    }
+                ]
+            },
+            "HPE ProLiant DL180 Gen9": {
+                "name": "HPE ProLiant DL180 Gen9",
+                "brand": "HPE", 
+                "brand_color": "#0073e7",
+                "sections": [
+                    {
+                        "name": "Front Bays",
+                        "rows": 2,
+                        "cols": 6,
+                        "orientation": "horizontal"
+                    }
+                ]
+            },
+            "HPE ProLiant DL80 Gen9": {
+                "name": "HPE ProLiant DL80 Gen9",
+                "brand": "HPE",
+                "brand_color": "#0073e7",
+                "sections": [
+                    {
+                        "name": "Front Bays",
+                        "rows": 1,
+                        "cols": 4,
+                        "orientation": "horizontal"
+                    }
+                ]
+            },
+            "Générique Rack 1U": {
+                "name": "Générique Rack 1U",
+                "brand": "RACK",
+                "brand_color": "#666666",
+                "sections": [
+                    {
+                        "name": "Drive Bay",
+                        "rows": 1,
+                        "cols": 4,
+                        "orientation": "horizontal"
+                    }
+                ]
+            },
+            "Générique Rack 2U": {
+                "name": "Générique Rack 2U",
+                "brand": "RACK",
+                "brand_color": "#666666",
+                "sections": [
+                    {
+                        "name": "Drive Bay",
+                        "rows": 2,
+                        "cols": 6,
+                        "orientation": "horizontal"
+                    }
+                ]
+            }
+        }
+
         # Configuration par défaut améliorée
         self.default_config = {
             "servers": {
@@ -430,6 +518,40 @@ class ServerDiskMonitorWeb:
         except Exception as e:
             logger.error(f"Erreur lors de la sauvegarde: {e}")
             return False
+    
+    def load_server_templates(self):
+        """Charge les templates de serveurs depuis le fichier ou retourne les défauts"""
+        templates_file = os.path.join("data", "server_templates.json")
+        if os.path.exists(templates_file):
+            try:
+                with open(templates_file, 'r', encoding='utf-8') as f:
+                    templates = json.load(f)
+                    logger.info(f"Templates de serveurs chargés: {len(templates)} template(s)")
+                    return templates
+            except Exception as e:
+                logger.error(f"Erreur lors du chargement des templates: {e}")
+        
+        # Sauvegarder les templates par défaut
+        self.save_server_templates(self.default_server_templates)
+        return self.default_server_templates.copy()
+    
+    def save_server_templates(self, templates):
+        """Sauvegarde les templates de serveurs dans le fichier"""
+        os.makedirs("data", exist_ok=True)
+        templates_file = os.path.join("data", "server_templates.json")
+        try:
+            with open(templates_file, 'w', encoding='utf-8') as f:
+                json.dump(templates, f, indent=4, ensure_ascii=False)
+            logger.info("Templates de serveurs sauvegardés")
+            return True
+        except Exception as e:
+            logger.error(f"Erreur lors de la sauvegarde des templates: {e}")
+            return False
+    
+    def get_server_template(self, template_name):
+        """Récupère un template de serveur par son nom"""
+        templates = self.load_server_templates()
+        return templates.get(template_name, templates.get("Custom"))
     
     def encrypt_password(self, password):
         """Chiffre un mot de passe"""
@@ -855,6 +977,42 @@ def update_server_types():
             
     except Exception as e:
         logger.error(f"Erreur mise à jour types serveurs: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/server-templates', methods=['GET'])
+def get_server_templates():
+    """Récupère tous les templates de serveurs"""
+    try:
+        templates = monitor.load_server_templates()
+        return jsonify({'success': True, 'templates': templates})
+    except Exception as e:
+        logger.error(f"Erreur récupération templates: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/server-templates', methods=['POST'])
+def save_server_templates():
+    """Sauvegarde les templates de serveurs"""
+    try:
+        data = request.get_json()
+        templates = data.get('templates', {})
+        
+        if not templates:
+            return jsonify({'success': False, 'error': 'Templates manquants'}), 400
+        
+        # Validation basique des templates
+        for name, template in templates.items():
+            required_fields = ['name', 'brand', 'brand_color', 'sections']
+            for field in required_fields:
+                if field not in template:
+                    return jsonify({'success': False, 'error': f'Champ manquant {field} dans template {name}'}), 400
+        
+        if monitor.save_server_templates(templates):
+            return jsonify({'success': True, 'message': f'{len(templates)} template(s) sauvegardé(s)'})
+        else:
+            return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
+            
+    except Exception as e:
+        logger.error(f"Erreur sauvegarde templates: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # WebSocket events
