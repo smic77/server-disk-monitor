@@ -241,6 +241,112 @@
             color: white;
         }
 
+        /* Styles pour les icônes cliquables */
+        .icon-btn {
+            background: var(--bg-card);
+            border: 2px solid var(--border-primary);
+            color: var(--text-primary);
+            padding: 15px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 20px;
+            transition: all 0.3s ease;
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 50px;
+            min-height: 50px;
+            margin: 0 8px;
+        }
+
+        .icon-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+            border-color: var(--accent-primary);
+        }
+
+        .icon-btn.primary {
+            background: var(--info);
+            border-color: var(--info);
+            color: white;
+        }
+
+        .icon-btn.success {
+            background: var(--success);
+            border-color: var(--success);
+            color: white;
+        }
+
+        .icon-btn.info {
+            background: var(--info);
+            border-color: var(--info);
+            color: white;
+        }
+
+        .icon-btn.warning {
+            background: var(--warning);
+            border-color: var(--warning);
+            color: white;
+        }
+
+        /* Tooltips pour les icônes */
+        .tooltip {
+            position: relative;
+        }
+
+        .tooltip::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--bg-tertiary);
+            color: var(--text-primary);
+            padding: 8px 12px;
+            border-radius: 6px;
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 500;
+            border: 1px solid var(--border-primary);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .tooltip::before {
+            content: '';
+            position: absolute;
+            bottom: 117%;
+            left: 50%;
+            transform: translateX(-50%);
+            border: 6px solid transparent;
+            border-top-color: var(--border-primary);
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .tooltip:hover::after,
+        .tooltip:hover::before {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 20px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
         .container {
             padding: 20px;
             max-width: 1400px;
@@ -1215,12 +1321,12 @@
     </div>
 
     <div class="controls">
-        <button class="btn btn-primary" onclick="refreshData()">🔄 Actualiser</button>
-        <button class="btn btn-success" onclick="showConfigModal()">⚙️ Configuration</button>
-        <button class="btn btn-info" onclick="showNotificationModal()">📢 Notifications</button>
-        <button class="btn" onclick="exportConfig()">💾 Exporter</button>
-        <button class="btn" onclick="importConfig()">📁 Importer</button>
-        <button class="btn" onclick="showStatsModal()">📊 Statistiques</button>
+        <button class="icon-btn primary tooltip" data-tooltip="Actualiser les données en temps réel" onclick="refreshData()">🔄</button>
+        <button class="icon-btn success tooltip" data-tooltip="Configurer les serveurs et paramètres" onclick="showConfigModal()">⚙️</button>
+        <button class="icon-btn info tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">📢</button>
+        <button class="icon-btn tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">💾</button>
+        <button class="icon-btn warning tooltip" data-tooltip="Importer une configuration depuis un fichier JSON" onclick="importConfig()">📁</button>
+        <button class="icon-btn tooltip" data-tooltip="Afficher les statistiques détaillées" onclick="showStatsModal()">📊</button>
     </div>
 
     <div class="container">
