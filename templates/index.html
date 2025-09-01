@@ -347,6 +347,72 @@
             flex-wrap: wrap;
         }
 
+        /* Styles pour les serveurs basés sur templates */
+        .template-server {
+            background: var(--bg-card);
+            border-radius: 12px;
+            border: 2px solid var(--border-primary);
+            padding: 15px;
+        }
+
+        .server-section {
+            margin-bottom: 20px;
+            background: var(--bg-tertiary);
+            border-radius: 8px;
+            padding: 15px;
+            border: 1px solid var(--border-primary);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--border-primary);
+        }
+
+        .section-name {
+            font-weight: 600;
+            color: var(--accent-secondary);
+            font-size: 1.1em;
+        }
+
+        .section-info {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            background: var(--bg-card);
+            padding: 4px 8px;
+            border-radius: 4px;
+        }
+
+        .section-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .section-grid.vertical .disk-row {
+            flex-direction: column;
+        }
+
+        .section-grid.horizontal .disk-row {
+            flex-direction: row;
+        }
+
+        .disk-row {
+            display: flex;
+            gap: 5px;
+        }
+
+        .disk-row.vertical {
+            flex-direction: column;
+        }
+
+        .disk-row.horizontal {
+            flex-direction: row;
+        }
+
         .container {
             padding: 20px;
             max-width: 1400px;
@@ -1644,6 +1710,9 @@
                 statsData = statusData.stats || {};
                 config = statusData.config || {};
                 
+                // Charger les templates de serveurs
+                await loadServerTemplates();
+                
                 updateDisplay();
                 
                 // Charger aussi la config des notifications
@@ -1821,9 +1890,19 @@
             return card;
         }
 
-        // Fonction pour extraire le branding du type de serveur
+        // Fonction pour extraire le branding du type de serveur depuis les templates
         function getServerBranding(serverType) {
-            // Parse le type de serveur pour extraire brand et modèle
+            // Chercher dans les templates chargés
+            if (serverTemplates && serverTemplates[serverType]) {
+                const template = serverTemplates[serverType];
+                return {
+                    brand: template.brand,
+                    model: template.name.replace(template.brand + ' ', '').replace(template.brand, '').trim(),
+                    brandColor: template.brand_color
+                };
+            }
+            
+            // Fallbacks pour compatibilité (si templates pas encore chargés)
             if (serverType === 'Custom') {
                 return {
                     brand: 'CUSTOM',
@@ -1859,20 +1938,123 @@
             }
         }
 
-        // Création du HTML des racks
+        // Création du HTML des racks basé sur les templates
         function createRacksHTML(serverName, serverConfig, serverData) {
+            const serverType = serverConfig.server_type || 'Custom';
+            const template = serverTemplates && serverTemplates[serverType] ? serverTemplates[serverType] : null;
+            
+            if (!template || !template.sections || template.sections.length === 0) {
+                // Fallback vers l'ancien système si pas de template
+                return createLegacyRacksHTML(serverName, serverConfig, serverData);
+            }
+            
+            const serverBranding = getServerBranding(serverType);
+            
+            // Structure du serveur basée sur le template
+            let html = '<div class="template-server">';
+            
+            // En-tête avec branding
+            html += `
+                <div class="server-front-panel">
+                    <div class="server-bezel">
+                        <div class="server-branding">
+                            <span class="brand-logo" style="background: ${serverBranding.brandColor};">${serverBranding.brand}</span>
+                            <span class="server-model">${serverBranding.model}</span>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Générer chaque section du template
+            template.sections.forEach((section, index) => {
+                html += `
+                    <div class="server-section" data-section-name="${section.name}">
+                        <div class="section-header">
+                            <span class="section-name">${section.name}</span>
+                            <span class="section-info">${section.rows}×${section.cols} (${section.orientation})</span>
+                        </div>
+                        <div class="section-grid ${section.orientation}">
+                            ${createTemplateDiskGrid(serverName, section, serverData, index)}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            return html;
+        }
+        
+        // Création de la grille de disques basée sur une section de template
+        function createTemplateDiskGrid(serverName, section, serverData, sectionIndex) {
+            const rows = section.rows;
+            const cols = section.cols;
+            const orientation = section.orientation;
+            let html = '';
+            
+            for (let row = 0; row < rows; row++) {
+                html += `<div class="disk-row ${orientation}">`;
+                for (let col = 0; col < cols; col++) {
+                    const slotKey = `section${sectionIndex}_${row}_${col}`;
+                    const diskData = serverData.disks && serverData.disks[slotKey] ? serverData.disks[slotKey] : null;
+                    
+                    let diskClass = 'disk-slot empty';
+                    let diskContent = '';
+                    let diskTitle = `Section: ${section.name} - Position: ${row},${col}`;
+                    
+                    if (diskData) {
+                        if (diskData.status === 'mounted') {
+                            diskClass = 'disk-slot mounted';
+                            diskContent = `
+                                <div class="disk-indicator mounted"></div>
+                                <div class="disk-info">
+                                    <div class="disk-label">${diskData.label || 'Disque'}</div>
+                                    <div class="disk-capacity">${diskData.capacity || 'N/A'}</div>
+                                </div>
+                            `;
+                            diskTitle = `${diskData.label || 'Disque'} - ${diskData.capacity || 'N/A'} - Monté`;
+                        } else {
+                            diskClass = 'disk-slot unmounted';
+                            diskContent = `
+                                <div class="disk-indicator unmounted"></div>
+                                <div class="disk-info">
+                                    <div class="disk-label">${diskData.label || 'Disque'}</div>
+                                    <div class="disk-status">Non monté</div>
+                                </div>
+                            `;
+                            diskTitle = `${diskData.label || 'Disque'} - Non monté`;
+                        }
+                    } else {
+                        diskContent = '<div class="disk-placeholder">Vide</div>';
+                    }
+                    
+                    html += `
+                        <div class="${diskClass}" 
+                             title="${diskTitle}"
+                             data-server="${serverName}" 
+                             data-slot="${slotKey}"
+                             onclick="showDiskModal('${serverName}', '${slotKey}')">
+                            ${diskContent}
+                        </div>
+                    `;
+                }
+                html += '</div>';
+            }
+            
+            return html;
+        }
+
+        // Fonction de fallback pour l'ancien système de racks (compatibilité)
+        function createLegacyRacksHTML(serverName, serverConfig, serverData) {
             const hasFront = serverConfig.front_rack && serverConfig.front_rack.enabled && serverConfig.front_rack.total_slots > 0;
             const hasBack = serverConfig.back_rack && serverConfig.back_rack.enabled && serverConfig.back_rack.total_slots > 0;
             
             if (!hasFront && !hasBack) return '';
             
-            // Structure serveur 2U authentique HP
+            const serverBranding = getServerBranding(serverConfig.server_type || 'Custom');
             let html = '<div class="hp-server-2u">';
             
-            // Face avant - Format serveur réaliste
+            // Face avant
             if (hasFront) {
-                const serverBranding = getServerBranding(serverConfig.server_type || 'Custom');
-                
                 html += `
                     <div class="server-front-panel">
                         <div class="server-bezel">
@@ -1888,7 +2070,7 @@
                 `;
             }
             
-            // Face arrière - Avec connecteurs authentiques
+            // Face arrière
             if (hasBack) {
                 html += `
                     <div class="server-rear-panel">
@@ -2529,6 +2711,9 @@
             serverInfo.textContent = `${serverConfig.username}@${serverConfig.ip}`;
             title.appendChild(serverInfo);
             
+            // Mettre à jour les options depuis les templates
+            populateServerTypeSelect();
+            
             // Sélectionner le type actuel
             const currentType = serverConfig.server_type || 'Custom';
             select.value = currentType;
@@ -2542,6 +2727,40 @@
             };
             
             modal.style.display = 'block';
+        }
+
+        function populateServerTypeSelect() {
+            const select = document.getElementById('serverTypeSelect');
+            if (!select) return;
+
+            const currentValue = select.value;
+            select.innerHTML = '';
+
+            // Ajouter les options depuis les templates chargés
+            if (serverTemplates && Object.keys(serverTemplates).length > 0) {
+                for (const templateName of Object.keys(serverTemplates)) {
+                    const option = document.createElement('option');
+                    option.value = templateName;
+                    option.textContent = templateName;
+                    select.appendChild(option);
+                }
+            } else {
+                // Options de fallback
+                const fallbackOptions = ['Custom', 'HPE ProLiant DL380 Gen9', 'HPE ProLiant DL180 Gen9', 'HPE ProLiant DL80 Gen9', 'Générique Rack 1U', 'Générique Rack 2U'];
+                fallbackOptions.forEach(optionText => {
+                    const option = document.createElement('option');
+                    option.value = optionText;
+                    option.textContent = optionText;
+                    select.appendChild(option);
+                });
+            }
+
+            // Restaurer la sélection si possible
+            if (select.querySelector(`option[value="${currentValue}"]`)) {
+                select.value = currentValue;
+            } else {
+                select.value = 'Custom';
+            }
         }
 
         function updateBrandingPreview(serverType) {
