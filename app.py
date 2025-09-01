@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.3.2"
+VERSION = "3.4.0"
 BUILD_DATE = "2025-09-01"
 
 from flask import Flask, render_template, request, jsonify
@@ -1220,6 +1220,95 @@ def check_migration_needed():
         })
     except Exception as e:
         logger.error(f"Erreur vérification migration: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/migration/migrate', methods=['POST'])
+def migrate_disk_mappings():
+    """Migre automatiquement les disk_mappings avec des clés obsolètes"""
+    try:
+        templates = monitor.load_server_templates()
+        migration_results = {}
+        
+        for server_name, config in monitor.servers_config.get('servers', {}).items():
+            if 'disk_mappings' not in config:
+                continue
+                
+            template_name = config.get('server_template', 'Custom')
+            template = templates.get(template_name, templates.get('Custom', {}))
+            sections = template.get('sections', [])
+            
+            if not sections:
+                continue
+                
+            # Extraire les noms de sections disponibles
+            section_names = []
+            for section in sections:
+                section_key = section['name'].lower().replace(' ', '-')
+                section_names.append(section_key)
+            
+            old_mappings = config['disk_mappings'].copy()
+            new_mappings = {}
+            migrated_count = 0
+            
+            for position_key, disk_info in old_mappings.items():
+                new_key = None
+                
+                # Migration des clés front_X_Y vers la première section
+                if position_key.startswith('front_') and len(section_names) > 0:
+                    coords = position_key[6:]  # Enlever "front_"
+                    new_key = f"{section_names[0]}_{coords}"
+                    migrated_count += 1
+                
+                # Migration des clés back_X_Y vers la deuxième section (si elle existe)
+                elif position_key.startswith('back_') and len(section_names) > 1:
+                    coords = position_key[5:]  # Enlever "back_"
+                    new_key = f"{section_names[1]}_{coords}"
+                    migrated_count += 1
+                
+                # Garder les clés déjà au bon format
+                else:
+                    section_prefix = position_key.split('_')[0] if '_' in position_key else position_key
+                    if section_prefix in section_names:
+                        new_key = position_key
+                
+                # Ajouter la nouvelle clé si valide
+                if new_key:
+                    new_mappings[new_key] = disk_info
+            
+            # Mettre à jour la configuration si des migrations ont eu lieu
+            if migrated_count > 0:
+                config['disk_mappings'] = new_mappings
+                migration_results[server_name] = {
+                    'migrated_disks': migrated_count,
+                    'template': template_name,
+                    'sections_used': section_names[:2]  # Max 2 sections (front/back)
+                }
+        
+        # Sauvegarder la configuration mise à jour
+        if migration_results and monitor.save_config():
+            # Rafraîchir les données pour appliquer les changements
+            threading.Thread(target=monitor.update_all_disk_status, daemon=True).start()
+            
+            total_migrated = sum(result['migrated_disks'] for result in migration_results.values())
+            message = f"Migration réussie: {total_migrated} disque(s) migré(s) sur {len(migration_results)} serveur(s)"
+            
+            logger.info(f"Migration disk_mappings: {message}")
+            return jsonify({
+                'success': True,
+                'message': message,
+                'details': migration_results
+            })
+        elif migration_results:
+            return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
+        else:
+            return jsonify({
+                'success': True,
+                'message': 'Aucune migration nécessaire',
+                'details': {}
+            })
+            
+    except Exception as e:
+        logger.error(f"Erreur migration disk_mappings: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # WebSocket events

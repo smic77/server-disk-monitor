@@ -1439,6 +1439,12 @@
                     <button class="btn btn-primary" onclick="exportConfig()">💾 Exporter Config</button>
                     <button class="btn btn-warning" onclick="importConfig()">📁 Importer Config</button>
                 </div>
+                <div style="text-align: center; margin: 20px 0; border-top: 1px solid #ddd; padding-top: 20px;">
+                    <h4>🔄 Migration des Données</h4>
+                    <p style="font-size: 14px; color: #666;">Migrer les anciennes clés disk_mappings (front_X_Y, back_X_Y) vers le nouveau format de sections</p>
+                    <button class="btn" style="background: #17a2b8; color: white;" onclick="checkMigrationNeeded()">🔍 Vérifier Migration</button>
+                    <button class="btn" style="background: #28a745; color: white;" onclick="migrateDiskMappings()">🚀 Migrer Maintenant</button>
+                </div>
             </div>
         </div>
     </div>
@@ -3291,6 +3297,76 @@
                 }
             };
             input.click();
+        }
+
+        // Migration des disk_mappings
+        function checkMigrationNeeded() {
+            fetch('/api/migration/check')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        if (data.migration_needed) {
+                            let message = '🔍 Migration nécessaire!\n\n';
+                            
+                            for (const [serverName, info] of Object.entries(data.affected_servers)) {
+                                message += `📡 ${serverName} (${info.template}):\n`;
+                                message += `  • ${info.obsolete_disks.length} disque(s) avec clés obsolètes\n`;
+                                message += `  • Sections disponibles: ${info.valid_sections.join(', ')}\n\n`;
+                            }
+                            
+                            message += 'Cliquez sur "🚀 Migrer Maintenant" pour corriger automatiquement.';
+                            alert(message);
+                        } else {
+                            alert('✅ Aucune migration nécessaire!\n\nTous vos disk_mappings utilisent déjà le bon format.');
+                        }
+                    } else {
+                        alert('Erreur lors de la vérification: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Erreur lors de la vérification: ' + error.message);
+                });
+        }
+
+        function migrateDiskMappings() {
+            if (!confirm('🚀 Migrer les disk_mappings?\n\nCette opération va:\n• Convertir front_X_Y vers la première section du template\n• Convertir back_X_Y vers la deuxième section du template\n• Sauvegarder automatiquement\n\nContinuer?')) {
+                return;
+            }
+
+            updateStatusMessage('🔄 Migration en cours...');
+
+            fetch('/api/migration/migrate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    let message = data.message + '\n\n';
+                    
+                    if (Object.keys(data.details).length > 0) {
+                        message += 'Détails de la migration:\n';
+                        for (const [serverName, info] of Object.entries(data.details)) {
+                            message += `• ${serverName}: ${info.migrated_disks} disque(s) → ${info.sections_used.join(', ')}\n`;
+                        }
+                        
+                        // Rafraîchir l'affichage
+                        refreshData();
+                    }
+                    
+                    alert('✅ ' + message);
+                    updateStatusMessage('✅ Migration terminée');
+                } else {
+                    alert('❌ Erreur lors de la migration: ' + data.error);
+                    updateStatusMessage('❌ Erreur de migration');
+                }
+            })
+            .catch(error => {
+                alert('❌ Erreur lors de la migration: ' + error.message);
+                updateStatusMessage('❌ Erreur de migration');
+            });
         }
 
         // Gestion des modals
