@@ -2008,11 +2008,38 @@
             const orientation = section.orientation;
             let html = '';
             
+            // Debug: Afficher les clés disponibles pour ce serveur
+            if (serverData.disks) {
+                console.log(`Debug ${serverName} - Clés de disques disponibles:`, Object.keys(serverData.disks));
+                console.log(`Section ${sectionIndex} (${section.name}):`, section);
+            }
+            
             for (let row = 0; row < rows; row++) {
                 html += `<div class="disk-row ${orientation}">`;
                 for (let col = 0; col < cols; col++) {
+                    // Pour les templates, on va utiliser l'ancien système de mapping
+                    let diskData = null;
+                    let usedKey = '';
+                    
+                    if (serverData.disks) {
+                        // Priorité aux clés basées sur l'ancien système pour compatibilité
+                        const possibleKeys = [
+                            `front_${row}_${col}`,
+                            `back_${row}_${col}`, 
+                            `${row}_${col}`,
+                            `section${sectionIndex}_${row}_${col}`,
+                        ];
+                        
+                        for (const key of possibleKeys) {
+                            if (serverData.disks[key]) {
+                                diskData = serverData.disks[key];
+                                usedKey = key;
+                                break;
+                            }
+                        }
+                    }
+                    
                     const slotKey = `section${sectionIndex}_${row}_${col}`;
-                    const diskData = serverData.disks && serverData.disks[slotKey] ? serverData.disks[slotKey] : null;
                     
                     let diskClass = 'disk-slot empty';
                     let diskContent = '';
