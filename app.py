@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.0.0"
+VERSION = "3.0.2"
 BUILD_DATE = "2025-08-31"
 
 from flask import Flask, render_template, request, jsonify
