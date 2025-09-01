@@ -5,8 +5,8 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.0.4"
-BUILD_DATE = "2025-09-01"
+VERSION = "3.1.0"
+BUILD_DATE = "2025-01-15"
 
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
@@ -312,6 +312,7 @@ class ServerDiskMonitorWeb:
                     "ip": "192.168.1.100",
                     "username": "root",
                     "password": "",
+                    "server_type": "HPE ProLiant DL380 Gen9",
                     "front_rack": {
                         "enabled": True,
                         "rows": 2,
@@ -382,6 +383,8 @@ class ServerDiskMonitorWeb:
             try:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     config = json.load(f)
+                    # Compatibilité ascendante : ajouter server_type si manquant
+                    config = self.ensure_server_type_compatibility(config)
                     logger.info(f"Configuration chargée: {len(config.get('servers', {}))} serveur(s)")
                     return config
             except Exception as e:
@@ -392,6 +395,26 @@ class ServerDiskMonitorWeb:
             # Sauvegarder la config par défaut
             self.save_config_to_file(self.default_config)
             return self.default_config.copy()
+    
+    def ensure_server_type_compatibility(self, config):
+        """Assure la compatibilité ascendante en ajoutant server_type si manquant"""
+        if 'servers' not in config:
+            return config
+        
+        needs_save = False
+        for server_name, server_config in config['servers'].items():
+            if 'server_type' not in server_config:
+                # Valeur par défaut pour la compatibilité
+                server_config['server_type'] = "HPE ProLiant DL380 Gen9"
+                needs_save = True
+                logger.info(f"Ajouté server_type par défaut pour {server_name}")
+        
+        # Sauvegarder la config mise à jour si nécessaire
+        if needs_save:
+            self.save_config_to_file(config)
+            logger.info("Configuration mise à jour avec compatibilité server_type")
+        
+        return config
     
     def save_config(self):
         """Sauvegarde la configuration dans le fichier"""
@@ -801,6 +824,37 @@ Server Disk Monitor
             
     except Exception as e:
         logger.error(f"Erreur test notification: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/server-types', methods=['POST'])
+def update_server_types():
+    """Met à jour les types de serveurs"""
+    try:
+        data = request.get_json()
+        logger.info(f"Mise à jour types serveurs: {data}")
+        
+        if not data:
+            return jsonify({'success': False, 'error': 'Données manquantes'}), 400
+        
+        # Valider que toutes les clés correspondent à des serveurs existants
+        for server_name in data.keys():
+            if server_name not in monitor.servers_config.get('servers', {}):
+                return jsonify({'success': False, 'error': f'Serveur inconnu: {server_name}'}), 400
+        
+        # Mettre à jour les types de serveurs
+        for server_name, server_type in data.items():
+            if server_name in monitor.servers_config['servers']:
+                monitor.servers_config['servers'][server_name]['server_type'] = server_type
+                logger.info(f"Type serveur mis à jour: {server_name} -> {server_type}")
+        
+        # Sauvegarder la configuration
+        if monitor.save_config():
+            return jsonify({'success': True, 'message': f'{len(data)} type(s) de serveur(s) mis à jour'})
+        else:
+            return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
+            
+    except Exception as e:
+        logger.error(f"Erreur mise à jour types serveurs: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # WebSocket events

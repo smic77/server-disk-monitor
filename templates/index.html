@@ -360,8 +360,7 @@
             gap: 15px;
         }
 
-        .hpe-logo {
-            background: #0073e7;
+        .brand-logo {
             color: white;
             padding: 3px 8px;
             border-radius: 3px;
@@ -905,6 +904,70 @@
             color: #fff;
         }
 
+        /* Styles pour les onglets de configuration */
+        .config-tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--border-primary);
+        }
+
+        .config-tab-btn {
+            background: var(--bg-tertiary);
+            border: none;
+            padding: 12px 20px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            margin-right: 5px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .config-tab-btn:hover {
+            background: var(--bg-card-hover);
+            color: var(--text-primary);
+        }
+
+        .config-tab-btn.active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+            font-weight: 600;
+        }
+
+        .config-tab-content {
+            margin-top: 20px;
+        }
+
+        /* Styles pour la configuration des types de serveurs */
+        .server-type-config {
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+
+        .server-type-config h4 {
+            color: var(--accent-secondary);
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+
+        .server-type-select {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-primary);
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        .server-type-select:focus {
+            border-color: var(--accent-primary);
+            outline: none;
+        }
+
         .form-group {
             margin-bottom: 20px;
         }
@@ -1177,15 +1240,36 @@
             <span class="close" onclick="closeModal('configModal')">&times;</span>
             <h2>⚙️ Configuration des Serveurs</h2>
             <div id="configContent">
-                <div class="alert alert-success">
-                    <strong>Configuration via API :</strong><br>
-                    • Utilisez l'export/import pour modifier la configuration<br>
-                    • L'éditeur graphique sera disponible dans une version future<br>
-                    • Configuration actuelle : <span id="configServerCount">0</span> serveur(s)
+                <div class="config-tabs">
+                    <button class="config-tab-btn active" onclick="showConfigTab('server-types')">🖥️ Types de Serveurs</button>
+                    <button class="config-tab-btn" onclick="showConfigTab('import-export')">📁 Import/Export</button>
                 </div>
-                <div style="text-align: center; margin: 20px 0;">
-                    <button class="btn btn-primary" onclick="exportConfig()">💾 Exporter Config</button>
-                    <button class="btn btn-warning" onclick="importConfig()">📁 Importer Config</button>
+                
+                <!-- Onglet Types de Serveurs -->
+                <div id="config-server-types" class="config-tab-content">
+                    <div class="alert alert-info">
+                        <strong>📋 Types de Serveurs :</strong><br>
+                        Configurez le type/modèle de chaque serveur pour l'affichage des cartes.
+                    </div>
+                    <div id="serverTypesContainer">
+                        <!-- Les serveurs seront générés dynamiquement -->
+                    </div>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <button class="btn btn-success" onclick="saveServerTypes()">💾 Sauvegarder</button>
+                    </div>
+                </div>
+                
+                <!-- Onglet Import/Export -->
+                <div id="config-import-export" class="config-tab-content" style="display: none;">
+                    <div class="alert alert-success">
+                        <strong>Configuration via API :</strong><br>
+                        • Utilisez l'export/import pour modifier la configuration complète<br>
+                        • Configuration actuelle : <span id="configServerCount">0</span> serveur(s)
+                    </div>
+                    <div style="text-align: center; margin: 20px 0;">
+                        <button class="btn btn-primary" onclick="exportConfig()">💾 Exporter Config</button>
+                        <button class="btn btn-warning" onclick="importConfig()">📁 Importer Config</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -1551,6 +1635,65 @@
             return card;
         }
 
+        // Fonction pour extraire le branding du type de serveur
+        function getServerBranding(serverType) {
+            // Parse le type de serveur pour extraire brand et modèle
+            if (serverType.startsWith('HPE')) {
+                const model = serverType.replace('HPE ', '');
+                return {
+                    brand: 'HPE',
+                    model: model,
+                    brandColor: '#0073e7'
+                };
+            } else if (serverType.startsWith('Dell')) {
+                const model = serverType.replace('Dell ', '');
+                return {
+                    brand: 'DELL',
+                    model: model,
+                    brandColor: '#007db8'
+                };
+            } else if (serverType.startsWith('Supermicro')) {
+                return {
+                    brand: 'SMC',
+                    model: 'SuperServer',
+                    brandColor: '#00a651'
+                };
+            } else if (serverType.startsWith('Lenovo')) {
+                const model = serverType.replace('Lenovo ', '');
+                return {
+                    brand: 'LENOVO',
+                    model: model,
+                    brandColor: '#e31e24'
+                };
+            } else if (serverType.startsWith('Cisco')) {
+                const model = serverType.replace('Cisco ', '');
+                return {
+                    brand: 'CISCO',
+                    model: model,
+                    brandColor: '#1ba0d7'
+                };
+            } else if (serverType.includes('Générique Rack 1U')) {
+                return {
+                    brand: 'RACK',
+                    model: '1U Server',
+                    brandColor: '#666666'
+                };
+            } else if (serverType.includes('Générique Rack 2U')) {
+                return {
+                    brand: 'RACK',
+                    model: '2U Server',
+                    brandColor: '#666666'
+                };
+            } else {
+                // Fallback vers HPE par défaut
+                return {
+                    brand: 'SERVER',
+                    model: serverType,
+                    brandColor: '#333333'
+                };
+            }
+        }
+
         // Création du HTML des racks
         function createRacksHTML(serverName, serverConfig, serverData) {
             const hasFront = serverConfig.front_rack && serverConfig.front_rack.enabled && serverConfig.front_rack.total_slots > 0;
@@ -1563,12 +1706,14 @@
             
             // Face avant - Format serveur réaliste
             if (hasFront) {
+                const serverBranding = getServerBranding(serverConfig.server_type || 'HPE ProLiant DL380 Gen9');
+                
                 html += `
                     <div class="server-front-panel">
                         <div class="server-bezel">
                             <div class="server-branding">
-                                <span class="hpe-logo">HPE</span>
-                                <span class="server-model">ProLiant DL Gen9</span>
+                                <span class="brand-logo" style="background: ${serverBranding.brandColor};">${serverBranding.brand}</span>
+                                <span class="server-model">${serverBranding.model}</span>
                             </div>
                         </div>
                         <div class="lff-bay-grid front-bays">
@@ -2022,6 +2167,143 @@
         // Configuration
         function showConfigModal() {
             document.getElementById('configModal').style.display = 'block';
+            populateServerTypesConfig();
+        }
+
+        // Gestion des onglets de configuration
+        function showConfigTab(tabName) {
+            // Masquer tous les contenus d'onglets
+            document.querySelectorAll('.config-tab-content').forEach(content => {
+                content.style.display = 'none';
+            });
+            
+            // Désactiver tous les boutons d'onglets
+            document.querySelectorAll('.config-tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Afficher le contenu de l'onglet sélectionné
+            document.getElementById(`config-${tabName}`).style.display = 'block';
+            
+            // Activer le bouton d'onglet correspondant
+            event.target.classList.add('active');
+            
+            // Mettre à jour le compteur de serveurs si on est sur l'onglet import/export
+            if (tabName === 'import-export') {
+                updateServerCount();
+            }
+        }
+
+        // Peuplement de la configuration des types de serveurs
+        function populateServerTypesConfig() {
+            const container = document.getElementById('serverTypesContainer');
+            let html = '';
+
+            // Liste des types de serveurs disponibles
+            const serverTypes = [
+                'HPE ProLiant DL380 Gen9',
+                'HPE ProLiant DL380 Gen10',
+                'HPE ProLiant DL380 Gen11',
+                'HPE ProLiant DL360 Gen9',
+                'HPE ProLiant DL360 Gen10',
+                'HPE ProLiant DL360 Gen11',
+                'Dell PowerEdge R740',
+                'Dell PowerEdge R750',
+                'Dell PowerEdge R640',
+                'Dell PowerEdge R650',
+                'Supermicro SuperServer',
+                'Lenovo ThinkSystem SR650',
+                'Cisco UCS C220',
+                'Générique Rack 1U',
+                'Générique Rack 2U'
+            ];
+
+            for (const [serverName, serverConfig] of Object.entries(config)) {
+                const currentType = serverConfig.server_type || 'HPE ProLiant DL380 Gen9';
+                
+                html += `
+                    <div class="server-type-config">
+                        <h4>🖥️ ${serverName}</h4>
+                        <p style="color: var(--text-secondary); margin-bottom: 10px;">IP: ${serverConfig.ip}</p>
+                        <select class="server-type-select" id="serverType_${serverName}">
+                `;
+                
+                serverTypes.forEach(type => {
+                    const selected = type === currentType ? 'selected' : '';
+                    html += `<option value="${type}" ${selected}>${type}</option>`;
+                });
+                
+                html += `
+                        </select>
+                    </div>
+                `;
+            }
+
+            if (Object.keys(config).length === 0) {
+                html = '<div class="alert alert-warning">Aucun serveur configuré.</div>';
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Sauvegarde des types de serveurs
+        function saveServerTypes() {
+            const updates = {};
+            let hasChanges = false;
+
+            for (const [serverName, serverConfig] of Object.entries(config)) {
+                const selectElement = document.getElementById(`serverType_${serverName}`);
+                if (selectElement) {
+                    const newType = selectElement.value;
+                    const currentType = serverConfig.server_type || 'HPE ProLiant DL380 Gen9';
+                    
+                    if (newType !== currentType) {
+                        updates[serverName] = newType;
+                        hasChanges = true;
+                    }
+                }
+            }
+
+            if (!hasChanges) {
+                updateStatusMessage('ℹ️ Aucun changement à sauvegarder', 'info');
+                return;
+            }
+
+            // Envoyer les modifications au serveur
+            fetch('/api/server-types', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updates)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateStatusMessage('✅ Types de serveurs sauvegardés');
+                    
+                    // Mettre à jour la configuration locale
+                    for (const [serverName, newType] of Object.entries(updates)) {
+                        if (config[serverName]) {
+                            config[serverName].server_type = newType;
+                        }
+                    }
+                    
+                    // Rafraîchir l'affichage des serveurs
+                    refreshData();
+                    
+                    // Fermer la modal après un délai
+                    setTimeout(() => {
+                        closeModal('configModal');
+                    }, 1500);
+                } else {
+                    updateStatusMessage(`❌ Erreur: ${data.error}`, 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                updateStatusMessage('❌ Erreur de communication', 'error');
+            });
         }
 
         // Mots de passe
