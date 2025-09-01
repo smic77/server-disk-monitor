@@ -3198,29 +3198,33 @@
             modal.style.display = 'block';
         }
 
-        // Export de configuration
+        // Export de configuration complète (nouveau format unifié)
         function exportConfig() {
-            fetch('/api/config')
+            fetch('/api/export/complete')
                 .then(response => response.json())
                 .then(data => {
+                    // Créer un nom de fichier avec timestamp pour éviter les conflits
+                    const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
+                    const filename = `server-disk-monitor-${timestamp}.json`;
+                    
                     const configStr = JSON.stringify(data, null, 2);
                     const blob = new Blob([configStr], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `server-disk-monitor-config-${new Date().toISOString().split('T')[0]}.json`;
+                    a.download = filename;
                     a.click();
                     
                     URL.revokeObjectURL(url);
-                    updateStatusMessage('💾 Configuration exportée');
+                    updateStatusMessage('💾 Configuration complète exportée (' + filename + ')');
                 })
                 .catch(error => {
                     alert('Erreur lors de l\'export: ' + error.message);
                 });
         }
 
-        // Import de configuration
+        // Import de configuration complète (nouveau format unifié)
         function importConfig() {
             const input = document.createElement('input');
             input.type = 'file';
@@ -3233,28 +3237,54 @@
                         try {
                             const importedConfig = JSON.parse(e.target.result);
                             
-                            fetch('/api/config', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(importedConfig)
-                            })
-                            .then(response => response.json())
-                            .then(data => {
-                                if (data.success) {
-                                    alert('Configuration importée avec succès');
-                                    refreshData();
-                                } else {
-                                    throw new Error(data.error);
-                                }
-                            })
-                            .catch(error => {
-                                alert('Erreur lors de l\'import: ' + error.message);
-                            });
+                            // Vérifier si c'est le nouveau format unifié
+                            if (importedConfig.server_disk_monitor_config) {
+                                // Nouveau format unifié
+                                fetch('/api/import/complete', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify(importedConfig)
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        alert('Configuration complète importée avec succès\n\n' + data.message);
+                                        refreshData();
+                                        loadTemplates(); // Recharger les templates aussi
+                                    } else {
+                                        throw new Error(data.error);
+                                    }
+                                })
+                                .catch(error => {
+                                    alert('Erreur lors de l\'import: ' + error.message);
+                                });
+                            } else {
+                                // Ancien format (rétro-compatibilité)
+                                fetch('/api/config', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify(importedConfig)
+                                })
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.success) {
+                                        alert('Configuration importée avec succès (ancien format)');
+                                        refreshData();
+                                    } else {
+                                        throw new Error(data.error);
+                                    }
+                                })
+                                .catch(error => {
+                                    alert('Erreur lors de l\'import: ' + error.message);
+                                });
+                            }
                             
                         } catch (error) {
-                            alert('Erreur lors de l\'import: fichier JSON invalide');
+                            alert('Erreur lors de l\'import: fichier JSON invalide\n' + error.message);
                         }
                     };
                     reader.readAsText(file);

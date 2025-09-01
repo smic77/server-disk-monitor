@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.2.3"
+VERSION = "3.3.0"
 BUILD_DATE = "2025-09-01"
 
 from flask import Flask, render_template, request, jsonify
@@ -1013,6 +1013,113 @@ def save_server_templates():
             
     except Exception as e:
         logger.error(f"Erreur sauvegarde templates: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/export/complete', methods=['GET'])
+def export_complete_config():
+    """Export complet de toute la configuration dans un format unifié"""
+    try:
+        # Configuration serveurs (masquer les mots de passe)
+        servers_config = monitor.get_safe_config()
+        
+        # Templates de serveurs
+        server_templates = monitor.load_server_templates()
+        
+        # Configuration notifications (masquer le token)
+        notifications_config = monitor.notification_manager.telegram_config.copy()
+        if notifications_config.get('bot_token'):
+            notifications_config['bot_token'] = '***'
+        
+        # Format unifié simple et lisible
+        complete_config = {
+            "server_disk_monitor_config": {
+                "version": "2025.01.01",
+                "export_date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "description": "Configuration complète Server Disk Monitor"
+            },
+            "global_settings": {
+                "refresh_interval": monitor.refresh_interval
+            },
+            "servers": servers_config,
+            "server_templates": server_templates,
+            "notifications": {
+                "telegram": notifications_config
+            }
+        }
+        
+        return jsonify(complete_config)
+    except Exception as e:
+        logger.error(f"Erreur export complet: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/import/complete', methods=['POST'])
+def import_complete_config():
+    """Import complet depuis un format unifié"""
+    try:
+        data = request.get_json()
+        
+        # Vérification du format
+        if 'server_disk_monitor_config' not in data:
+            return jsonify({'success': False, 'error': 'Format d\'import invalide'}), 400
+        
+        success_messages = []
+        
+        # Import des paramètres globaux
+        if 'global_settings' in data:
+            monitor.refresh_interval = data['global_settings'].get('refresh_interval', 30)
+            success_messages.append("Paramètres globaux")
+        
+        # Import des serveurs
+        if 'servers' in data:
+            # Préserver les mots de passe existants pour les serveurs déjà configurés
+            for server_name, new_config in data['servers'].items():
+                if server_name in monitor.servers_config.get('servers', {}):
+                    old_password = monitor.servers_config['servers'][server_name].get('password', '')
+                    if old_password and not new_config.get('password'):
+                        new_config['password'] = old_password
+            
+            # Mise à jour de la configuration serveurs
+            monitor.servers_config['servers'] = data['servers']
+            monitor.servers_config['refresh_interval'] = monitor.refresh_interval
+            
+            # Sauvegarde
+            if monitor.save_config():
+                success_messages.append(f"{len(data['servers'])} serveur(s)")
+        
+        # Import des templates
+        if 'server_templates' in data:
+            templates_file = os.path.join(monitor.data_dir, 'server_templates.json')
+            with open(templates_file, 'w', encoding='utf-8') as f:
+                json.dump(data['server_templates'], f, indent=2, ensure_ascii=False)
+            success_messages.append(f"{len(data['server_templates'])} template(s)")
+        
+        # Import des notifications
+        if 'notifications' in data and 'telegram' in data['notifications']:
+            telegram_config = data['notifications']['telegram']
+            
+            # Gérer le token masqué
+            if telegram_config.get('bot_token') == '***':
+                # Garder le token existant
+                telegram_config['bot_token'] = monitor.notification_manager.telegram_config.get('bot_token', '')
+            elif telegram_config.get('bot_token'):
+                # Chiffrer le nouveau token
+                encrypted_token = monitor.cipher.encrypt(telegram_config['bot_token'].encode()).decode()
+                telegram_config['bot_token'] = encrypted_token
+            
+            # Mise à jour de la configuration
+            monitor.notification_manager.telegram_config.update(telegram_config)
+            if monitor.notification_manager.save_notification_config():
+                success_messages.append("Notifications")
+        
+        # Rafraîchissement pour appliquer les changements
+        threading.Thread(target=monitor.update_all_disk_status, daemon=True).start()
+        
+        message = f"Configuration importée: {', '.join(success_messages)}"
+        logger.info(message)
+        return jsonify({'success': True, 'message': message})
+        
+    except Exception as e:
+        logger.error(f"Erreur import complet: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # WebSocket events
