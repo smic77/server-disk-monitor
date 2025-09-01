@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.1.3"
+VERSION = "3.1.4"
 BUILD_DATE = "2025-09-01"
 
 from flask import Flask, render_template, request, jsonify
@@ -312,7 +312,7 @@ class ServerDiskMonitorWeb:
                     "ip": "192.168.1.100",
                     "username": "root",
                     "password": "",
-                    "server_type": "HPE ProLiant DL380 Gen9",
+                    "server_type": "Custom",
                     "front_rack": {
                         "enabled": True,
                         "rows": 2,
@@ -405,7 +405,7 @@ class ServerDiskMonitorWeb:
         for server_name, server_config in config['servers'].items():
             if 'server_type' not in server_config:
                 # Valeur par défaut pour la compatibilité
-                server_config['server_type'] = "HPE ProLiant DL380 Gen9"
+                server_config['server_type'] = "Custom"
                 needs_save = True
                 logger.info(f"Ajouté server_type par défaut pour {server_name}")
         

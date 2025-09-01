@@ -1409,19 +1409,9 @@
                 <div class="form-group">
                     <label for="serverTypeSelect">🖥️ Type de serveur :</label>
                     <select id="serverTypeSelect" class="server-type-select">
+                        <option value="Custom">Custom</option>
                         <option value="HPE ProLiant DL380 Gen9">HPE ProLiant DL380 Gen9</option>
-                        <option value="HPE ProLiant DL380 Gen10">HPE ProLiant DL380 Gen10</option>
-                        <option value="HPE ProLiant DL380 Gen11">HPE ProLiant DL380 Gen11</option>
                         <option value="HPE ProLiant DL360 Gen9">HPE ProLiant DL360 Gen9</option>
-                        <option value="HPE ProLiant DL360 Gen10">HPE ProLiant DL360 Gen10</option>
-                        <option value="HPE ProLiant DL360 Gen11">HPE ProLiant DL360 Gen11</option>
-                        <option value="Dell PowerEdge R740">Dell PowerEdge R740</option>
-                        <option value="Dell PowerEdge R750">Dell PowerEdge R750</option>
-                        <option value="Dell PowerEdge R640">Dell PowerEdge R640</option>
-                        <option value="Dell PowerEdge R650">Dell PowerEdge R650</option>
-                        <option value="Supermicro SuperServer">Supermicro SuperServer</option>
-                        <option value="Lenovo ThinkSystem SR650">Lenovo ThinkSystem SR650</option>
-                        <option value="Cisco UCS C220">Cisco UCS C220</option>
                         <option value="Générique Rack 1U">Générique Rack 1U</option>
                         <option value="Générique Rack 2U">Générique Rack 2U</option>
                     </select>
@@ -1433,8 +1423,8 @@
                 <div id="serverTypeBrandingPreview" class="server-type-config" style="text-align: center; margin: 15px 0;">
                     <h4 style="margin-bottom: 10px;">Aperçu du branding :</h4>
                     <div class="server-branding">
-                        <span class="brand-logo" id="previewBrandLogo" style="background: #0073e7;">HPE</span>
-                        <span class="server-model" id="previewServerModel">ProLiant DL380 Gen9</span>
+                        <span class="brand-logo" id="previewBrandLogo" style="background: #6c757d;">CUSTOM</span>
+                        <span class="server-model" id="previewServerModel">Server</span>
                     </div>
                 </div>
             </div>
@@ -1776,39 +1766,18 @@
         // Fonction pour extraire le branding du type de serveur
         function getServerBranding(serverType) {
             // Parse le type de serveur pour extraire brand et modèle
-            if (serverType.startsWith('HPE')) {
+            if (serverType === 'Custom') {
+                return {
+                    brand: 'CUSTOM',
+                    model: 'Server',
+                    brandColor: '#6c757d'
+                };
+            } else if (serverType.startsWith('HPE')) {
                 const model = serverType.replace('HPE ', '');
                 return {
                     brand: 'HPE',
                     model: model,
                     brandColor: '#0073e7'
-                };
-            } else if (serverType.startsWith('Dell')) {
-                const model = serverType.replace('Dell ', '');
-                return {
-                    brand: 'DELL',
-                    model: model,
-                    brandColor: '#007db8'
-                };
-            } else if (serverType.startsWith('Supermicro')) {
-                return {
-                    brand: 'SMC',
-                    model: 'SuperServer',
-                    brandColor: '#00a651'
-                };
-            } else if (serverType.startsWith('Lenovo')) {
-                const model = serverType.replace('Lenovo ', '');
-                return {
-                    brand: 'LENOVO',
-                    model: model,
-                    brandColor: '#e31e24'
-                };
-            } else if (serverType.startsWith('Cisco')) {
-                const model = serverType.replace('Cisco ', '');
-                return {
-                    brand: 'CISCO',
-                    model: model,
-                    brandColor: '#1ba0d7'
                 };
             } else if (serverType.includes('Générique Rack 1U')) {
                 return {
@@ -1823,11 +1792,11 @@
                     brandColor: '#666666'
                 };
             } else {
-                // Fallback vers HPE par défaut
+                // Fallback vers Custom par défaut
                 return {
-                    brand: 'SERVER',
-                    model: serverType,
-                    brandColor: '#333333'
+                    brand: 'CUSTOM',
+                    model: 'Server',
+                    brandColor: '#6c757d'
                 };
             }
         }
@@ -1844,7 +1813,7 @@
             
             // Face avant - Format serveur réaliste
             if (hasFront) {
-                const serverBranding = getServerBranding(serverConfig.server_type || 'HPE ProLiant DL380 Gen9');
+                const serverBranding = getServerBranding(serverConfig.server_type || 'Custom');
                 
                 html += `
                     <div class="server-front-panel">
@@ -2503,7 +2472,7 @@
             title.appendChild(serverInfo);
             
             // Sélectionner le type actuel
-            const currentType = serverConfig.server_type || 'HPE ProLiant DL380 Gen9';
+            const currentType = serverConfig.server_type || 'Custom';
             select.value = currentType;
             
             // Mettre à jour l'aperçu
