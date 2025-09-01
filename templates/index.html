@@ -317,64 +317,307 @@
             flex-wrap: wrap;
         }
 
-        /* HP ProLiant Gen9 Server Chassis - Authentique */
-        .server-chassis.hp-proliant {
-            background: linear-gradient(145deg, #2c2c2c 0%, #1a1a1a 50%, #0f0f0f 100%);
-            border: 2px solid #333;
-            border-radius: 4px;
-            box-shadow: 
-                0 4px 20px rgba(0, 0, 0, 0.4),
-                inset 0 1px 0 rgba(255, 255, 255, 0.1),
-                inset 0 -2px 0 rgba(0, 0, 0, 0.6);
-            position: relative;
+        /* HP ProLiant Gen9 2U Server - AUTHENTIQUE */
+        .hp-server-2u {
+            display: flex;
+            flex-direction: column;
+            background: linear-gradient(145deg, #2a2a2a 0%, #1a1a1a 100%);
+            border: 2px solid #444;
+            border-radius: 6px;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
             overflow: hidden;
-            padding: 0;
-            margin-bottom: 25px;
-            min-height: 100px;
-        }
-        
-        /* HPE Power LED - Bleu authentique */
-        .server-chassis.hp-proliant::before {
-            content: '';
-            position: absolute;
-            top: 10px;
-            left: 15px;
-            width: 8px;
-            height: 8px;
-            background: #0073e7;
-            border-radius: 50%;
-            box-shadow: 0 0 8px rgba(0, 115, 231, 0.8);
-            animation: hpePowerLed 3s infinite;
-        }
-        
-        /* HPE Branding */
-        .server-chassis.hp-proliant::after {
-            content: 'HPE';
-            position: absolute;
-            top: 8px;
-            right: 15px;
-            color: #0073e7;
-            font-size: 0.8em;
-            font-weight: bold;
-            font-family: 'Arial', sans-serif;
-            letter-spacing: 2px;
-        }
-        
-        /* Grilles de ventilation subtiles */
-        .server-chassis.hp-proliant {
-            background-image: 
-                repeating-linear-gradient(
-                    90deg,
-                    transparent 0px,
-                    transparent 8px,
-                    rgba(255, 255, 255, 0.02) 9px,
-                    rgba(255, 255, 255, 0.02) 10px
-                );
         }
 
-        @keyframes hpePowerLed {
+        /* Face avant du serveur */
+        .server-front-panel {
+            background: linear-gradient(135deg, #333 0%, #1a1a1a 100%);
+            padding: 15px;
+            border-bottom: 1px solid #555;
+        }
+
+        /* Bezel avec branding HP */
+        .server-bezel {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 8px 15px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 4px;
+        }
+
+        .server-branding {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .hpe-logo {
+            background: #0073e7;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: bold;
+            font-size: 0.9em;
+            letter-spacing: 1px;
+        }
+
+        .server-model {
+            color: #ccc;
+            font-size: 0.75em;
+            font-weight: 500;
+        }
+
+        /* LEDs d'état serveur */
+        .server-status-leds {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .led {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            border: 1px solid #666;
+        }
+
+        .power-led {
+            background: #00aa00;
+            box-shadow: 0 0 6px rgba(0, 170, 0, 0.6);
+            animation: powerPulse 2s infinite;
+        }
+
+        .health-led {
+            background: #00aa00;
+            box-shadow: 0 0 6px rgba(0, 170, 0, 0.6);
+        }
+
+        .uid-led {
+            background: #333;
+            border-color: #666;
+        }
+
+        @keyframes powerPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+
+        /* Grille des baies LFF - Face avant */
+        .lff-bay-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .lff-row {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-start;
+        }
+
+        /* Slot LFF HP authentique */
+        .hp-lff-slot {
+            width: 120px;
+            height: 35px;
+            background: linear-gradient(145deg, #e0e0e0 0%, #c0c0c0 50%, #a0a0a0 100%);
+            border: 2px solid #888;
+            border-radius: 4px;
+            position: relative;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 2px 4px;
+        }
+
+        .hp-lff-slot:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Numéro de slot (comme dans le schéma HP) */
+        .slot-number {
+            position: absolute;
+            top: 2px;
+            left: 4px;
+            font-size: 0.65em;
+            font-weight: bold;
+            color: #333;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 0px 3px;
+            border-radius: 2px;
+        }
+
+        /* Poignée HP authentique */
+        .disk-handle {
+            position: absolute;
+            right: -2px;
+            top: 4px;
+            bottom: 4px;
+            width: 8px;
+            background: linear-gradient(180deg, #555 0%, #333 50%, #111 100%);
+            border-radius: 0 3px 3px 0;
+            border: 1px solid #666;
+        }
+
+        /* LED d'état HP */
+        .disk-led {
+            position: absolute;
+            top: 4px;
+            right: 15px;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #666;
+        }
+
+        /* États des slots */
+        .hp-lff-slot.has-disk.mounted .disk-led {
+            background: #00aa00;
+            box-shadow: 0 0 6px rgba(0, 170, 0, 0.8);
+            animation: diskActivity 2s infinite;
+        }
+
+        .hp-lff-slot.has-disk.unmounted .disk-led {
+            background: #ff8800;
+            box-shadow: 0 0 6px rgba(255, 136, 0, 0.8);
+            animation: diskWarning 1s infinite;
+        }
+
+        .hp-lff-slot.has-disk.error .disk-led,
+        .hp-lff-slot.has-disk.offline .disk-led {
+            background: #cc0000;
+            box-shadow: 0 0 6px rgba(204, 0, 0, 0.8);
+            animation: diskError 0.5s infinite;
+        }
+
+        .hp-lff-slot.empty-slot {
+            background: linear-gradient(145deg, #f5f5f5 0%, #d5d5d5 100%);
+            border-color: #aaa;
+        }
+
+        /* Info disque */
+        .disk-info {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-left: 20px;
+            overflow: hidden;
+        }
+
+        .disk-label {
+            font-size: 0.6em;
+            font-weight: 500;
+            color: #333;
+            max-width: 70px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .disk-capacity {
+            font-size: 0.55em;
+            color: #666;
+            max-width: 70px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        @keyframes diskActivity {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
+        }
+
+        @keyframes diskWarning {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+
+        @keyframes diskError {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
+        }
+
+        /* Face arrière du serveur */
+        .server-rear-panel {
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-top: 1px solid #555;
+        }
+
+        .rear-lff-bays {
+            display: flex;
+            gap: 10px;
+        }
+
+        .rear-lff-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        /* Connecteurs arrière HP */
+        .rear-connectors {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-left: 20px;
+        }
+
+        .network-ports,
+        .mgmt-ports,
+        .power-supplies {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .port,
+        .psu {
+            background: #444;
+            border: 1px solid #666;
+            border-radius: 3px;
+            padding: 2px 6px;
+            font-size: 0.6em;
+            color: #ccc;
+            font-weight: 500;
+        }
+
+        .ethernet-port {
+            background: #2d5a2d;
+            border-color: #4a8f4a;
+            color: #88cc88;
+        }
+
+        .ilo-port {
+            background: #2d4a5a;
+            border-color: #4a7f8f;
+            color: #88ccdd;
+        }
+
+        .usb-port {
+            background: #5a4a2d;
+            border-color: #8f7f4a;
+            color: #ddcc88;
+        }
+
+        .vga-port {
+            background: #5a2d4a;
+            border-color: #8f4a7f;
+            color: #dd88cc;
+        }
+
+        .psu {
+            background: #333;
+            border-color: #666;
+            color: #aaa;
+            padding: 4px 8px;
         }
 
         .rack {
@@ -1402,37 +1645,54 @@
             
             if (!hasFront && !hasBack) return '';
             
-            let html = '<div class="server-chassis hp-proliant">';
+            // Structure serveur 2U authentique HP
+            let html = '<div class="hp-server-2u">';
             
-            // Face avant
+            // Face avant - Format serveur réaliste
             if (hasFront) {
                 html += `
-                    <div class="rack front-rack">
-                        <div class="rack-header">
-                            <div class="rack-title">
-                                <span class="hp-logo">HP</span>
-                                <span>Face Avant (${serverConfig.front_rack.rows}×${serverConfig.front_rack.cols})</span>
+                    <div class="server-front-panel">
+                        <div class="server-bezel">
+                            <div class="server-branding">
+                                <span class="hpe-logo">HPE</span>
+                                <span class="server-model">ProLiant DL Gen9</span>
+                            </div>
+                            <div class="server-status-leds">
+                                <div class="led power-led"></div>
+                                <div class="led health-led"></div>
+                                <div class="led uid-led"></div>
                             </div>
                         </div>
-                        <div class="rack-face">
-                            ${createDiskGrid(serverName, 'front', serverConfig.front_rack, serverData)}
+                        <div class="lff-bay-grid front-bays">
+                            ${createHPDiskGrid(serverName, 'front', serverConfig.front_rack, serverData, 'front')}
                         </div>
                     </div>
                 `;
             }
             
-            // Face arrière
+            // Face arrière - Avec connecteurs authentiques
             if (hasBack) {
                 html += `
-                    <div class="rack back-rack">
-                        <div class="rack-header">
-                            <div class="rack-title">
-                                <span class="hp-logo">HP</span>
-                                <span>Face Arrière (${serverConfig.back_rack.rows}×${serverConfig.back_rack.cols})</span>
-                            </div>
+                    <div class="server-rear-panel">
+                        <div class="rear-lff-bays">
+                            ${createHPDiskGrid(serverName, 'back', serverConfig.back_rack, serverData, 'rear')}
                         </div>
-                        <div class="rack-face">
-                            ${createDiskGrid(serverName, 'back', serverConfig.back_rack, serverData)}
+                        <div class="rear-connectors">
+                            <div class="network-ports">
+                                <div class="port ethernet-port">LAN1</div>
+                                <div class="port ethernet-port">LAN2</div>
+                                <div class="port ethernet-port">LAN3</div>
+                                <div class="port ethernet-port">LAN4</div>
+                            </div>
+                            <div class="mgmt-ports">
+                                <div class="port ilo-port">iLO</div>
+                                <div class="port usb-port">USB</div>
+                                <div class="port vga-port">VGA</div>
+                            </div>
+                            <div class="power-supplies">
+                                <div class="psu psu-1">PSU 1</div>
+                                <div class="psu psu-2">PSU 2</div>
+                            </div>
                         </div>
                     </div>
                 `;
@@ -1442,7 +1702,40 @@
             return html;
         }
 
-        // Création de la grille de disques
+        // Création de la grille HP authentique
+        function createHPDiskGrid(serverName, face, rackConfig, serverData, location) {
+            const rows = rackConfig.rows;
+            const cols = rackConfig.cols;
+            let html = '';
+            
+            if (location === 'front') {
+                // 12 slots LFF en 3 rangées de 4 (comme le schéma HP)
+                for (let row = 0; row < rows; row++) {
+                    html += '<div class="lff-row">';
+                    for (let col = 0; col < cols; col++) {
+                        const slotNumber = (row * cols) + col + 1;
+                        const position = `${face}_${row}_${col}`;
+                        const diskData = serverData.disks && serverData.disks[position];
+                        html += createHPDiskSlot(serverName, position, diskData, serverData.online, slotNumber);
+                    }
+                    html += '</div>';
+                }
+            } else {
+                // Face arrière - 3 slots (25, 26, 27)
+                html += '<div class="rear-lff-row">';
+                for (let col = 0; col < rackConfig.cols; col++) {
+                    const slotNumber = 25 + col;
+                    const position = `${face}_0_${col}`;
+                    const diskData = serverData.disks && serverData.disks[position];
+                    html += createHPDiskSlot(serverName, position, diskData, serverData.online, slotNumber);
+                }
+                html += '</div>';
+            }
+            
+            return html;
+        }
+
+        // Création de la grille de disques (ancienne fonction conservée pour compatibilité)
         function createDiskGrid(serverName, face, rackConfig, serverData) {
             const rows = rackConfig.rows;
             const cols = rackConfig.cols;
@@ -1463,6 +1756,50 @@
         }
 
         // Création d'un slot de disque avec gestion intelligente des labels
+        // Nouveau slot HP authentique avec numérotation
+        function createHPDiskSlot(serverName, position, diskData, serverOnline, slotNumber) {
+            const hasData = !!diskData;
+            let statusClass = hasData ? 'has-disk' : 'empty-slot';
+            let statusIndicator = hasData ? '●' : '○';
+            let statusText = hasData ? 'Disque présent' : 'Slot vide';
+            
+            if (!serverOnline && hasData) {
+                statusClass += ' offline';
+                statusText = 'Serveur hors ligne';
+            } else if (hasData) {
+                if (diskData.mounted) {
+                    statusClass += ' mounted';
+                    statusIndicator = '●';
+                    statusText = 'Monté et actif';
+                } else if (diskData.exists) {
+                    statusClass += ' unmounted';
+                    statusIndicator = '⚠';
+                    statusText = 'Non monté';
+                } else {
+                    statusClass += ' error';
+                    statusIndicator = '✕';
+                    statusText = 'Erreur disque';
+                }
+            }
+            
+            const label = hasData ? (diskData.label || 'Disque') : '';
+            const capacity = hasData ? (diskData.capacity || '') : '';
+            
+            return `
+                <div class="hp-lff-slot ${statusClass}" 
+                     onclick="showDiskDetails('${serverName}', '${position}')"
+                     title="${statusText}${hasData ? ' - ' + label : ''}">
+                    <div class="slot-number">${slotNumber}</div>
+                    <div class="disk-handle"></div>
+                    <div class="disk-led"></div>
+                    <div class="disk-info">
+                        <div class="disk-label">${label}</div>
+                        <div class="disk-capacity">${capacity}</div>
+                    </div>
+                </div>
+            `;
+        }
+
         function createDiskSlot(serverName, position, diskData, serverOnline) {
             if (!diskData) {
                 return `
