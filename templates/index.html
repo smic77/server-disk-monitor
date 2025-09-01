@@ -53,11 +53,18 @@
             box-sizing: border-box;
         }
 
+        html {
+            overflow-y: auto;
+            height: auto;
+        }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
             background: var(--bg-primary);
             color: var(--text-primary);
             min-height: 100vh;
+            height: auto;
+            overflow-y: auto;
             transition: background-color 0.3s ease, color 0.3s ease;
         }
 
