@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.3.1"
+VERSION = "3.3.2"
 BUILD_DATE = "2025-09-01"
 
 from flask import Flask, render_template, request, jsonify
@@ -714,22 +714,59 @@ class ServerDiskMonitorWeb:
     def get_clean_config_for_export(self):
         """Retourne la configuration nettoyée pour l'export (sans données obsolètes)"""
         clean_config = {}
+        export_warnings = []
+        
+        # Charger les templates pour validation
+        templates = self.load_server_templates()
+        
         for server_name, config in self.servers_config.get('servers', {}).items():
             clean_server = {}
             
-            # Garder seulement les données nécessaires
-            essential_fields = ['ip', 'username', 'disk_mappings', 'server_template']
-            
-            for field in essential_fields:
+            # Données de base
+            for field in ['ip', 'username', 'server_template']:
                 if field in config:
                     clean_server[field] = config[field]
             
             # Masquer le mot de passe mais l'inclure pour indiquer qu'il existe
             clean_server['password'] = '***' if config.get('password') else ''
             
-            clean_config[server_name] = clean_server
+            # Nettoyer les disk_mappings selon le template actuel
+            template_name = config.get('server_template', 'Custom')
+            template = templates.get(template_name, templates.get('Custom', {}))
             
-        return clean_config
+            if 'disk_mappings' in config and template:
+                clean_disk_mappings = {}
+                valid_section_names = []
+                
+                # Extraire les noms de sections valides du template
+                for section in template.get('sections', []):
+                    section_key = section['name'].lower().replace(' ', '-')
+                    valid_section_names.append(section_key)
+                
+                # Filtrer les disk_mappings pour ne garder que celles avec des sections valides
+                obsolete_count = 0
+                for position_key, disk_info in config['disk_mappings'].items():
+                    # Vérifier si la clé correspond à une section valide du template
+                    section_prefix = position_key.split('_')[0] if '_' in position_key else position_key
+                    
+                    if section_prefix in valid_section_names:
+                        clean_disk_mappings[position_key] = disk_info
+                    else:
+                        obsolete_count += 1
+                
+                clean_server['disk_mappings'] = clean_disk_mappings
+                
+                # Ajouter un avertissement si des disques ont été omis
+                if obsolete_count > 0:
+                    export_warnings.append(f"Serveur {server_name}: {obsolete_count} disque(s) avec clés obsolètes omis de l'export")
+            
+            clean_config[server_name] = clean_server
+        
+        # Log des avertissements
+        for warning in export_warnings:
+            logger.warning(f"Export: {warning}")
+        
+        return clean_config, export_warnings
     
     def start_monitoring(self):
         """Démarre la surveillance automatique"""
@@ -1028,7 +1065,7 @@ def export_complete_config():
     """Export complet de toute la configuration dans un format unifié"""
     try:
         # Configuration serveurs (nettoyée, sans données obsolètes)
-        servers_config = monitor.get_clean_config_for_export()
+        servers_config, export_warnings = monitor.get_clean_config_for_export()
         
         # Templates de serveurs
         server_templates = monitor.load_server_templates()
@@ -1054,6 +1091,10 @@ def export_complete_config():
                 "telegram": notifications_config
             }
         }
+        
+        # Ajouter les avertissements d'export s'il y en a
+        if export_warnings:
+            complete_config["server_disk_monitor_config"]["export_warnings"] = export_warnings
         
         return jsonify(complete_config)
     except Exception as e:
@@ -1128,6 +1169,57 @@ def import_complete_config():
         
     except Exception as e:
         logger.error(f"Erreur import complet: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/migration/check', methods=['GET'])
+def check_migration_needed():
+    """Vérifie si des serveurs ont des disk_mappings avec des clés obsolètes"""
+    try:
+        templates = monitor.load_server_templates()
+        migration_info = {}
+        
+        for server_name, config in monitor.servers_config.get('servers', {}).items():
+            template_name = config.get('server_template', 'Custom')
+            template = templates.get(template_name, templates.get('Custom', {}))
+            
+            if 'disk_mappings' in config and template:
+                valid_section_names = []
+                for section in template.get('sections', []):
+                    section_key = section['name'].lower().replace(' ', '-')
+                    valid_section_names.append(section_key)
+                
+                obsolete_disks = []
+                valid_disks = []
+                
+                for position_key, disk_info in config['disk_mappings'].items():
+                    section_prefix = position_key.split('_')[0] if '_' in position_key else position_key
+                    
+                    disk_summary = {
+                        'position_key': position_key,
+                        'label': disk_info.get('label', 'Sans nom'),
+                        'device': disk_info.get('device', 'N/A')
+                    }
+                    
+                    if section_prefix in valid_section_names:
+                        valid_disks.append(disk_summary)
+                    else:
+                        obsolete_disks.append(disk_summary)
+                
+                if obsolete_disks:
+                    migration_info[server_name] = {
+                        'template': template_name,
+                        'valid_sections': valid_section_names,
+                        'obsolete_disks': obsolete_disks,
+                        'valid_disks': valid_disks
+                    }
+        
+        return jsonify({
+            'success': True,
+            'migration_needed': len(migration_info) > 0,
+            'affected_servers': migration_info
+        })
+    except Exception as e:
+        logger.error(f"Erreur vérification migration: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 # WebSocket events
