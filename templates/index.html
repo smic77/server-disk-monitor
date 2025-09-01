@@ -369,40 +369,6 @@
             font-weight: 500;
         }
 
-        /* LEDs d'état serveur */
-        .server-status-leds {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-
-        .led {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            border: 1px solid #666;
-        }
-
-        .power-led {
-            background: #00aa00;
-            box-shadow: 0 0 6px rgba(0, 170, 0, 0.6);
-            animation: powerPulse 2s infinite;
-        }
-
-        .health-led {
-            background: #00aa00;
-            box-shadow: 0 0 6px rgba(0, 170, 0, 0.6);
-        }
-
-        .uid-led {
-            background: #333;
-            border-color: #666;
-        }
-
-        @keyframes powerPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.6; }
-        }
 
         /* Grille des baies LFF - Face avant */
         .lff-bay-grid {
@@ -546,9 +512,6 @@
         .server-rear-panel {
             background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
             padding: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             border-top: 1px solid #555;
         }
 
@@ -562,63 +525,6 @@
             gap: 10px;
         }
 
-        /* Connecteurs arrière HP */
-        .rear-connectors {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-left: 20px;
-        }
-
-        .network-ports,
-        .mgmt-ports,
-        .power-supplies {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-        }
-
-        .port,
-        .psu {
-            background: #444;
-            border: 1px solid #666;
-            border-radius: 3px;
-            padding: 2px 6px;
-            font-size: 0.6em;
-            color: #ccc;
-            font-weight: 500;
-        }
-
-        .ethernet-port {
-            background: #2d5a2d;
-            border-color: #4a8f4a;
-            color: #88cc88;
-        }
-
-        .ilo-port {
-            background: #2d4a5a;
-            border-color: #4a7f8f;
-            color: #88ccdd;
-        }
-
-        .usb-port {
-            background: #5a4a2d;
-            border-color: #8f7f4a;
-            color: #ddcc88;
-        }
-
-        .vga-port {
-            background: #5a2d4a;
-            border-color: #8f4a7f;
-            color: #dd88cc;
-        }
-
-        .psu {
-            background: #333;
-            border-color: #666;
-            color: #aaa;
-            padding: 4px 8px;
-        }
 
         .rack {
             flex: 1;
@@ -1657,11 +1563,6 @@
                                 <span class="hpe-logo">HPE</span>
                                 <span class="server-model">ProLiant DL Gen9</span>
                             </div>
-                            <div class="server-status-leds">
-                                <div class="led power-led"></div>
-                                <div class="led health-led"></div>
-                                <div class="led uid-led"></div>
-                            </div>
                         </div>
                         <div class="lff-bay-grid front-bays">
                             ${createHPDiskGrid(serverName, 'front', serverConfig.front_rack, serverData, 'front')}
@@ -1676,23 +1577,6 @@
                     <div class="server-rear-panel">
                         <div class="rear-lff-bays">
                             ${createHPDiskGrid(serverName, 'back', serverConfig.back_rack, serverData, 'rear')}
-                        </div>
-                        <div class="rear-connectors">
-                            <div class="network-ports">
-                                <div class="port ethernet-port">LAN1</div>
-                                <div class="port ethernet-port">LAN2</div>
-                                <div class="port ethernet-port">LAN3</div>
-                                <div class="port ethernet-port">LAN4</div>
-                            </div>
-                            <div class="mgmt-ports">
-                                <div class="port ilo-port">iLO</div>
-                                <div class="port usb-port">USB</div>
-                                <div class="port vga-port">VGA</div>
-                            </div>
-                            <div class="power-supplies">
-                                <div class="psu psu-1">PSU 1</div>
-                                <div class="psu psu-2">PSU 2</div>
-                            </div>
                         </div>
                     </div>
                 `;
