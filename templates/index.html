@@ -1429,21 +1429,69 @@
             <span class="close" onclick="closeModal('configModal')">&times;</span>
             <h2>⚙️ Configuration des Serveurs</h2>
             <div id="configContent">
-                <div class="alert alert-success">
-                    <strong>Configuration des Serveurs :</strong><br>
-                    • Utilisez l'export/import pour modifier la configuration complète<br>
-                    • Les types de serveurs se configurent individuellement via l'icône 🏷️ sur chaque carte<br>
+                <div class="alert alert-info">
+                    <strong>Gestion des Serveurs :</strong><br>
+                    • Ajoutez, modifiez et supprimez vos serveurs<br>
                     • Configuration actuelle : <span id="configServerCount">0</span> serveur(s)
                 </div>
-                <div style="text-align: center; margin: 20px 0;">
-                    <button class="btn btn-primary" onclick="exportConfig()">💾 Exporter Config</button>
-                    <button class="btn btn-warning" onclick="importConfig()">📁 Importer Config</button>
+                
+                <!-- Gestion des serveurs -->
+                <div style="margin: 20px 0;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h3>📋 Liste des Serveurs</h3>
+                        <button class="btn btn-success" onclick="showAddServerForm()">➕ Ajouter un Serveur</button>
+                    </div>
+                    
+                    <div id="serversList">
+                        <!-- Liste des serveurs générée dynamiquement -->
+                    </div>
+                    
+                    <!-- Formulaire d'ajout/modification de serveur -->
+                    <div id="serverForm" style="display: none; background: #1a1a1a; padding: 15px; border-radius: 5px; margin-top: 15px;">
+                        <h4 id="serverFormTitle">➕ Nouveau Serveur</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                            <div class="form-group">
+                                <label>🏷️ Nom du serveur :</label>
+                                <input type="text" id="serverName" placeholder="ex: MON-SERVEUR-01" class="server-type-select" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>🌐 Adresse IP :</label>
+                                <input type="text" id="serverIP" placeholder="192.168.1.100" class="server-type-select" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>👤 Nom d'utilisateur :</label>
+                                <input type="text" id="serverUsername" placeholder="root" class="server-type-select" style="width: 100%;">
+                            </div>
+                            <div class="form-group">
+                                <label>🔐 Mot de passe SSH :</label>
+                                <input type="password" id="serverPassword" placeholder="Mot de passe SSH (optionnel)" class="server-type-select" style="width: 100%;">
+                            </div>
+                        </div>
+                        <div class="form-group" style="text-align: center; margin-top: 15px;">
+                            <button class="btn btn-success" onclick="saveServer()">💾 Sauvegarder</button>
+                            <button class="btn" onclick="cancelServerForm()">❌ Annuler</button>
+                        </div>
+                        <div id="serverFormStatus" style="margin-top: 10px; text-align: center;"></div>
+                    </div>
                 </div>
-                <div style="text-align: center; margin: 20px 0; border-top: 1px solid #ddd; padding-top: 20px;">
-                    <h4>🔄 Migration des Données</h4>
-                    <p style="font-size: 14px; color: #666;">Migrer les anciennes clés disk_mappings (front_X_Y, back_X_Y) vers le nouveau format de sections</p>
-                    <button class="btn" style="background: #17a2b8; color: white;" onclick="checkMigrationNeeded()">🔍 Vérifier Migration</button>
-                    <button class="btn" style="background: #28a745; color: white;" onclick="migrateDiskMappings()">🚀 Migrer Maintenant</button>
+                
+                <!-- Section Export/Import -->
+                <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
+                    <h3>📦 Export / Import</h3>
+                    <div style="text-align: center; margin: 15px 0;">
+                        <button class="btn btn-primary" onclick="exportConfig()">💾 Exporter Config</button>
+                        <button class="btn btn-warning" onclick="importConfig()">📁 Importer Config</button>
+                    </div>
+                </div>
+                
+                <!-- Section Migration -->
+                <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
+                    <h3>🔄 Migration des Données</h3>
+                    <p style="font-size: 14px; color: #666; text-align: center;">Migrer les anciennes clés disk_mappings vers le nouveau format</p>
+                    <div style="text-align: center;">
+                        <button class="btn" style="background: #17a2b8; color: white;" onclick="checkMigrationNeeded()">🔍 Vérifier Migration</button>
+                        <button class="btn" style="background: #28a745; color: white;" onclick="migrateDiskMappings()">🚀 Migrer Maintenant</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2551,14 +2599,218 @@
         // Configuration
         function showConfigModal() {
             document.getElementById('configModal').style.display = 'block';
-            updateConfigServerCount();
+            populateServersList();
+            updateServerCount();
         }
         
-        function updateConfigServerCount() {
-            const count = Object.keys(config).length;
-            document.getElementById('configServerCount').textContent = count;
+        // Variables pour la gestion des serveurs
+        let currentEditingServer = null;
+        let isEditMode = false;
+        
+        function populateServersList() {
+            const serversList = document.getElementById('serversList');
+            if (!serversList) return;
+            
+            serversList.innerHTML = '';
+            
+            if (!config || Object.keys(config).length === 0) {
+                serversList.innerHTML = '<p style="color: #ccc; text-align: center; padding: 20px;">Aucun serveur configuré.</p>';
+                return;
+            }
+            
+            for (const [serverName, serverConfig] of Object.entries(config)) {
+                const serverItem = createServerListItem(serverName, serverConfig);
+                serversList.appendChild(serverItem);
+            }
+        }
+        
+        function createServerListItem(serverName, serverConfig) {
+            const div = document.createElement('div');
+            div.className = 'server-list-item';
+            div.style.cssText = 'border: 1px solid #333; padding: 10px; margin-bottom: 8px; border-radius: 5px; background: #0d1117; display: flex; justify-content: space-between; align-items: center;';
+            
+            const hasPassword = serverConfig.password ? '🔒 Avec mot de passe' : '🔓 Sans mot de passe';
+            const diskCount = Object.keys(serverConfig.disk_mappings || {}).length;
+            
+            div.innerHTML = `
+                <div>
+                    <strong style="color: #58a6ff;">🖥️ ${serverName}</strong>
+                    <div style="font-size: 0.9em; color: #8b949e; margin-top: 5px;">
+                        🌐 ${serverConfig.ip} | 👤 ${serverConfig.username} | ${hasPassword} | 💾 ${diskCount} disque(s)
+                    </div>
+                </div>
+                <div>
+                    <button class="btn-mini" onclick="editServer('${serverName}')" style="background: #0969da; color: white; margin-right: 5px;" title="Modifier ce serveur">
+                        ✏️
+                    </button>
+                    <button class="btn-mini" onclick="deleteServer('${serverName}')" style="background: #f85149; color: white;" title="Supprimer ce serveur">
+                        🗑️
+                    </button>
+                </div>
+            `;
+            
+            return div;
+        }
+        
+        function updateServerCount() {
+            const count = Object.keys(config || {}).length;
+            const element = document.getElementById('configServerCount');
+            if (element) {
+                element.textContent = count;
+            }
         }
 
+        function showAddServerForm() {
+            isEditMode = false;
+            currentEditingServer = null;
+            document.getElementById('serverFormTitle').textContent = '➕ Nouveau Serveur';
+            document.getElementById('serverName').value = '';
+            document.getElementById('serverIP').value = '';
+            document.getElementById('serverUsername').value = 'root';
+            document.getElementById('serverPassword').value = '';
+            document.getElementById('serverForm').style.display = 'block';
+            document.getElementById('serverFormStatus').textContent = '';
+        }
+        
+        function editServer(serverName) {
+            isEditMode = true;
+            currentEditingServer = serverName;
+            const serverConfig = config[serverName];
+            
+            document.getElementById('serverFormTitle').textContent = `✏️ Modifier ${serverName}`;
+            document.getElementById('serverName').value = serverName;
+            document.getElementById('serverIP').value = serverConfig.ip || '';
+            document.getElementById('serverUsername').value = serverConfig.username || 'root';
+            document.getElementById('serverPassword').value = ''; // Laisser vide pour sécurité
+            document.getElementById('serverForm').style.display = 'block';
+            document.getElementById('serverFormStatus').textContent = '';
+        }
+        
+        function cancelServerForm() {
+            document.getElementById('serverForm').style.display = 'none';
+            isEditMode = false;
+            currentEditingServer = null;
+        }
+        
+        async function saveServer() {
+            const name = document.getElementById('serverName').value.trim();
+            const ip = document.getElementById('serverIP').value.trim();
+            const username = document.getElementById('serverUsername').value.trim();
+            const password = document.getElementById('serverPassword').value;
+            const statusDiv = document.getElementById('serverFormStatus');
+            
+            // Validation
+            if (!name || !ip || !username) {
+                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Veuillez remplir tous les champs obligatoires</span>';
+                return;
+            }
+            
+            // Vérifier si le nom existe déjà (sauf en mode édition)
+            if (!isEditMode && config[name]) {
+                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Un serveur avec ce nom existe déjà</span>';
+                return;
+            }
+            
+            statusDiv.innerHTML = '<span style="color: orange;">💾 Sauvegarde en cours...</span>';
+            
+            try {
+                // Créer ou mettre à jour le serveur
+                const serverConfig = {
+                    ip: ip,
+                    username: username,
+                    disk_mappings: isEditMode && config[currentEditingServer] ? config[currentEditingServer].disk_mappings || {} : {}
+                };
+                
+                // Si modification et changement de nom, supprimer l'ancien
+                if (isEditMode && currentEditingServer && currentEditingServer !== name) {
+                    delete config[currentEditingServer];
+                }
+                
+                config[name] = serverConfig;
+                
+                // Sauvegarder la configuration
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        servers: config
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    // Sauvegarder le mot de passe séparément si fourni
+                    if (password) {
+                        const pwResponse = await fetch(`/api/server/${name}/password`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                password: password
+                            })
+                        });
+                        
+                        const pwResult = await pwResponse.json();
+                        if (!pwResult.success) {
+                            statusDiv.innerHTML = '<span style="color: #f85149;">❌ Erreur sauvegarde mot de passe</span>';
+                            return;
+                        }
+                    }
+                    
+                    statusDiv.innerHTML = '<span style="color: #2ea043;">✅ Serveur sauvegardé avec succès !</span>';
+                    
+                    // Rafraîchir l'affichage
+                    setTimeout(() => {
+                        populateServersList();
+                        updateServerCount();
+                        refreshData();
+                        cancelServerForm();
+                    }, 1500);
+                } else {
+                    statusDiv.innerHTML = `<span style="color: #f85149;">❌ Erreur: ${result.error}</span>`;
+                }
+                
+            } catch (error) {
+                console.error('Erreur sauvegarde serveur:', error);
+                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Erreur de communication</span>';
+            }
+        }
+        
+        function deleteServer(serverName) {
+            if (confirm(`Supprimer le serveur "${serverName}" ?\n\nCette action supprimera également toute sa configuration de disques.\n\nCette action est irréversible.`)) {
+                // Supprimer de la configuration locale
+                delete config[serverName];
+                
+                // Sauvegarder
+                fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        servers: config
+                    })
+                }).then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        populateServersList();
+                        updateServerCount();
+                        refreshData();
+                        updateStatusMessage(`✅ Serveur "${serverName}" supprimé avec succès`);
+                    } else {
+                        updateStatusMessage(`❌ Erreur suppression: ${result.error}`, 'error');
+                    }
+                }).catch(error => {
+                    console.error('Erreur suppression serveur:', error);
+                    updateStatusMessage('❌ Erreur de communication', 'error');
+                });
+            }
+        }
+        
         // Mots de passe
         function showPasswordModal() {
             const modal = document.getElementById('passwordModal');
