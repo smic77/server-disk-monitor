@@ -1405,7 +1405,8 @@
 
     <div class="controls">
         <button class="icon-btn primary tooltip" data-tooltip="Actualiser les données en temps réel" onclick="refreshData()">🔄</button>
-        <button class="icon-btn success tooltip" data-tooltip="Configurer les serveurs et paramètres" onclick="showConfigModal()">⚙️</button>
+        <button class="icon-btn warning tooltip" data-tooltip="Gérer les serveurs (ajouter/modifier/supprimer)" onclick="showServerManagementModal()">🖥️</button>
+        <button class="icon-btn success tooltip" data-tooltip="Configuration générale et export/import" onclick="showConfigModal()">⚙️</button>
         <button class="icon-btn info tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">📢</button>
         <button class="icon-btn tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">💾</button>
         <button class="icon-btn warning tooltip" data-tooltip="Importer une configuration depuis un fichier JSON" onclick="importConfig()">📁</button>
@@ -1424,15 +1425,16 @@
     </div>
 
     <!-- Modal Configuration -->
-    <div id="configModal" class="modal">
+    <!-- Modal Gestion des Serveurs -->
+    <div id="serverManagementModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('configModal')">&times;</span>
-            <h2>⚙️ Configuration des Serveurs</h2>
-            <div id="configContent">
+            <span class="close" onclick="closeModal('serverManagementModal')">&times;</span>
+            <h2>🖥️ Gestion des Serveurs</h2>
+            <div id="serverManagementContent">
                 <div class="alert alert-info">
                     <strong>Gestion des Serveurs :</strong><br>
                     • Ajoutez, modifiez et supprimez vos serveurs<br>
-                    • Configuration actuelle : <span id="configServerCount">0</span> serveur(s)
+                    • Configuration actuelle : <span id="serverManagementCount">0</span> serveur(s)
                 </div>
                 
                 <!-- Gestion des serveurs -->
@@ -1442,7 +1444,7 @@
                         <button class="btn btn-success" onclick="showAddServerForm()">➕ Ajouter un Serveur</button>
                     </div>
                     
-                    <div id="serversList">
+                    <div id="serversManagementList">
                         <!-- Liste des serveurs générée dynamiquement -->
                     </div>
                     
@@ -1474,9 +1476,25 @@
                         <div id="serverFormStatus" style="margin-top: 10px; text-align: center;"></div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Configuration Générale -->
+    <div id="configModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('configModal')">&times;</span>
+            <h2>⚙️ Configuration Générale</h2>
+            <div id="configContent">
+                <div class="alert alert-info">
+                    <strong>Configuration et Outils :</strong><br>
+                    • Export/import de la configuration complète<br>
+                    • Migration des données legacy<br>
+                    • Utilisez le bouton 🖥️ "Gestion des Serveurs" pour ajouter/modifier les serveurs
+                </div>
                 
                 <!-- Section Export/Import -->
-                <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
+                <div style="margin: 20px 0;">
                     <h3>📦 Export / Import</h3>
                     <div style="text-align: center; margin: 15px 0;">
                         <button class="btn btn-primary" onclick="exportConfig()">💾 Exporter Config</button>
@@ -1876,13 +1894,19 @@
         // Mise à jour des serveurs
         function updateServers() {
             const container = document.getElementById('serversContainer');
+            if (!container) return;
+            
             container.innerHTML = '';
+            
+            console.log('updateServers called, serversData:', serversData);
+            console.log('config:', config);
 
-            if (Object.keys(serversData).length === 0) {
+            if (!serversData || Object.keys(serversData).length === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; color: #666; padding: 50px;">
                         <h3>Aucun serveur configuré</h3>
-                        <p>Utilisez le bouton "⚙️ Configuration" pour ajouter des serveurs</p>
+                        <p>Utilisez le bouton "🖥️ Gestion des Serveurs" pour ajouter des serveurs</p>
+                        <p><small>Si vous avez des serveurs configurés, attendez le chargement des données...</small></p>
                     </div>
                 `;
                 return;
@@ -2595,20 +2619,48 @@
             updateMonitoringStatus(true);
             socket.emit('request_refresh');
         }
+        
+        // Chargement initial des données
+        function loadInitialData() {
+            console.log('Loading initial data...');
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'OK') {
+                        serversData = data.servers || {};
+                        statsData = data.stats || {};
+                        config = data.config || {};
+                        console.log('Initial data loaded:', {serversData, config});
+                        updateDisplay();
+                        updateLastUpdateTime();
+                        updateStatusMessage('✅ Données initiales chargées');
+                    } else {
+                        console.error('Error in initial data:', data);
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur chargement initial:', error);
+                    updateStatusMessage('❌ Erreur lors du chargement initial', 'error');
+                });
+        }
 
         // Configuration
         function showConfigModal() {
             document.getElementById('configModal').style.display = 'block';
-            populateServersList();
-            updateServerCount();
+        }
+        
+        function showServerManagementModal() {
+            document.getElementById('serverManagementModal').style.display = 'block';
+            populateServersManagementList();
+            updateServerManagementCount();
         }
         
         // Variables pour la gestion des serveurs
         let currentEditingServer = null;
         let isEditMode = false;
         
-        function populateServersList() {
-            const serversList = document.getElementById('serversList');
+        function populateServersManagementList() {
+            const serversList = document.getElementById('serversManagementList');
             if (!serversList) return;
             
             serversList.innerHTML = '';
@@ -2652,9 +2704,9 @@
             return div;
         }
         
-        function updateServerCount() {
+        function updateServerManagementCount() {
             const count = Object.keys(config || {}).length;
-            const element = document.getElementById('configServerCount');
+            const element = document.getElementById('serverManagementCount');
             if (element) {
                 element.textContent = count;
             }
@@ -2765,8 +2817,8 @@
                     
                     // Rafraîchir l'affichage
                     setTimeout(() => {
-                        populateServersList();
-                        updateServerCount();
+                        populateServersManagementList();
+                        updateServerManagementCount();
                         refreshData();
                         cancelServerForm();
                     }, 1500);
@@ -2797,8 +2849,8 @@
                 }).then(response => response.json())
                 .then(result => {
                     if (result.success) {
-                        populateServersList();
-                        updateServerCount();
+                        populateServersManagementList();
+                        updateServerManagementCount();
                         refreshData();
                         updateStatusMessage(`✅ Serveur "${serverName}" supprimé avec succès`);
                     } else {
@@ -3614,7 +3666,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'serverPasswordModal', 'diskConfigModal', 'diskModal', 'statsModal', 'notificationModal'];
+            const modals = ['configModal', 'serverManagementModal', 'serverPasswordModal', 'diskConfigModal', 'diskModal', 'statsModal', 'notificationModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
