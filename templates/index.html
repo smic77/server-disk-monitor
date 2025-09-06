@@ -1915,44 +1915,82 @@
             console.log('updateServers called, serversData:', serversData);
             console.log('config:', config);
 
-            // Si pas de données de statut, mais qu'on a de la config, créer des serveurs avec statut offline
-            if ((!serversData || Object.keys(serversData).length === 0) && config && Object.keys(config).length > 0) {
-                console.log('Création des cartes serveurs à partir de la config uniquement');
-                for (const [serverName, serverConfig] of Object.entries(config)) {
-                    // Créer une donnée de serveur factice avec statut offline
-                    const fakeServerData = {
-                        name: serverName,
-                        online: false,
-                        ip: serverConfig.ip,
-                        username: serverConfig.username,
-                        disks: {}
-                    };
-                    const serverCard = createServerCard(serverName, fakeServerData);
-                    container.appendChild(serverCard);
-                }
-                return;
+            // Créer un ensemble de tous les serveurs (config + données de statut)
+            const allServers = new Set();
+            
+            // Ajouter tous les serveurs de la config
+            if (config && Object.keys(config).length > 0) {
+                Object.keys(config).forEach(serverName => allServers.add(serverName));
             }
             
-            if (!serversData || Object.keys(serversData).length === 0) {
+            // Ajouter tous les serveurs des données de statut
+            if (serversData && Object.keys(serversData).length > 0) {
+                Object.keys(serversData).forEach(serverName => allServers.add(serverName));
+            }
+            
+            // Si aucun serveur trouvé nulle part
+            if (allServers.size === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; color: #666; padding: 50px;">
                         <h3>Aucun serveur configuré</h3>
                         <p>Utilisez le bouton "🖥️ Gestion des Serveurs" pour ajouter des serveurs</p>
-                        <p><small>Si vous avez des serveurs configurés, attendez le chargement des données...</small></p>
                     </div>
                 `;
                 return;
             }
 
-            for (const [serverName, serverData] of Object.entries(serversData)) {
-                const serverCard = createServerCard(serverName, serverData);
-                container.appendChild(serverCard);
-            }
+            // Créer des cartes pour TOUS les serveurs trouvés
+            console.log(`Création de ${allServers.size} cartes serveurs`);
+            allServers.forEach(serverName => {
+                const serverData = serversData[serverName] || null;
+                const serverConfig = config[serverName] || null;
+                
+                if (!serverConfig) {
+                    console.warn(`Serveur ${serverName} trouvé dans serversData mais pas dans config, ignoré`);
+                    return;
+                }
+                
+                // Créer les données de serveur (réelles ou factices)
+                const finalServerData = serverData || {
+                    name: serverName,
+                    online: false,
+                    ip: serverConfig.ip,
+                    username: serverConfig.username,
+                    disks: {}
+                };
+                
+                try {
+                    const serverCard = createServerCard(serverName, finalServerData);
+                    if (serverCard) {
+                        container.appendChild(serverCard);
+                    }
+                } catch (error) {
+                    console.error(`Erreur lors de la création de la carte pour ${serverName}:`, error);
+                    // Créer une carte d'erreur au lieu de crasher
+                    const errorCard = document.createElement('div');
+                    errorCard.className = 'server-card';
+                    errorCard.style.cssText = 'border: 2px solid #f85149; background: #1a1a1a;';
+                    errorCard.innerHTML = `
+                        <div style="padding: 20px; text-align: center; color: #f85149;">
+                            <h3>🖥️ ${serverName}</h3>
+                            <p>⚠️ Erreur d'affichage</p>
+                            <p><small>Vérifiez la configuration</small></p>
+                            <button class="btn-mini" onclick="showServerEditModal('${serverName}')" style="background: #0969da; color: white; margin: 5px;">
+                                ✏️ Modifier
+                            </button>
+                            <button class="btn-mini" onclick="showDiskConfigModal('${serverName}')" style="background: #0969da; color: white; margin: 5px;">
+                                💾 Configurer
+                            </button>
+                        </div>
+                    `;
+                    container.appendChild(errorCard);
+                }
+            });
             
             // Optimisation des labels après le rendu
             setTimeout(() => {
                 optimizeDiskLabels();
-                console.log('🎯 Optimisation des labels terminée');
+                console.log(`🎯 Optimisation des labels terminée pour ${allServers.size} serveurs`);
             }, 100);
         }
 
@@ -2057,47 +2095,72 @@
 
         // Création du HTML des racks basé sur les templates
         function createRacksHTML(serverName, serverConfig, serverData) {
-            const serverType = serverConfig.server_type || 'Custom';
-            const template = serverTemplates && serverTemplates[serverType] ? serverTemplates[serverType] : null;
+            // Nouveau système simplifié basé uniquement sur disk_mappings
+            const diskMappings = serverConfig.disk_mappings || {};
             
-            if (!template || !template.sections || template.sections.length === 0) {
-                // Fallback vers l'ancien système si pas de template
-                return createLegacyRacksHTML(serverName, serverConfig, serverData);
+            if (Object.keys(diskMappings).length === 0) {
+                return `
+                    <div style="text-align: center; padding: 20px; color: #666; border: 1px dashed #333; border-radius: 5px; margin: 10px 0;">
+                        <p>🔧 Aucun disque configuré</p>
+                        <p><small>Cliquez sur le bouton "💾" pour configurer les disques</small></p>
+                    </div>
+                `;
             }
             
-            const serverBranding = getServerBranding(serverType);
+            let html = '<div class="disk-mappings-container">';
             
-            // Structure du serveur basée sur le template
-            let html = '<div class="template-server">';
+            // Organiser les disques par position pour un affichage plus propre
+            const sortedPositions = Object.keys(diskMappings).sort();
             
-            // En-tête avec branding
-            html += `
-                <div class="server-front-panel">
-                    <div class="server-bezel">
-                        <div class="server-branding">
-                            <span class="brand-logo" style="background: ${serverBranding.brandColor};">${serverBranding.brand}</span>
-                            <span class="server-model">${serverBranding.model}</span>
-                        </div>
-                    </div>
-                </div>
-            `;
+            // Créer une grille simple des disques
+            html += '<div class="simple-disk-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; padding: 15px;">';
             
-            // Générer chaque section du template
-            template.sections.forEach((section, index) => {
+            sortedPositions.forEach(position => {
+                const diskConfig = diskMappings[position];
+                const diskStatus = serverData.disks ? serverData.disks[position] : null;
+                
+                let diskClass = 'disk-slot empty';
+                let diskContent = '◯';
+                let diskTitle = `Position: ${position}`;
+                
+                if (diskConfig) {
+                    if (diskStatus && diskStatus.mounted) {
+                        diskClass = 'disk-slot mounted';
+                        diskContent = '●';
+                        diskTitle = `${diskConfig.label || diskConfig.device || 'Disque'} - Monté`;
+                    } else if (diskStatus && diskStatus.exists) {
+                        diskClass = 'disk-slot exists';
+                        diskContent = '◐';
+                        diskTitle = `${diskConfig.label || diskConfig.device || 'Disque'} - Détecté mais non monté`;
+                    } else {
+                        diskClass = 'disk-slot configured';
+                        diskContent = '○';
+                        diskTitle = `${diskConfig.label || diskConfig.device || 'Disque'} - Configuré`;
+                    }
+                }
+                
                 html += `
-                    <div class="server-section" data-section-name="${section.name}">
-                        <div class="section-header">
-                            <span class="section-name">${section.name}</span>
-                            <span class="section-info">${section.rows}×${section.cols} (${section.orientation})</span>
-                        </div>
-                        <div class="section-grid ${section.orientation}">
-                            ${createTemplateDiskGrid(serverName, section, serverData, index)}
+                    <div class="${diskClass}" title="${diskTitle}" style="
+                        aspect-ratio: 1;
+                        border: 2px solid #333;
+                        border-radius: 4px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-size: 20px;
+                        cursor: pointer;
+                        background: #1a1a1a;
+                        position: relative;
+                    ">
+                        <span style="font-size: 16px;">${diskContent}</span>
+                        <div style="position: absolute; bottom: 2px; left: 2px; font-size: 8px; color: #666;">
+                            ${position}
                         </div>
                     </div>
                 `;
             });
             
-            html += '</div>';
+            html += '</div></div>';
             return html;
         }
         
