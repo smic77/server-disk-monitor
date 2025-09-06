@@ -1539,7 +1539,7 @@
                     <div class="form-group">
                         <label>🏷️ Nom du serveur :</label>
                         <input type="text" id="serverEditName" class="server-type-select" style="width: 100%;" readonly>
-                        <small style="color: #666; font-size: 0.8em;">Le nom ne peut pas être modifié</small>
+                        <small id="serverEditNameHelp" style="color: #666; font-size: 0.8em;">Le nom ne peut pas être modifié</small>
                     </div>
                     <div class="form-group">
                         <label>🌐 Adresse IP :</label>
@@ -3115,11 +3115,16 @@
             currentEditingServerName = serverName;
             const modal = document.getElementById('serverEditModal');
             const title = document.getElementById('serverEditTitle');
+            const nameField = document.getElementById('serverEditName');
+            const nameHelp = document.getElementById('serverEditNameHelp');
             
             if (serverName === null || serverName === undefined) {
                 // Mode ajout de nouveau serveur
                 title.textContent = '➕ Nouveau Serveur';
-                document.getElementById('serverEditName').value = '';
+                nameField.value = '';
+                nameField.readOnly = false; // Permettre la saisie du nom
+                nameField.placeholder = 'ex: MON-SERVEUR-01';
+                nameHelp.textContent = 'Choisissez un nom unique pour ce serveur';
                 document.getElementById('serverEditIP').value = '';
                 document.getElementById('serverEditUsername').value = 'root';
                 document.getElementById('serverEditPassword').value = '';
@@ -3133,7 +3138,10 @@
                 }
                 
                 title.textContent = `✏️ Modifier ${serverName}`;
-                document.getElementById('serverEditName').value = serverName;
+                nameField.value = serverName;
+                nameField.readOnly = true; // Empêcher la modification du nom existant
+                nameField.placeholder = '';
+                nameHelp.textContent = 'Le nom ne peut pas être modifié';
                 document.getElementById('serverEditIP').value = serverConfig.ip || '';
                 document.getElementById('serverEditUsername').value = serverConfig.username || 'root';
                 document.getElementById('serverEditPassword').value = ''; // Toujours vide pour sécurité
