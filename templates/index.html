@@ -1551,6 +1551,47 @@
     </div>
 
     <!-- Modal Type de serveur individuel -->
+    <!-- Modal Édition Serveur Indépendant -->
+    <div id="serverEditModal" class="modal">
+        <div class="modal-content" style="max-width: 600px;">
+            <span class="close" onclick="closeModal('serverEditModal')">&times;</span>
+            <h2 id="serverEditTitle">✏️ Modifier le Serveur</h2>
+            <div id="serverEditContent">
+                <div class="alert alert-info">
+                    <strong>ℹ️ Configuration du serveur :</strong><br>
+                    Modifiez les paramètres de connexion de ce serveur.
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0;">
+                    <div class="form-group">
+                        <label>🏷️ Nom du serveur :</label>
+                        <input type="text" id="serverEditName" class="server-type-select" style="width: 100%;" readonly>
+                        <small style="color: #666; font-size: 0.8em;">Le nom ne peut pas être modifié</small>
+                    </div>
+                    <div class="form-group">
+                        <label>🌐 Adresse IP :</label>
+                        <input type="text" id="serverEditIP" placeholder="192.168.1.100" class="server-type-select" style="width: 100%;">
+                    </div>
+                    <div class="form-group">
+                        <label>👤 Nom d'utilisateur :</label>
+                        <input type="text" id="serverEditUsername" placeholder="root" class="server-type-select" style="width: 100%;">
+                    </div>
+                    <div class="form-group">
+                        <label>🔐 Mot de passe SSH :</label>
+                        <input type="password" id="serverEditPassword" placeholder="Nouveau mot de passe (optionnel)" class="server-type-select" style="width: 100%;">
+                        <small style="color: #666; font-size: 0.8em;">Laissez vide pour conserver l'actuel</small>
+                    </div>
+                </div>
+
+                <div id="serverEditStatus" style="margin: 15px 0; text-align: center;"></div>
+            </div>
+            <div class="modal-actions" style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-success" onclick="saveServerEdit()">💾 Sauvegarder</button>
+                <button class="btn" onclick="closeModal('serverEditModal')">❌ Annuler</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Configuration Disques Serveur -->
     <div id="diskConfigModal" class="modal">
         <div class="modal-content">
@@ -1901,6 +1942,24 @@
             console.log('updateServers called, serversData:', serversData);
             console.log('config:', config);
 
+            // Si pas de données de statut, mais qu'on a de la config, créer des serveurs avec statut offline
+            if ((!serversData || Object.keys(serversData).length === 0) && config && Object.keys(config).length > 0) {
+                console.log('Création des cartes serveurs à partir de la config uniquement');
+                for (const [serverName, serverConfig] of Object.entries(config)) {
+                    // Créer une donnée de serveur factice avec statut offline
+                    const fakeServerData = {
+                        name: serverName,
+                        online: false,
+                        ip: serverConfig.ip,
+                        username: serverConfig.username,
+                        disks: {}
+                    };
+                    const serverCard = createServerCard(serverName, fakeServerData);
+                    container.appendChild(serverCard);
+                }
+                return;
+            }
+            
             if (!serversData || Object.keys(serversData).length === 0) {
                 container.innerHTML = `
                     <div style="text-align: center; color: #666; padding: 50px;">
@@ -1953,6 +2012,9 @@
                         </div>
                     </div>
                     <div class="server-actions">
+                        <button class="btn-mini btn-server-edit" onclick="showServerEditModal('${serverName}')" title="Modifier ce serveur" style="background: #0969da; color: white; margin-right: 5px;">
+                            ✏️
+                        </button>
                         <button class="btn-mini btn-disk-config" onclick="showDiskConfigModal('${serverName}')" title="Configurer les disques du serveur">
                             💾
                         </button>
@@ -3170,6 +3232,106 @@
         }
         }
 
+        // Modal d'édition serveur indépendant
+        let currentEditingServerName = null;
+        
+        function showServerEditModal(serverName) {
+            currentEditingServerName = serverName;
+            const modal = document.getElementById('serverEditModal');
+            const title = document.getElementById('serverEditTitle');
+            const serverConfig = config[serverName];
+            
+            if (!serverConfig) {
+                alert('Erreur: Configuration du serveur non trouvée');
+                return;
+            }
+            
+            title.textContent = `✏️ Modifier ${serverName}`;
+            document.getElementById('serverEditName').value = serverName;
+            document.getElementById('serverEditIP').value = serverConfig.ip || '';
+            document.getElementById('serverEditUsername').value = serverConfig.username || 'root';
+            document.getElementById('serverEditPassword').value = ''; // Toujours vide pour sécurité
+            document.getElementById('serverEditStatus').innerHTML = '';
+            
+            modal.style.display = 'block';
+        }
+        
+        async function saveServerEdit() {
+            if (!currentEditingServerName) {
+                alert('Erreur: Nom du serveur manquant');
+                return;
+            }
+            
+            const ip = document.getElementById('serverEditIP').value.trim();
+            const username = document.getElementById('serverEditUsername').value.trim();
+            const password = document.getElementById('serverEditPassword').value;
+            const statusDiv = document.getElementById('serverEditStatus');
+            
+            // Validation
+            if (!ip || !username) {
+                statusDiv.innerHTML = '<span style="color: #f85149;">❌ IP et nom d\'utilisateur requis</span>';
+                return;
+            }
+            
+            statusDiv.innerHTML = '<span style="color: orange;">💾 Sauvegarde en cours...</span>';
+            
+            try {
+                // Mettre à jour la configuration locale
+                config[currentEditingServerName].ip = ip;
+                config[currentEditingServerName].username = username;
+                
+                // Sauvegarder la configuration générale
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        servers: config
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (!result.success) {
+                    statusDiv.innerHTML = `<span style="color: #f85149;">❌ Erreur: ${result.error}</span>`;
+                    return;
+                }
+                
+                // Sauvegarder le mot de passe séparément si fourni
+                if (password) {
+                    const pwResponse = await fetch(`/api/server/${currentEditingServerName}/password`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            password: password
+                        })
+                    });
+                    
+                    const pwResult = await pwResponse.json();
+                    if (!pwResult.success) {
+                        statusDiv.innerHTML = '<span style="color: #f85149;">❌ Erreur sauvegarde mot de passe</span>';
+                        return;
+                    }
+                }
+                
+                statusDiv.innerHTML = '<span style="color: #2ea043;">✅ Serveur mis à jour avec succès !</span>';
+                
+                // Rafraîchir l'affichage et fermer le modal
+                setTimeout(() => {
+                    refreshData();
+                    closeModal('serverEditModal');
+                    updateStatusMessage(`✅ Serveur "${currentEditingServerName}" mis à jour`);
+                }, 1500);
+                
+            } catch (error) {
+                console.error('Erreur sauvegarde serveur:', error);
+                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Erreur de communication</span>';
+            }
+        }
+        
         // Templates de serveurs supprimés - Utilisation de configuration libre par serveur
 
         async function loadServerTemplates() {
@@ -3666,7 +3828,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'serverManagementModal', 'serverPasswordModal', 'diskConfigModal', 'diskModal', 'statsModal', 'notificationModal'];
+            const modals = ['configModal', 'serverManagementModal', 'serverPasswordModal', 'serverEditModal', 'diskConfigModal', 'diskModal', 'statsModal', 'notificationModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
