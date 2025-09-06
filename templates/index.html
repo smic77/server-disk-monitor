@@ -3106,46 +3106,67 @@
             currentEditingServerName = serverName;
             const modal = document.getElementById('serverEditModal');
             const title = document.getElementById('serverEditTitle');
-            const serverConfig = config[serverName];
             
-            if (!serverConfig) {
-                alert('Erreur: Configuration du serveur non trouvée');
-                return;
+            if (serverName === null || serverName === undefined) {
+                // Mode ajout de nouveau serveur
+                title.textContent = '➕ Nouveau Serveur';
+                document.getElementById('serverEditName').value = '';
+                document.getElementById('serverEditIP').value = '';
+                document.getElementById('serverEditUsername').value = 'root';
+                document.getElementById('serverEditPassword').value = '';
+            } else {
+                // Mode édition serveur existant
+                const serverConfig = config[serverName];
+                
+                if (!serverConfig) {
+                    alert('Erreur: Configuration du serveur non trouvée');
+                    return;
+                }
+                
+                title.textContent = `✏️ Modifier ${serverName}`;
+                document.getElementById('serverEditName').value = serverName;
+                document.getElementById('serverEditIP').value = serverConfig.ip || '';
+                document.getElementById('serverEditUsername').value = serverConfig.username || 'root';
+                document.getElementById('serverEditPassword').value = ''; // Toujours vide pour sécurité
             }
             
-            title.textContent = `✏️ Modifier ${serverName}`;
-            document.getElementById('serverEditName').value = serverName;
-            document.getElementById('serverEditIP').value = serverConfig.ip || '';
-            document.getElementById('serverEditUsername').value = serverConfig.username || 'root';
-            document.getElementById('serverEditPassword').value = ''; // Toujours vide pour sécurité
             document.getElementById('serverEditStatus').innerHTML = '';
-            
             modal.style.display = 'block';
         }
         
         async function saveServerEdit() {
-            if (!currentEditingServerName) {
-                alert('Erreur: Nom du serveur manquant');
-                return;
-            }
-            
+            const serverName = document.getElementById('serverEditName').value.trim();
             const ip = document.getElementById('serverEditIP').value.trim();
             const username = document.getElementById('serverEditUsername').value.trim();
             const password = document.getElementById('serverEditPassword').value;
             const statusDiv = document.getElementById('serverEditStatus');
             
             // Validation
-            if (!ip || !username) {
-                statusDiv.innerHTML = '<span style="color: #f85149;">❌ IP et nom d\'utilisateur requis</span>';
+            if (!serverName || !ip || !username) {
+                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Tous les champs sont requis</span>';
+                return;
+            }
+            
+            // Vérifier si le nom existe déjà (sauf en mode édition)
+            if (currentEditingServerName === null && config[serverName]) {
+                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Un serveur avec ce nom existe déjà</span>';
                 return;
             }
             
             statusDiv.innerHTML = '<span style="color: orange;">💾 Sauvegarde en cours...</span>';
             
             try {
-                // Mettre à jour la configuration locale
-                config[currentEditingServerName].ip = ip;
-                config[currentEditingServerName].username = username;
+                // Si modification avec changement de nom, supprimer l'ancien
+                if (currentEditingServerName && currentEditingServerName !== serverName) {
+                    delete config[currentEditingServerName];
+                }
+                
+                // Créer ou mettre à jour la configuration locale
+                if (!config[serverName]) {
+                    config[serverName] = { disk_mappings: {} };
+                }
+                config[serverName].ip = ip;
+                config[serverName].username = username;
                 
                 // Sauvegarder la configuration générale
                 const response = await fetch('/api/config', {
@@ -3167,7 +3188,7 @@
                 
                 // Sauvegarder le mot de passe séparément si fourni
                 if (password) {
-                    const pwResponse = await fetch(`/api/server/${currentEditingServerName}/password`, {
+                    const pwResponse = await fetch(`/api/server/${serverName}/password`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
@@ -3184,13 +3205,16 @@
                     }
                 }
                 
-                statusDiv.innerHTML = '<span style="color: #2ea043;">✅ Serveur mis à jour avec succès !</span>';
+                const actionMessage = currentEditingServerName === null ? 'créé' : 'mis à jour';
+                statusDiv.innerHTML = `<span style="color: #2ea043;">✅ Serveur ${actionMessage} avec succès !</span>`;
                 
                 // Rafraîchir l'affichage et fermer le modal
                 setTimeout(() => {
+                    populateServersManagementList();
+                    updateServerManagementCount();
                     refreshData();
                     closeModal('serverEditModal');
-                    updateStatusMessage(`✅ Serveur "${currentEditingServerName}" mis à jour`);
+                    updateStatusMessage(`✅ Serveur "${serverName}" ${actionMessage}`);
                 }, 1500);
                 
             } catch (error) {
