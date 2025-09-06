@@ -1485,43 +1485,30 @@
     </div>
 
     <!-- Modal Type de serveur individuel -->
-    <div id="serverTypeModal" class="modal">
+    <!-- Modal Configuration Disques Serveur -->
+    <div id="diskConfigModal" class="modal">
         <div class="modal-content">
-            <span class="close" onclick="closeModal('serverTypeModal')">&times;</span>
-            <h2 id="serverTypeTitle">🏷️ Configuration Type de Serveur</h2>
-            <div id="serverTypeContent">
+            <span class="close" onclick="closeModal('diskConfigModal')">&times;</span>
+            <h2 id="diskConfigTitle">💾 Configuration des Disques</h2>
+            <div id="diskConfigContent">
                 <div class="alert alert-info">
-                    <strong>ℹ️ Type de serveur :</strong><br>
-                    Sélectionnez le type/modèle de serveur pour personnaliser l'affichage de la carte.
+                    <strong>ℹ️ Configuration des disques :</strong><br>
+                    Gérez les disques de ce serveur. Chaque disque est identifié par une clé unique.
                 </div>
                 
-                <div class="form-group">
-                    <label for="serverTypeSelect">🖥️ Type de serveur :</label>
-                    <select id="serverTypeSelect" class="server-type-select">
-                        <option value="Custom">Custom</option>
-                        <option value="HPE ProLiant DL380 Gen9">HPE ProLiant DL380 Gen9</option>
-                        <option value="HPE ProLiant DL180 Gen9">HPE ProLiant DL180 Gen9</option>
-                        <option value="HPE ProLiant DL80 Gen9">HPE ProLiant DL80 Gen9</option>
-                        <option value="Générique Rack 1U">Générique Rack 1U</option>
-                        <option value="Générique Rack 2U">Générique Rack 2U</option>
-                    </select>
-                    <small style="color: #ccc; font-size: 0.9em; display: block; margin-top: 5px;">
-                        Le type de serveur modifie la couleur et le texte de branding sur la carte
-                    </small>
+                <div id="disksList">
+                    <!-- Liste des disques générée dynamiquement -->
                 </div>
-                
-                <div id="serverTypeBrandingPreview" class="server-type-config" style="text-align: center; margin: 15px 0;">
-                    <h4 style="margin-bottom: 10px;">Aperçu du branding :</h4>
-                    <div class="server-branding">
-                        <span class="brand-logo" id="previewBrandLogo" style="background: #6c757d;">CUSTOM</span>
-                        <span class="server-model" id="previewServerModel">Server</span>
-                    </div>
+
+                <div class="form-group" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
+                    <button class="btn btn-secondary" onclick="addNewDisk()">➕ Ajouter un disque</button>
                 </div>
+
+                <div id="diskConfigStatusMessage" style="color: green; margin: 10px 0;"></div>
             </div>
-            <div style="text-align: center; margin-top: 20px;">
-                <button class="btn btn-success" onclick="saveServerType()">💾 Sauvegarder</button>
-                <button class="btn btn-info" onclick="showTemplateManagerModal()">⚙️ Gérer Templates</button>
-                <button class="btn" onclick="closeModal('serverTypeModal')">❌ Annuler</button>
+            <div class="modal-actions" style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-success" onclick="saveDiskConfig()">💾 Sauvegarder</button>
+                <button class="btn" onclick="closeModal('diskConfigModal')">❌ Annuler</button>
             </div>
         </div>
     </div>
@@ -1894,8 +1881,8 @@
                         </div>
                     </div>
                     <div class="server-actions">
-                        <button class="btn-mini btn-server-type" onclick="showServerTypeModal('${serverName}')" title="Configurer type de serveur">
-                            🏷️
+                        <button class="btn-mini btn-disk-config" onclick="showDiskConfigModal('${serverName}')" title="Configurer les disques du serveur">
+                            💾
                         </button>
                         <button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" title="Configurer mot de passe SSH">
                             🔐
@@ -2744,37 +2731,24 @@
         }
 
         // NOUVELLES FONCTIONS - Gestion type de serveur individuel
-        function showServerTypeModal(serverName) {
-            currentServerForType = serverName;
-            const modal = document.getElementById('serverTypeModal');
-            const title = document.getElementById('serverTypeTitle');
-            const select = document.getElementById('serverTypeSelect');
+        // Variables pour la configuration des disques
+        let currentServerForDiskConfig = null;
+        let diskConfigData = {};
+        
+        function showDiskConfigModal(serverName) {
+            currentServerForDiskConfig = serverName;
+            const modal = document.getElementById('diskConfigModal');
+            const title = document.getElementById('diskConfigTitle');
             
             const serverConfig = config[serverName];
-            title.textContent = `🏷️ Configuration Type - ${serverName}`;
+            title.innerHTML = `💾 Configuration des Disques - ${serverName} 
+                <div style="font-size: 0.9em; color: #ccc; margin-top: 5px;">
+                    ${serverConfig.username}@${serverConfig.ip}
+                </div>`;
             
-            // Info du serveur dans le titre
-            const serverInfo = document.createElement('div');
-            serverInfo.style.fontSize = '0.9em';
-            serverInfo.style.color = '#ccc';
-            serverInfo.style.marginTop = '5px';
-            serverInfo.textContent = `${serverConfig.username}@${serverConfig.ip}`;
-            title.appendChild(serverInfo);
-            
-            // Mettre à jour les options depuis les templates
-            populateServerTypeSelect();
-            
-            // Sélectionner le type actuel
-            const currentType = serverConfig.server_type || 'Custom';
-            select.value = currentType;
-            
-            // Mettre à jour l'aperçu
-            updateBrandingPreview(currentType);
-            
-            // Écouter les changements pour mettre à jour l'aperçu en temps réel
-            select.onchange = function() {
-                updateBrandingPreview(this.value);
-            };
+            // Charger les disques existants
+            diskConfigData = JSON.parse(JSON.stringify(serverConfig.disk_mappings || {}));
+            populateDisksList();
             
             modal.style.display = 'block';
         }
@@ -2806,81 +2780,93 @@
             }
 
             // Restaurer la sélection si possible
-            if (select.querySelector(`option[value="${currentValue}"]`)) {
-                select.value = currentValue;
-            } else {
-                select.value = 'Custom';
+        function addNewDisk() {
+            const newKey = `disk-${Object.keys(diskConfigData).length + 1}`;
+            diskConfigData[newKey] = {
+                uuid: '',
+                device: '',
+                label: '',
+                description: '',
+                capacity: ''
+            };
+            populateDisksList();
+        }
+        
+        function removeDisk(diskKey) {
+            if (confirm(`Supprimer le disque "${diskKey}" ?\n\nCette action est irréversible.`)) {
+                delete diskConfigData[diskKey];
+                populateDisksList();
             }
         }
-
-        function updateBrandingPreview(serverType) {
-            const branding = getServerBranding(serverType);
-            const logo = document.getElementById('previewBrandLogo');
-            const model = document.getElementById('previewServerModel');
-            
-            logo.textContent = branding.brand;
-            logo.style.background = branding.brandColor;
-            model.textContent = branding.model;
+        
+        function updateDiskKey(oldKey, newKey) {
+            if (oldKey === newKey) return;
+            if (diskConfigData[newKey]) {
+                alert('Cette clé existe déjà. Choisissez une clé unique.');
+                populateDisksList(); // Reset
+                return;
+            }
+            diskConfigData[newKey] = diskConfigData[oldKey];
+            delete diskConfigData[oldKey];
+            populateDisksList();
         }
-
-        async function saveServerType() {
-            if (!currentServerForType) {
+        
+        function updateDiskField(diskKey, field, value) {
+            if (diskConfigData[diskKey]) {
+                diskConfigData[diskKey][field] = value;
+            }
+        }
+        
+        async function saveDiskConfig() {
+            if (!currentServerForDiskConfig) {
                 alert('Erreur: serveur non sélectionné');
                 return;
             }
             
-            const select = document.getElementById('serverTypeSelect');
-            const newType = select.value;
-            
             try {
-                updateStatusMessage('💾 Sauvegarde du type de serveur...');
+                const statusMsg = document.getElementById('diskConfigStatusMessage');
+                statusMsg.textContent = '💾 Sauvegarde de la configuration des disques...';
+                statusMsg.style.color = 'orange';
                 
-                const response = await fetch('/api/server-types', {
+                // Mettre à jour la configuration locale
+                config[currentServerForDiskConfig].disk_mappings = diskConfigData;
+                
+                const response = await fetch('/api/config', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
-                        [currentServerForType]: newType
+                        servers: config
                     })
                 });
                 
                 const result = await response.json();
                 
                 if (result.success) {
-                    updateStatusMessage(`✅ Type de serveur sauvegardé pour ${currentServerForType}`);
-                    
-                    // Mettre à jour la configuration locale
-                    if (config[currentServerForType]) {
-                        config[currentServerForType].server_type = newType;
-                    }
+                    statusMsg.textContent = `✅ Configuration des disques sauvegardée pour ${currentServerForDiskConfig}`;
+                    statusMsg.style.color = 'green';
                     
                     // Rafraîchir l'affichage des serveurs
                     refreshData();
                     
                     // Fermer la modal après un délai
                     setTimeout(() => {
-                        closeModal('serverTypeModal');
+                        closeModal('diskConfigModal');
                     }, 1500);
                 } else {
-                    updateStatusMessage(`❌ Erreur: ${result.error}`, 'error');
+                    statusMsg.textContent = `❌ Erreur: ${result.error}`;
+                    statusMsg.style.color = 'red';
                 }
             } catch (error) {
                 console.error('Erreur:', error);
-                updateStatusMessage('❌ Erreur de communication', 'error');
+                statusMsg.textContent = '❌ Erreur de communication';
+                statusMsg.style.color = 'red';
             }
         }
-
-        // NOUVELLES FONCTIONS - Gestion des templates de serveurs
-        let serverTemplates = {};
-        let currentEditingTemplate = null;
-
-        async function showTemplateManagerModal() {
-            const modal = document.getElementById('templateManagerModal');
-            await loadServerTemplates();
-            populateTemplatesList();
-            modal.style.display = 'block';
         }
+
+        // Templates de serveurs supprimés - Utilisation de configuration libre par serveur
 
         async function loadServerTemplates() {
             try {
@@ -3376,7 +3362,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'serverPasswordModal', 'serverTypeModal', 'templateManagerModal', 'diskModal', 'statsModal', 'notificationModal'];
+            const modals = ['configModal', 'serverPasswordModal', 'diskConfigModal', 'diskModal', 'statsModal', 'notificationModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
