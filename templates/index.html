@@ -1447,34 +1447,7 @@
                     <div id="serversManagementList">
                         <!-- Liste des serveurs générée dynamiquement -->
                     </div>
-                    
-                    <!-- Formulaire d'ajout/modification de serveur -->
-                    <div id="serverForm" style="display: none; background: #1a1a1a; padding: 15px; border-radius: 5px; margin-top: 15px;">
-                        <h4 id="serverFormTitle">➕ Nouveau Serveur</h4>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                            <div class="form-group">
-                                <label>🏷️ Nom du serveur :</label>
-                                <input type="text" id="serverName" placeholder="ex: MON-SERVEUR-01" class="server-type-select" style="width: 100%;">
-                            </div>
-                            <div class="form-group">
-                                <label>🌐 Adresse IP :</label>
-                                <input type="text" id="serverIP" placeholder="192.168.1.100" class="server-type-select" style="width: 100%;">
-                            </div>
-                            <div class="form-group">
-                                <label>👤 Nom d'utilisateur :</label>
-                                <input type="text" id="serverUsername" placeholder="root" class="server-type-select" style="width: 100%;">
-                            </div>
-                            <div class="form-group">
-                                <label>🔐 Mot de passe SSH :</label>
-                                <input type="password" id="serverPassword" placeholder="Mot de passe SSH (optionnel)" class="server-type-select" style="width: 100%;">
-                            </div>
-                        </div>
-                        <div class="form-group" style="text-align: center; margin-top: 15px;">
-                            <button class="btn btn-success" onclick="saveServer()">💾 Sauvegarder</button>
-                            <button class="btn" onclick="cancelServerForm()">❌ Annuler</button>
-                        </div>
-                        <div id="serverFormStatus" style="margin-top: 10px; text-align: center;"></div>
-                    </div>
+                    <!-- Ancien formulaire supprimé - utilisation du modal dédié serverEditModal -->
                 </div>
             </div>
         </div>
@@ -2775,124 +2748,18 @@
         }
 
         function showAddServerForm() {
-            isEditMode = false;
-            currentEditingServer = null;
-            document.getElementById('serverFormTitle').textContent = '➕ Nouveau Serveur';
-            document.getElementById('serverName').value = '';
-            document.getElementById('serverIP').value = '';
-            document.getElementById('serverUsername').value = 'root';
-            document.getElementById('serverPassword').value = '';
-            document.getElementById('serverForm').style.display = 'block';
-            document.getElementById('serverFormStatus').textContent = '';
+            // Utiliser le modal dédié pour l'ajout de serveur
+            showServerEditModal(null);
         }
         
         function editServer(serverName) {
-            isEditMode = true;
-            currentEditingServer = serverName;
-            const serverConfig = config[serverName];
-            
-            document.getElementById('serverFormTitle').textContent = `✏️ Modifier ${serverName}`;
-            document.getElementById('serverName').value = serverName;
-            document.getElementById('serverIP').value = serverConfig.ip || '';
-            document.getElementById('serverUsername').value = serverConfig.username || 'root';
-            document.getElementById('serverPassword').value = ''; // Laisser vide pour sécurité
-            document.getElementById('serverForm').style.display = 'block';
-            document.getElementById('serverFormStatus').textContent = '';
+            // Utiliser le modal dédié pour l'édition de serveur
+            showServerEditModal(serverName);
         }
         
-        function cancelServerForm() {
-            document.getElementById('serverForm').style.display = 'none';
-            isEditMode = false;
-            currentEditingServer = null;
-        }
+        // Ancienne fonction cancelServerForm() supprimée - utilisation du modal dédié
         
-        async function saveServer() {
-            const name = document.getElementById('serverName').value.trim();
-            const ip = document.getElementById('serverIP').value.trim();
-            const username = document.getElementById('serverUsername').value.trim();
-            const password = document.getElementById('serverPassword').value;
-            const statusDiv = document.getElementById('serverFormStatus');
-            
-            // Validation
-            if (!name || !ip || !username) {
-                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Veuillez remplir tous les champs obligatoires</span>';
-                return;
-            }
-            
-            // Vérifier si le nom existe déjà (sauf en mode édition)
-            if (!isEditMode && config[name]) {
-                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Un serveur avec ce nom existe déjà</span>';
-                return;
-            }
-            
-            statusDiv.innerHTML = '<span style="color: orange;">💾 Sauvegarde en cours...</span>';
-            
-            try {
-                // Créer ou mettre à jour le serveur
-                const serverConfig = {
-                    ip: ip,
-                    username: username,
-                    disk_mappings: isEditMode && config[currentEditingServer] ? config[currentEditingServer].disk_mappings || {} : {}
-                };
-                
-                // Si modification et changement de nom, supprimer l'ancien
-                if (isEditMode && currentEditingServer && currentEditingServer !== name) {
-                    delete config[currentEditingServer];
-                }
-                
-                config[name] = serverConfig;
-                
-                // Sauvegarder la configuration
-                const response = await fetch('/api/config', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        servers: config
-                    })
-                });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    // Sauvegarder le mot de passe séparément si fourni
-                    if (password) {
-                        const pwResponse = await fetch(`/api/server/${name}/password`, {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                            body: JSON.stringify({
-                                password: password
-                            })
-                        });
-                        
-                        const pwResult = await pwResponse.json();
-                        if (!pwResult.success) {
-                            statusDiv.innerHTML = '<span style="color: #f85149;">❌ Erreur sauvegarde mot de passe</span>';
-                            return;
-                        }
-                    }
-                    
-                    statusDiv.innerHTML = '<span style="color: #2ea043;">✅ Serveur sauvegardé avec succès !</span>';
-                    
-                    // Rafraîchir l'affichage
-                    setTimeout(() => {
-                        populateServersManagementList();
-                        updateServerManagementCount();
-                        refreshData();
-                        cancelServerForm();
-                    }, 1500);
-                } else {
-                    statusDiv.innerHTML = `<span style="color: #f85149;">❌ Erreur: ${result.error}</span>`;
-                }
-                
-            } catch (error) {
-                console.error('Erreur sauvegarde serveur:', error);
-                statusDiv.innerHTML = '<span style="color: #f85149;">❌ Erreur de communication</span>';
-            }
-        }
+        // Ancienne fonction saveServer() supprimée - utilisation de saveServerEdit() à la place
         
         function deleteServer(serverName) {
             if (confirm(`Supprimer le serveur "${serverName}" ?\n\nCette action supprimera également toute sa configuration de disques.\n\nCette action est irréversible.`)) {
