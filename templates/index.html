@@ -3059,6 +3059,100 @@
             modal.style.display = 'block';
         }
 
+        function populateDisksList() {
+            const container = document.getElementById('disksList');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            if (Object.keys(diskConfigData).length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #666; border: 1px dashed #333; border-radius: 5px;">
+                        <p>💾 Aucun disque configuré</p>
+                        <p><small>Cliquez sur "➕ Ajouter un disque" pour commencer</small></p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Trier les clés pour un affichage ordonné
+            const sortedKeys = Object.keys(diskConfigData).sort();
+            
+            sortedKeys.forEach(key => {
+                const diskConfig = diskConfigData[key];
+                const diskItem = document.createElement('div');
+                diskItem.className = 'disk-config-item';
+                diskItem.style.cssText = 'border: 1px solid #333; border-radius: 5px; padding: 15px; margin-bottom: 10px; background: #0d1117;';
+                
+                diskItem.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: center;">
+                        <div>
+                            <label style="font-size: 0.8em; color: #666;">Position:</label>
+                            <div style="font-weight: bold; color: #58a6ff;">${key}</div>
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8em; color: #666;">UUID:</label>
+                            <input type="text" value="${diskConfig.uuid || ''}" 
+                                   onchange="updateDiskConfig('${key}', 'uuid', this.value)"
+                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                   placeholder="UUID du disque">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8em; color: #666;">Device:</label>
+                            <input type="text" value="${diskConfig.device || ''}" 
+                                   onchange="updateDiskConfig('${key}', 'device', this.value)"
+                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                   placeholder="/dev/sdX">
+                        </div>
+                        <div>
+                            <button class="btn-mini" onclick="removeDisk('${key}')" 
+                                    style="background: #f85149; color: white;" title="Supprimer ce disque">
+                                🗑️
+                            </button>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px;">
+                        <div>
+                            <label style="font-size: 0.8em; color: #666;">Label:</label>
+                            <input type="text" value="${diskConfig.label || ''}" 
+                                   onchange="updateDiskConfig('${key}', 'label', this.value)"
+                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                   placeholder="Nom du disque">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8em; color: #666;">Capacité:</label>
+                            <input type="text" value="${diskConfig.capacity || ''}" 
+                                   onchange="updateDiskConfig('${key}', 'capacity', this.value)"
+                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                   placeholder="ex: 2TB">
+                        </div>
+                        <div>
+                            <label style="font-size: 0.8em; color: #666;">Description:</label>
+                            <input type="text" value="${diskConfig.description || ''}" 
+                                   onchange="updateDiskConfig('${key}', 'description', this.value)"
+                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                   placeholder="Description optionnelle">
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(diskItem);
+            });
+        }
+
+        function updateDiskConfig(key, field, value) {
+            if (diskConfigData[key]) {
+                diskConfigData[key][field] = value;
+            }
+        }
+
+        function removeDisk(key) {
+            if (confirm(`Supprimer le disque "${key}" ?`)) {
+                delete diskConfigData[key];
+                populateDisksList();
+            }
+        }
+
         function populateServerTypeSelect() {
             const select = document.getElementById('serverTypeSelect');
             if (!select) return;
@@ -3096,13 +3190,6 @@
                 capacity: ''
             };
             populateDisksList();
-        }
-        
-        function removeDisk(diskKey) {
-            if (confirm(`Supprimer le disque "${diskKey}" ?\n\nCette action est irréversible.`)) {
-                delete diskConfigData[diskKey];
-                populateDisksList();
-            }
         }
         
         function updateDiskKey(oldKey, newKey) {
