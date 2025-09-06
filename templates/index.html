@@ -2776,8 +2776,17 @@
                         servers: config
                     })
                 }).then(response => response.json())
-                .then(result => {
+                .then(async result => {
                     if (result.success) {
+                        // Recharger la configuration depuis le serveur pour s'assurer de la synchronisation
+                        try {
+                            const statusResponse = await fetch('/api/status');
+                            const statusData = await statusResponse.json();
+                            config = statusData.config || {};
+                        } catch (error) {
+                            console.error('Erreur rechargement config après suppression:', error);
+                        }
+                        
                         populateServersManagementList();
                         updateServerManagementCount();
                         refreshData();
@@ -3208,14 +3217,25 @@
                 const actionMessage = currentEditingServerName === null ? 'créé' : 'mis à jour';
                 statusDiv.innerHTML = `<span style="color: #2ea043;">✅ Serveur ${actionMessage} avec succès !</span>`;
                 
-                // Rafraîchir l'affichage et fermer le modal
+                // Recharger la configuration immédiatement depuis le serveur
+                try {
+                    const statusResponse = await fetch('/api/status');
+                    const statusData = await statusResponse.json();
+                    config = statusData.config || {};
+                } catch (error) {
+                    console.error('Erreur rechargement config:', error);
+                }
+                
+                // Rafraîchir l'affichage immédiatement
+                populateServersManagementList();
+                updateServerManagementCount();
+                refreshData();
+                updateStatusMessage(`✅ Serveur "${serverName}" ${actionMessage}`);
+                
+                // Fermer le modal après un court délai pour que l'utilisateur voie le message de succès
                 setTimeout(() => {
-                    populateServersManagementList();
-                    updateServerManagementCount();
-                    refreshData();
                     closeModal('serverEditModal');
-                    updateStatusMessage(`✅ Serveur "${serverName}" ${actionMessage}`);
-                }, 1500);
+                }, 1000);
                 
             } catch (error) {
                 console.error('Erreur sauvegarde serveur:', error);
