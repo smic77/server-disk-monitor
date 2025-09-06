@@ -2852,6 +2852,7 @@
                         
                         populateServersManagementList();
                         updateServerManagementCount();
+                        updateServers(); // Mettre à jour immédiatement les cartes serveurs
                         refreshData();
                         updateStatusMessage(`✅ Serveur "${serverName}" supprimé avec succès`);
                     } else {
@@ -3300,6 +3301,7 @@
                 // Rafraîchir l'affichage immédiatement
                 populateServersManagementList();
                 updateServerManagementCount();
+                updateServers(); // Mettre à jour immédiatement les cartes serveurs
                 refreshData();
                 updateStatusMessage(`✅ Serveur "${serverName}" ${actionMessage}`);
                 
