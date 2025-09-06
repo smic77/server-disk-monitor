@@ -5,8 +5,8 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "3.4.0"
-BUILD_DATE = "2025-09-01"
+VERSION = "4.0.0"
+BUILD_DATE = "2025-09-06"
 
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
@@ -305,111 +305,24 @@ class ServerDiskMonitorWeb:
         # Initialisation du chiffrement
         self.init_encryption()
         
-        # Templates de serveurs par défaut
-        self.default_server_templates = {
-            "Custom": {
-                "name": "Custom",
-                "brand": "CUSTOM",
-                "brand_color": "#6c757d",
-                "sections": [
-                    {
-                        "name": "Main Bay",
-                        "rows": 2,
-                        "cols": 3,
-                        "orientation": "horizontal"
-                    }
-                ]
-            },
-            "HPE ProLiant DL380 Gen9": {
-                "name": "HPE ProLiant DL380 Gen9",
-                "brand": "HPE",
-                "brand_color": "#0073e7",
-                "sections": [
-                    {
-                        "name": "Front Bays",
-                        "rows": 2,
-                        "cols": 4,
-                        "orientation": "horizontal"
-                    },
-                    {
-                        "name": "Rear Bays",
-                        "rows": 1,
-                        "cols": 2,
-                        "orientation": "horizontal"
-                    }
-                ]
-            },
-            "HPE ProLiant DL180 Gen9": {
-                "name": "HPE ProLiant DL180 Gen9",
-                "brand": "HPE", 
-                "brand_color": "#0073e7",
-                "sections": [
-                    {
-                        "name": "Front Bays",
-                        "rows": 2,
-                        "cols": 6,
-                        "orientation": "horizontal"
-                    }
-                ]
-            },
-            "HPE ProLiant DL80 Gen9": {
-                "name": "HPE ProLiant DL80 Gen9",
-                "brand": "HPE",
-                "brand_color": "#0073e7",
-                "sections": [
-                    {
-                        "name": "Front Bays",
-                        "rows": 1,
-                        "cols": 4,
-                        "orientation": "horizontal"
-                    }
-                ]
-            },
-            "Générique Rack 1U": {
-                "name": "Générique Rack 1U",
-                "brand": "RACK",
-                "brand_color": "#666666",
-                "sections": [
-                    {
-                        "name": "Drive Bay",
-                        "rows": 1,
-                        "cols": 4,
-                        "orientation": "horizontal"
-                    }
-                ]
-            },
-            "Générique Rack 2U": {
-                "name": "Générique Rack 2U",
-                "brand": "RACK",
-                "brand_color": "#666666",
-                "sections": [
-                    {
-                        "name": "Drive Bay",
-                        "rows": 2,
-                        "cols": 6,
-                        "orientation": "horizontal"
-                    }
-                ]
-            }
-        }
+        # Plus de templates de serveurs - configuration libre par serveur
 
-        # Configuration par défaut améliorée
+        # Configuration par défaut simplifiée
         self.default_config = {
             "servers": {
                 "EXAMPLE-SERVER": {
                     "ip": "192.168.1.100",
                     "username": "root",
                     "password": "",
-                    "server_template": "Custom",
                     "disk_mappings": {
-                        "main-bay_0_0": {
+                        "disk-1": {
                             "uuid": "example-uuid-1234-5678-90ab-cdef12345678",
                             "device": "/dev/sda",
                             "label": "Système",
                             "description": "Disque système principal",
                             "capacity": "256GB SSD"
                         },
-                        "main-bay_0_1": {
+                        "disk-2": {
                             "uuid": "example-uuid-2345-6789-01bc-def123456789",
                             "device": "/dev/sdb",
                             "label": "Données",
@@ -459,8 +372,8 @@ class ServerDiskMonitorWeb:
             try:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     config = json.load(f)
-                    # Compatibilité ascendante : ajouter server_type si manquant
-                    config = self.ensure_server_type_compatibility(config)
+                    # Nettoyage des champs legacy
+                    config = self.cleanup_legacy_fields(config)
                     logger.info(f"Configuration chargée: {len(config.get('servers', {}))} serveur(s)")
                     return config
             except Exception as e:
@@ -472,23 +385,25 @@ class ServerDiskMonitorWeb:
             self.save_config_to_file(self.default_config)
             return self.default_config.copy()
     
-    def ensure_server_type_compatibility(self, config):
-        """Assure la compatibilité ascendante en ajoutant server_type si manquant"""
+    def cleanup_legacy_fields(self, config):
+        """Supprime les champs legacy liés aux templates"""
         if 'servers' not in config:
             return config
         
         needs_save = False
         for server_name, server_config in config['servers'].items():
-            if 'server_type' not in server_config:
-                # Valeur par défaut pour la compatibilité
-                server_config['server_type'] = "Custom"
-                needs_save = True
-                logger.info(f"Ajouté server_type par défaut pour {server_name}")
+            # Supprimer les champs liés aux templates
+            legacy_fields = ['server_type', 'server_template', 'front_rack', 'back_rack']
+            for field in legacy_fields:
+                if field in server_config:
+                    del server_config[field]
+                    needs_save = True
+                    logger.info(f"Supprimé champ legacy '{field}' pour {server_name}")
         
-        # Sauvegarder la config mise à jour si nécessaire
+        # Sauvegarder si nécessaire
         if needs_save:
             self.save_config_to_file(config)
-            logger.info("Configuration mise à jour avec compatibilité server_type")
+            logger.info("Configuration nettoyée des champs legacy")
         
         return config
     
@@ -507,39 +422,11 @@ class ServerDiskMonitorWeb:
             logger.error(f"Erreur lors de la sauvegarde: {e}")
             return False
     
-    def load_server_templates(self):
-        """Charge les templates de serveurs depuis le fichier ou retourne les défauts"""
-        templates_file = os.path.join("data", "server_templates.json")
-        if os.path.exists(templates_file):
-            try:
-                with open(templates_file, 'r', encoding='utf-8') as f:
-                    templates = json.load(f)
-                    logger.info(f"Templates de serveurs chargés: {len(templates)} template(s)")
-                    return templates
-            except Exception as e:
-                logger.error(f"Erreur lors du chargement des templates: {e}")
-        
-        # Sauvegarder les templates par défaut
-        self.save_server_templates(self.default_server_templates)
-        return self.default_server_templates.copy()
+    # Méthode supprimée : plus de templates de serveurs
     
-    def save_server_templates(self, templates):
-        """Sauvegarde les templates de serveurs dans le fichier"""
-        os.makedirs("data", exist_ok=True)
-        templates_file = os.path.join("data", "server_templates.json")
-        try:
-            with open(templates_file, 'w', encoding='utf-8') as f:
-                json.dump(templates, f, indent=4, ensure_ascii=False)
-            logger.info("Templates de serveurs sauvegardés")
-            return True
-        except Exception as e:
-            logger.error(f"Erreur lors de la sauvegarde des templates: {e}")
-            return False
+    # Méthode supprimée : plus de templates de serveurs
     
-    def get_server_template(self, template_name):
-        """Récupère un template de serveur par son nom"""
-        templates = self.load_server_templates()
-        return templates.get(template_name, templates.get("Custom"))
+    # Méthode supprimée : plus de templates de serveurs
     
     def encrypt_password(self, password):
         """Chiffre un mot de passe"""
@@ -712,61 +599,27 @@ class ServerDiskMonitorWeb:
         return safe_config
     
     def get_clean_config_for_export(self):
-        """Retourne la configuration nettoyée pour l'export (sans données obsolètes)"""
+        """Retourne la configuration nettoyée pour l'export"""
         clean_config = {}
-        export_warnings = []
-        
-        # Charger les templates pour validation
-        templates = self.load_server_templates()
         
         for server_name, config in self.servers_config.get('servers', {}).items():
             clean_server = {}
             
-            # Données de base
-            for field in ['ip', 'username', 'server_template']:
+            # Données de base (sans server_template)
+            for field in ['ip', 'username']:
                 if field in config:
                     clean_server[field] = config[field]
             
             # Masquer le mot de passe mais l'inclure pour indiquer qu'il existe
             clean_server['password'] = '***' if config.get('password') else ''
             
-            # Nettoyer les disk_mappings selon le template actuel
-            template_name = config.get('server_template', 'Custom')
-            template = templates.get(template_name, templates.get('Custom', {}))
-            
-            if 'disk_mappings' in config and template:
-                clean_disk_mappings = {}
-                valid_section_names = []
-                
-                # Extraire les noms de sections valides du template
-                for section in template.get('sections', []):
-                    section_key = section['name'].lower().replace(' ', '-')
-                    valid_section_names.append(section_key)
-                
-                # Filtrer les disk_mappings pour ne garder que celles avec des sections valides
-                obsolete_count = 0
-                for position_key, disk_info in config['disk_mappings'].items():
-                    # Vérifier si la clé correspond à une section valide du template
-                    section_prefix = position_key.split('_')[0] if '_' in position_key else position_key
-                    
-                    if section_prefix in valid_section_names:
-                        clean_disk_mappings[position_key] = disk_info
-                    else:
-                        obsolete_count += 1
-                
-                clean_server['disk_mappings'] = clean_disk_mappings
-                
-                # Ajouter un avertissement si des disques ont été omis
-                if obsolete_count > 0:
-                    export_warnings.append(f"Serveur {server_name}: {obsolete_count} disque(s) avec clés obsolètes omis de l'export")
+            # Inclure tous les disk_mappings sans filtrage
+            if 'disk_mappings' in config:
+                clean_server['disk_mappings'] = config['disk_mappings']
             
             clean_config[server_name] = clean_server
         
-        # Log des avertissements
-        for warning in export_warnings:
-            logger.warning(f"Export: {warning}")
-        
-        return clean_config, export_warnings
+        return clean_config, []
     
     def start_monitoring(self):
         """Démarre la surveillance automatique"""
@@ -1024,41 +877,9 @@ def update_server_types():
         logger.error(f"Erreur mise à jour types serveurs: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/server-templates', methods=['GET'])
-def get_server_templates():
-    """Récupère tous les templates de serveurs"""
-    try:
-        templates = monitor.load_server_templates()
-        return jsonify({'success': True, 'templates': templates})
-    except Exception as e:
-        logger.error(f"Erreur récupération templates: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+# Route supprimée : plus de templates de serveurs
 
-@app.route('/api/server-templates', methods=['POST'])
-def save_server_templates():
-    """Sauvegarde les templates de serveurs"""
-    try:
-        data = request.get_json()
-        templates = data.get('templates', {})
-        
-        if not templates:
-            return jsonify({'success': False, 'error': 'Templates manquants'}), 400
-        
-        # Validation basique des templates
-        for name, template in templates.items():
-            required_fields = ['name', 'brand', 'brand_color', 'sections']
-            for field in required_fields:
-                if field not in template:
-                    return jsonify({'success': False, 'error': f'Champ manquant {field} dans template {name}'}), 400
-        
-        if monitor.save_server_templates(templates):
-            return jsonify({'success': True, 'message': f'{len(templates)} template(s) sauvegardé(s)'})
-        else:
-            return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
-            
-    except Exception as e:
-        logger.error(f"Erreur sauvegarde templates: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+# Route supprimée : plus de templates de serveurs
 
 @app.route('/api/export/complete', methods=['GET'])
 def export_complete_config():
@@ -1067,8 +888,7 @@ def export_complete_config():
         # Configuration serveurs (nettoyée, sans données obsolètes)
         servers_config, export_warnings = monitor.get_clean_config_for_export()
         
-        # Templates de serveurs
-        server_templates = monitor.load_server_templates()
+        # Plus de templates de serveurs
         
         # Configuration notifications (masquer le token)
         notifications_config = monitor.notification_manager.telegram_config.copy()
@@ -1086,7 +906,6 @@ def export_complete_config():
                 "refresh_interval": monitor.refresh_interval
             },
             "servers": servers_config,
-            "server_templates": server_templates,
             "notifications": {
                 "telegram": notifications_config
             }
@@ -1135,12 +954,7 @@ def import_complete_config():
             if monitor.save_config():
                 success_messages.append(f"{len(data['servers'])} serveur(s)")
         
-        # Import des templates
-        if 'server_templates' in data:
-            templates_file = os.path.join(monitor.data_dir, 'server_templates.json')
-            with open(templates_file, 'w', encoding='utf-8') as f:
-                json.dump(data['server_templates'], f, indent=2, ensure_ascii=False)
-            success_messages.append(f"{len(data['server_templates'])} template(s)")
+        # Plus d'import de templates de serveurs
         
         # Import des notifications
         if 'notifications' in data and 'telegram' in data['notifications']:
@@ -1175,40 +989,34 @@ def import_complete_config():
 def check_migration_needed():
     """Vérifie si des serveurs ont des disk_mappings avec des clés obsolètes"""
     try:
-        templates = monitor.load_server_templates()
         migration_info = {}
         
         for server_name, config in monitor.servers_config.get('servers', {}).items():
-            template_name = config.get('server_template', 'Custom')
-            template = templates.get(template_name, templates.get('Custom', {}))
             
-            if 'disk_mappings' in config and template:
-                valid_section_names = []
-                for section in template.get('sections', []):
-                    section_key = section['name'].lower().replace(' ', '-')
-                    valid_section_names.append(section_key)
+            if 'disk_mappings' in config:
+                # Vérifier les clés obsolètes (front_, back_)
+                legacy_prefixes = ['front_', 'back_']
                 
                 obsolete_disks = []
                 valid_disks = []
                 
                 for position_key, disk_info in config['disk_mappings'].items():
-                    section_prefix = position_key.split('_')[0] if '_' in position_key else position_key
-                    
                     disk_summary = {
                         'position_key': position_key,
                         'label': disk_info.get('label', 'Sans nom'),
                         'device': disk_info.get('device', 'N/A')
                     }
                     
-                    if section_prefix in valid_section_names:
-                        valid_disks.append(disk_summary)
-                    else:
+                    # Vérifier si c'est une clé legacy
+                    is_legacy = any(position_key.startswith(prefix) for prefix in legacy_prefixes)
+                    
+                    if is_legacy:
                         obsolete_disks.append(disk_summary)
+                    else:
+                        valid_disks.append(disk_summary)
                 
                 if obsolete_disks:
                     migration_info[server_name] = {
-                        'template': template_name,
-                        'valid_sections': valid_section_names,
                         'obsolete_disks': obsolete_disks,
                         'valid_disks': valid_disks
                     }
@@ -1226,25 +1034,11 @@ def check_migration_needed():
 def migrate_disk_mappings():
     """Migre automatiquement les disk_mappings avec des clés obsolètes"""
     try:
-        templates = monitor.load_server_templates()
         migration_results = {}
         
         for server_name, config in monitor.servers_config.get('servers', {}).items():
             if 'disk_mappings' not in config:
                 continue
-                
-            template_name = config.get('server_template', 'Custom')
-            template = templates.get(template_name, templates.get('Custom', {}))
-            sections = template.get('sections', [])
-            
-            if not sections:
-                continue
-                
-            # Extraire les noms de sections disponibles
-            section_names = []
-            for section in sections:
-                section_key = section['name'].lower().replace(' ', '-')
-                section_names.append(section_key)
             
             old_mappings = config['disk_mappings'].copy()
             new_mappings = {}
@@ -1253,25 +1047,23 @@ def migrate_disk_mappings():
             for position_key, disk_info in old_mappings.items():
                 new_key = None
                 
-                # Migration des clés front_X_Y vers la première section
-                if position_key.startswith('front_') and len(section_names) > 0:
+                # Migration des clés front_X_Y vers format simple
+                if position_key.startswith('front_'):
                     coords = position_key[6:]  # Enlever "front_"
-                    new_key = f"{section_names[0]}_{coords}"
+                    new_key = f"disk_{coords}"
                     migrated_count += 1
                 
-                # Migration des clés back_X_Y vers la deuxième section (si elle existe)
-                elif position_key.startswith('back_') and len(section_names) > 1:
+                # Migration des clés back_X_Y vers format simple  
+                elif position_key.startswith('back_'):
                     coords = position_key[5:]  # Enlever "back_"
-                    new_key = f"{section_names[1]}_{coords}"
+                    new_key = f"disk_back_{coords}"
                     migrated_count += 1
                 
-                # Garder les clés déjà au bon format
+                # Garder les autres clés
                 else:
-                    section_prefix = position_key.split('_')[0] if '_' in position_key else position_key
-                    if section_prefix in section_names:
-                        new_key = position_key
+                    new_key = position_key
                 
-                # Ajouter la nouvelle clé si valide
+                # Ajouter la nouvelle clé
                 if new_key:
                     new_mappings[new_key] = disk_info
             
@@ -1279,9 +1071,7 @@ def migrate_disk_mappings():
             if migrated_count > 0:
                 config['disk_mappings'] = new_mappings
                 migration_results[server_name] = {
-                    'migrated_disks': migrated_count,
-                    'template': template_name,
-                    'sections_used': section_names[:2]  # Max 2 sections (front/back)
+                    'migrated_disks': migrated_count
                 }
         
         # Sauvegarder la configuration mise à jour
