@@ -1580,9 +1580,6 @@
                     <!-- Liste des disques générée dynamiquement -->
                 </div>
 
-                <div class="form-group" style="margin-top: 20px; border-top: 1px solid #333; padding-top: 15px;">
-                    <button class="btn btn-secondary" onclick="addNewDisk()">➕ Ajouter un disque</button>
-                </div>
 
                 <div id="diskConfigStatusMessage" style="color: green; margin: 10px 0;"></div>
             </div>
@@ -3516,7 +3513,8 @@
                 statusMsg.textContent = '💾 Sauvegarde de la configuration des disques...';
                 statusMsg.style.color = 'orange';
                 
-                // Mettre à jour la configuration locale
+                // Mettre à jour la configuration locale avec sections et disques
+                config[currentServerForDiskConfig].sections = sectionsConfig;
                 config[currentServerForDiskConfig].disk_mappings = diskConfigData;
                 
                 const response = await fetch('/api/config', {
@@ -3551,7 +3549,6 @@
                 statusMsg.textContent = '❌ Erreur de communication';
                 statusMsg.style.color = 'red';
             }
-        }
         }
 
         // Modal d'édition serveur indépendant
