@@ -3476,28 +3476,6 @@
             }
 
             // Restaurer la sélection si possible
-        function addNewDisk() {
-            const newKey = `disk-${Object.keys(diskConfigData).length + 1}`;
-            diskConfigData[newKey] = {
-                uuid: '',
-                device: '',
-                label: '',
-                description: '',
-                capacity: ''
-            };
-            populateDisksList();
-        }
-        
-        function updateDiskKey(oldKey, newKey) {
-            if (oldKey === newKey) return;
-            if (diskConfigData[newKey]) {
-                alert('Cette clé existe déjà. Choisissez une clé unique.');
-                populateDisksList(); // Reset
-                return;
-            }
-            diskConfigData[newKey] = diskConfigData[oldKey];
-            delete diskConfigData[oldKey];
-            populateDisksList();
         }
         
         function updateDiskField(diskKey, field, value) {
