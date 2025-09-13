@@ -3040,6 +3040,7 @@
         // Variables pour la configuration des disques
         let currentServerForDiskConfig = null;
         let diskConfigData = {};
+        let sectionsConfig = [];
         
         function showDiskConfigModal(serverName) {
             currentServerForDiskConfig = serverName;
@@ -3047,96 +3048,119 @@
             const title = document.getElementById('diskConfigTitle');
             
             const serverConfig = config[serverName];
-            title.innerHTML = `💾 Configuration des Disques - ${serverName} 
+            title.innerHTML = `💾 Configuration des Sections et Disques - ${serverName} 
                 <div style="font-size: 0.9em; color: #ccc; margin-top: 5px;">
                     ${serverConfig.username}@${serverConfig.ip}
                 </div>`;
             
-            // Charger les disques existants
+            // Charger les sections et disques existants
+            sectionsConfig = JSON.parse(JSON.stringify(serverConfig.sections || []));
             diskConfigData = JSON.parse(JSON.stringify(serverConfig.disk_mappings || {}));
-            populateDisksList();
+            
+            // Si pas de sections, créer une section par défaut
+            if (sectionsConfig.length === 0) {
+                sectionsConfig = [{
+                    name: "Section principale",
+                    rows: 2,
+                    cols: 6,
+                    orientation: "horizontal"
+                }];
+            }
+            
+            populateSectionsAndDisksList();
             
             modal.style.display = 'block';
         }
 
-        function populateDisksList() {
+        function populateSectionsAndDisksList() {
             const container = document.getElementById('disksList');
             if (!container) return;
             
             container.innerHTML = '';
             
-            if (Object.keys(diskConfigData).length === 0) {
-                container.innerHTML = `
-                    <div style="text-align: center; padding: 20px; color: #666; border: 1px dashed #333; border-radius: 5px;">
-                        <p>💾 Aucun disque configuré</p>
-                        <p><small>Cliquez sur "➕ Ajouter un disque" pour commencer</small></p>
-                    </div>
-                `;
-                return;
-            }
+            // En-tête pour la gestion des sections
+            const sectionsHeader = document.createElement('div');
+            sectionsHeader.style.cssText = 'margin-bottom: 20px; padding: 15px; background: #161b22; border: 1px solid #333; border-radius: 5px;';
+            sectionsHeader.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="margin: 0; color: #58a6ff;">📋 Gestion des Sections</h3>
+                    <button class="btn btn-secondary" onclick="addNewSection()">➕ Ajouter Section</button>
+                </div>
+                <div id="sectionsList"></div>
+            `;
+            container.appendChild(sectionsHeader);
             
-            // Trier les clés pour un affichage ordonné
-            const sortedKeys = Object.keys(diskConfigData).sort();
+            // Afficher les sections
+            populateSectionsList();
             
-            sortedKeys.forEach(key => {
-                const diskConfig = diskConfigData[key];
-                const diskItem = document.createElement('div');
-                diskItem.className = 'disk-config-item';
-                diskItem.style.cssText = 'border: 1px solid #333; border-radius: 5px; padding: 15px; margin-bottom: 10px; background: #0d1117;';
+            // Afficher les disques pour chaque section
+            sectionsConfig.forEach((section, sectionIndex) => {
+                const sectionContainer = document.createElement('div');
+                sectionContainer.style.cssText = 'margin: 20px 0; padding: 15px; background: #0d1117; border: 1px solid #333; border-radius: 5px;';
                 
-                diskItem.innerHTML = `
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr auto; gap: 10px; align-items: center;">
+                sectionContainer.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                        <h4 style="margin: 0; color: #f0f6fc;">💾 ${section.name} (${section.rows}x${section.cols}, ${section.orientation})</h4>
+                        <button class="btn btn-secondary btn-mini" onclick="addDiskToSection(${sectionIndex})">➕ Ajouter Disque</button>
+                    </div>
+                    <div id="disksSection${sectionIndex}" class="disks-grid"></div>
+                `;
+                
+                container.appendChild(sectionContainer);
+                
+                // Populer les disques de cette section
+                populateDisksForSection(sectionIndex);
+            });
+        }
+
+        function populateSectionsList() {
+            const container = document.getElementById('sectionsList');
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            sectionsConfig.forEach((section, index) => {
+                const sectionItem = document.createElement('div');
+                sectionItem.style.cssText = 'border: 1px solid #444; border-radius: 5px; padding: 10px; margin-bottom: 8px; background: #1a1a1a;';
+                
+                sectionItem.innerHTML = `
+                    <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 10px; align-items: center;">
                         <div>
-                            <label style="font-size: 0.8em; color: #666;">Position:</label>
-                            <div style="font-weight: bold; color: #58a6ff;">${key}</div>
+                            <label style="font-size: 0.8em; color: #666;">Nom:</label>
+                            <input type="text" value="${section.name}" 
+                                   onchange="updateSection(${index}, 'name', this.value)"
+                                   style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;">
                         </div>
                         <div>
-                            <label style="font-size: 0.8em; color: #666;">UUID:</label>
-                            <input type="text" value="${diskConfig.uuid || ''}" 
-                                   onchange="updateDiskConfig('${key}', 'uuid', this.value)"
-                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                   placeholder="UUID du disque">
+                            <label style="font-size: 0.8em; color: #666;">Lignes:</label>
+                            <input type="number" value="${section.rows}" min="1" max="10"
+                                   onchange="updateSection(${index}, 'rows', parseInt(this.value))"
+                                   style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;">
                         </div>
                         <div>
-                            <label style="font-size: 0.8em; color: #666;">Device:</label>
-                            <input type="text" value="${diskConfig.device || ''}" 
-                                   onchange="updateDiskConfig('${key}', 'device', this.value)"
-                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                   placeholder="/dev/sdX">
+                            <label style="font-size: 0.8em; color: #666;">Colonnes:</label>
+                            <input type="number" value="${section.cols}" min="1" max="20"
+                                   onchange="updateSection(${index}, 'cols', parseInt(this.value))"
+                                   style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;">
                         </div>
                         <div>
-                            <button class="btn-mini" onclick="removeDisk('${key}')" 
-                                    style="background: #f85149; color: white;" title="Supprimer ce disque">
+                            <label style="font-size: 0.8em; color: #666;">Orientation:</label>
+                            <select onchange="updateSection(${index}, 'orientation', this.value)"
+                                    style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;">
+                                <option value="horizontal" ${section.orientation === 'horizontal' ? 'selected' : ''}>Horizontale</option>
+                                <option value="vertical" ${section.orientation === 'vertical' ? 'selected' : ''}>Verticale</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button class="btn-mini" onclick="removeSection(${index})" 
+                                    style="background: #f85149; color: white;" title="Supprimer cette section">
                                 🗑️
                             </button>
                         </div>
                     </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 10px;">
-                        <div>
-                            <label style="font-size: 0.8em; color: #666;">Label:</label>
-                            <input type="text" value="${diskConfig.label || ''}" 
-                                   onchange="updateDiskConfig('${key}', 'label', this.value)"
-                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                   placeholder="Nom du disque">
-                        </div>
-                        <div>
-                            <label style="font-size: 0.8em; color: #666;">Capacité:</label>
-                            <input type="text" value="${diskConfig.capacity || ''}" 
-                                   onchange="updateDiskConfig('${key}', 'capacity', this.value)"
-                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                   placeholder="ex: 2TB">
-                        </div>
-                        <div>
-                            <label style="font-size: 0.8em; color: #666;">Description:</label>
-                            <input type="text" value="${diskConfig.description || ''}" 
-                                   onchange="updateDiskConfig('${key}', 'description', this.value)"
-                                   style="width: 100%; background: #1a1a1a; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                   placeholder="Description optionnelle">
-                        </div>
-                    </div>
                 `;
                 
-                container.appendChild(diskItem);
+                container.appendChild(sectionItem);
             });
         }
 
@@ -3149,8 +3173,279 @@
         function removeDisk(key) {
             if (confirm(`Supprimer le disque "${key}" ?`)) {
                 delete diskConfigData[key];
-                populateDisksList();
+                populateSectionsAndDisksList();
             }
+        }
+
+        // Nouvelles fonctions pour la gestion des sections
+        function addNewSection() {
+            const newSection = {
+                name: `Section ${sectionsConfig.length + 1}`,
+                rows: 2,
+                cols: 6,
+                orientation: "horizontal"
+            };
+            sectionsConfig.push(newSection);
+            populateSectionsAndDisksList();
+        }
+
+        function updateSection(sectionIndex, field, value) {
+            if (sectionsConfig[sectionIndex]) {
+                sectionsConfig[sectionIndex][field] = value;
+                // Rafraîchir seulement la liste des sections pour éviter de perdre les saisies en cours
+                populateSectionsList();
+                // Rafraîchir le titre de la section concernée
+                const sectionContainer = document.querySelector(`#disksSection${sectionIndex}`);
+                if (sectionContainer) {
+                    const section = sectionsConfig[sectionIndex];
+                    const titleElement = sectionContainer.parentElement.querySelector('h4');
+                    if (titleElement) {
+                        titleElement.textContent = `💾 ${section.name} (${section.rows}x${section.cols}, ${section.orientation})`;
+                    }
+                }
+            }
+        }
+
+        function removeSection(sectionIndex) {
+            const section = sectionsConfig[sectionIndex];
+            if (confirm(`Supprimer la section "${section.name}" ?\n\nTous les disques de cette section seront également supprimés.`)) {
+                // Supprimer tous les disques de cette section
+                Object.keys(diskConfigData).forEach(key => {
+                    if (key.startsWith(`s${sectionIndex}_`)) {
+                        delete diskConfigData[key];
+                    }
+                });
+                
+                // Supprimer la section
+                sectionsConfig.splice(sectionIndex, 1);
+                
+                // Re-numéroter les clés des disques des sections suivantes
+                renumberDiskKeys();
+                
+                populateSectionsAndDisksList();
+            }
+        }
+
+        function addDiskToSection(sectionIndex) {
+            const section = sectionsConfig[sectionIndex];
+            const maxSlots = section.rows * section.cols;
+            
+            // Compter les disques existants dans cette section
+            const existingDisks = Object.keys(diskConfigData).filter(key => 
+                key.startsWith(`s${sectionIndex}_`)
+            ).length;
+            
+            if (existingDisks >= maxSlots) {
+                alert(`Cette section est pleine (${maxSlots} emplacements maximum).`);
+                return;
+            }
+            
+            // Trouver le prochain emplacement libre
+            let row = 0, col = 0;
+            let found = false;
+            
+            for (row = 0; row < section.rows && !found; row++) {
+                for (col = 0; col < section.cols && !found; col++) {
+                    const key = `s${sectionIndex}_${row}_${col}`;
+                    if (!diskConfigData[key]) {
+                        diskConfigData[key] = {
+                            uuid: '',
+                            device: '',
+                            label: '',
+                            description: '',
+                            capacity: '',
+                            section: sectionIndex,
+                            row: row,
+                            col: col
+                        };
+                        found = true;
+                    }
+                }
+            }
+            
+            populateDisksForSection(sectionIndex);
+        }
+
+        function populateDisksForSection(sectionIndex) {
+            const container = document.getElementById(`disksSection${sectionIndex}`);
+            if (!container) return;
+            
+            container.innerHTML = '';
+            
+            const section = sectionsConfig[sectionIndex];
+            const sectionDisks = Object.keys(diskConfigData)
+                .filter(key => key.startsWith(`s${sectionIndex}_`))
+                .sort();
+            
+            if (sectionDisks.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 20px; color: #666; border: 1px dashed #444; border-radius: 5px;">
+                        <p>Aucun disque dans cette section</p>
+                        <p><small>Cliquez sur "➕ Ajouter Disque" ci-dessus</small></p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Créer une grille pour visualiser les emplacements
+            const grid = document.createElement('div');
+            grid.style.cssText = `
+                display: grid; 
+                grid-template-columns: repeat(${section.cols}, 1fr); 
+                gap: 8px; 
+                margin-bottom: 15px;
+            `;
+            
+            // Créer tous les emplacements de la grille
+            for (let row = 0; row < section.rows; row++) {
+                for (let col = 0; col < section.cols; col++) {
+                    const key = `s${sectionIndex}_${row}_${col}`;
+                    const diskConfig = diskConfigData[key];
+                    
+                    const slot = document.createElement('div');
+                    slot.style.cssText = `
+                        aspect-ratio: 1;
+                        border: 2px solid ${diskConfig ? '#58a6ff' : '#333'};
+                        border-radius: 4px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        background: ${diskConfig ? '#0d1117' : '#161b22'};
+                        cursor: pointer;
+                        font-size: 14px;
+                        position: relative;
+                    `;
+                    
+                    if (diskConfig) {
+                        slot.innerHTML = `
+                            <span style="color: #58a6ff;">●</span>
+                            <div style="position: absolute; bottom: 2px; right: 2px;">
+                                <button onclick="removeDisk('${key}')" 
+                                        style="background: #f85149; color: white; border: none; border-radius: 50%; width: 16px; height: 16px; font-size: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center;"
+                                        title="Supprimer ce disque">×</button>
+                            </div>
+                        `;
+                        slot.title = `Position ${row+1},${col+1}: ${diskConfig.label || diskConfig.device || 'Disque configuré'}`;
+                    } else {
+                        slot.innerHTML = `<span style="color: #666;">○</span>`;
+                        slot.title = `Position ${row+1},${col+1}: Emplacement libre`;
+                        slot.onclick = () => addDiskAtPosition(sectionIndex, row, col);
+                    }
+                    
+                    grid.appendChild(slot);
+                }
+            }
+            
+            container.appendChild(grid);
+            
+            // Liste détaillée des disques configurés
+            if (sectionDisks.length > 0) {
+                const detailsHeader = document.createElement('h5');
+                detailsHeader.textContent = '🔧 Configuration des disques:';
+                detailsHeader.style.cssText = 'margin: 15px 0 10px 0; color: #f0f6fc;';
+                container.appendChild(detailsHeader);
+                
+                sectionDisks.forEach(key => {
+                    const diskConfig = diskConfigData[key];
+                    const [, , row, col] = key.split('_');
+                    
+                    const diskItem = document.createElement('div');
+                    diskItem.style.cssText = 'border: 1px solid #444; border-radius: 5px; padding: 10px; margin-bottom: 8px; background: #1a1a1a;';
+                    
+                    diskItem.innerHTML = `
+                        <div style="display: grid; grid-template-columns: 1fr 2fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 8px;">
+                            <div>
+                                <label style="font-size: 0.8em; color: #666;">Position:</label>
+                                <div style="font-weight: bold; color: #58a6ff;">Ligne ${parseInt(row)+1}, Col ${parseInt(col)+1}</div>
+                            </div>
+                            <div>
+                                <label style="font-size: 0.8em; color: #666;">UUID:</label>
+                                <input type="text" value="${diskConfig.uuid || ''}" 
+                                       onchange="updateDiskConfig('${key}', 'uuid', this.value)"
+                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                       placeholder="UUID du disque">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.8em; color: #666;">Device:</label>
+                                <input type="text" value="${diskConfig.device || ''}" 
+                                       onchange="updateDiskConfig('${key}', 'device', this.value)"
+                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                       placeholder="/dev/sdX">
+                            </div>
+                            <div>
+                                <button class="btn-mini" onclick="removeDisk('${key}')" 
+                                        style="background: #f85149; color: white;" title="Supprimer ce disque">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                            <div>
+                                <label style="font-size: 0.8em; color: #666;">Label:</label>
+                                <input type="text" value="${diskConfig.label || ''}" 
+                                       onchange="updateDiskConfig('${key}', 'label', this.value)"
+                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                       placeholder="Nom du disque">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.8em; color: #666;">Capacité:</label>
+                                <input type="text" value="${diskConfig.capacity || ''}" 
+                                       onchange="updateDiskConfig('${key}', 'capacity', this.value)"
+                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                       placeholder="ex: 2TB">
+                            </div>
+                            <div>
+                                <label style="font-size: 0.8em; color: #666;">Description:</label>
+                                <input type="text" value="${diskConfig.description || ''}" 
+                                       onchange="updateDiskConfig('${key}', 'description', this.value)"
+                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
+                                       placeholder="Description optionnelle">
+                            </div>
+                        </div>
+                    `;
+                    
+                    container.appendChild(diskItem);
+                });
+            }
+        }
+
+        function addDiskAtPosition(sectionIndex, row, col) {
+            const key = `s${sectionIndex}_${row}_${col}`;
+            diskConfigData[key] = {
+                uuid: '',
+                device: '',
+                label: '',
+                description: '',
+                capacity: '',
+                section: sectionIndex,
+                row: row,
+                col: col
+            };
+            populateDisksForSection(sectionIndex);
+        }
+
+        function renumberDiskKeys() {
+            const newDiskConfigData = {};
+            
+            sectionsConfig.forEach((section, newSectionIndex) => {
+                // Trouver tous les disques de l'ancienne section
+                Object.keys(diskConfigData).forEach(oldKey => {
+                    const diskConfig = diskConfigData[oldKey];
+                    if (diskConfig.section !== undefined && diskConfig.section > newSectionIndex) {
+                        // Re-numéroter cette section
+                        const newKey = `s${newSectionIndex}_${diskConfig.row}_${diskConfig.col}`;
+                        newDiskConfigData[newKey] = {
+                            ...diskConfig,
+                            section: newSectionIndex
+                        };
+                    } else if (oldKey.startsWith(`s${newSectionIndex}_`)) {
+                        // Garder cette section telle quelle
+                        newDiskConfigData[oldKey] = diskConfig;
+                    }
+                });
+            });
+            
+            diskConfigData = newDiskConfigData;
         }
 
         function populateServerTypeSelect() {
