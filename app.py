@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.2.2"
+VERSION = "4.2.3"
 BUILD_DATE = "2025-09-13"
 
 from flask import Flask, render_template, request, jsonify
@@ -457,9 +457,10 @@ class ServerDiskMonitorWeb:
                     needs_save = True
                     logger.info(f"Migration vers sections pour {server_name}: {len(new_mappings)} disques")
                 else:
-                    # Pas de disk_mappings existants, créer un dictionnaire vide
-                    server_config['disk_mappings'] = {}
-                    needs_save = True
+                    # Pas de disk_mappings existants, s'assurer qu'il existe
+                    if 'disk_mappings' not in server_config:
+                        server_config['disk_mappings'] = {}
+                        needs_save = True
         
         # Sauvegarder si nécessaire
         if needs_save:
@@ -587,6 +588,8 @@ class ServerDiskMonitorWeb:
         mounted_disks = 0
         online_servers = 0
         
+        logger.info(f"Traitement de {len(self.servers_config.get('servers', {}))} serveurs")
+        
         for server_name, config in self.servers_config.get('servers', {}).items():
             server_online = self.ping_server(config['ip'])
             
@@ -601,7 +604,12 @@ class ServerDiskMonitorWeb:
                 "disks": {}
             }
             
-            for position, disk_info in config.get('disk_mappings', {}).items():
+            disk_mappings = config.get('disk_mappings', {})
+            logger.info(f"Serveur {server_name}: {len(disk_mappings)} disk_mappings trouvés")
+            if len(disk_mappings) == 0:
+                logger.warning(f"Serveur {server_name}: Aucun disk_mapping configuré !")
+            
+            for position, disk_info in disk_mappings.items():
                 total_disks += 1
                 
                 if server_online:
