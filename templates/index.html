@@ -2391,11 +2391,22 @@
             `;
         }
 
+        // Fonction pour formater la position de manière lisible
+        function formatPosition(position) {
+            const parts = position.split('_');
+            if (parts.length >= 3) {
+                const row = parseInt(parts[1]) + 1;
+                const col = parseInt(parts[2]) + 1;
+                return `${row}-${col}`;
+            }
+            return position;
+        }
+
         function createDiskSlot(serverName, position, diskData, serverOnline) {
             if (!diskData) {
                 return `
                     <div class="disk-slot empty-slot" title="Slot vide - Position ${position}">
-                        <div class="slot-position">${position.replace(/_/g, '-').toUpperCase()}</div>
+                        <div class="slot-position">${formatPosition(position)}</div>
                         <div>VIDE</div>
                         <div class="disk-status-indicator">○</div>
                     </div>
@@ -2460,7 +2471,7 @@
                 <div class="disk-slot ${statusClass}" 
                      onclick="showDiskDetails('${serverName}', '${position}')" 
                      title="${tooltipContent}">
-                    <div class="slot-position">${position.replace(/_/g, '-').toUpperCase()}</div>
+                    <div class="slot-position">${formatPosition(position)}</div>
                     <div class="${labelClass}" data-original-label="${label}">${displayLabel}</div>
                     <div class="disk-status-indicator" style="color: ${statusColor}">${statusIndicator}</div>
                     <div class="disk-capacity">${displayCapacity}</div>
@@ -2519,7 +2530,7 @@
                 </div>
                 <div class="form-group">
                     <label>📍 Position:</label>
-                    <p>${position.replace(/_/g, ' - ')}</p>
+                    <p>${formatPosition(position)}</p>
                 </div>
                 <div class="form-group">
                     <label>🏷️ Label complet:</label>
