@@ -5,8 +5,8 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.1.9"
-BUILD_DATE = "2025-09-06"
+VERSION = "4.2.0"
+BUILD_DATE = "2025-09-13"
 
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
@@ -314,20 +314,34 @@ class ServerDiskMonitorWeb:
                     "ip": "192.168.1.100",
                     "username": "root",
                     "password": "",
+                    "sections": [
+                        {
+                            "name": "Section principale",
+                            "rows": 2,
+                            "cols": 6,
+                            "orientation": "horizontal"
+                        }
+                    ],
                     "disk_mappings": {
-                        "disk-1": {
+                        "s0_0_0": {
                             "uuid": "example-uuid-1234-5678-90ab-cdef12345678",
                             "device": "/dev/sda",
                             "label": "Système",
                             "description": "Disque système principal",
-                            "capacity": "256GB SSD"
+                            "capacity": "256GB SSD",
+                            "section": 0,
+                            "row": 0,
+                            "col": 0
                         },
-                        "disk-2": {
+                        "s0_0_1": {
                             "uuid": "example-uuid-2345-6789-01bc-def123456789",
                             "device": "/dev/sdb",
                             "label": "Données",
                             "description": "Stockage des données",
-                            "capacity": "1TB HDD"
+                            "capacity": "1TB HDD",
+                            "section": 0,
+                            "row": 0,
+                            "col": 1
                         }
                     }
                 }
@@ -386,7 +400,7 @@ class ServerDiskMonitorWeb:
             return self.default_config.copy()
     
     def cleanup_legacy_fields(self, config):
-        """Supprime les champs legacy liés aux templates"""
+        """Supprime les champs legacy et migre vers le nouveau système de sections"""
         if 'servers' not in config:
             return config
         
@@ -399,11 +413,47 @@ class ServerDiskMonitorWeb:
                     del server_config[field]
                     needs_save = True
                     logger.info(f"Supprimé champ legacy '{field}' pour {server_name}")
+            
+            # Migration vers le système de sections si pas encore fait
+            if 'sections' not in server_config and 'disk_mappings' in server_config:
+                server_config['sections'] = [{
+                    "name": "Section principale",
+                    "rows": 2,
+                    "cols": 6,
+                    "orientation": "horizontal"
+                }]
+                
+                # Migrer les disk_mappings vers le nouveau format avec sections
+                old_mappings = server_config.get('disk_mappings', {})
+                new_mappings = {}
+                
+                for old_key, disk_info in old_mappings.items():
+                    # Si c'est déjà dans le nouveau format, garder tel quel
+                    if old_key.startswith('s') and '_' in old_key:
+                        new_mappings[old_key] = disk_info
+                        # S'assurer que les métadonnées de section sont présentes
+                        if 'section' not in disk_info:
+                            parts = old_key.split('_')
+                            if len(parts) >= 3:
+                                disk_info['section'] = int(parts[0][1:])  # s0 -> 0
+                                disk_info['row'] = int(parts[1])
+                                disk_info['col'] = int(parts[2])
+                    else:
+                        # Convertir l'ancien format vers le nouveau
+                        new_key = f"s0_{len(new_mappings) // 6}_{len(new_mappings) % 6}"
+                        disk_info['section'] = 0
+                        disk_info['row'] = len(new_mappings) // 6
+                        disk_info['col'] = len(new_mappings) % 6
+                        new_mappings[new_key] = disk_info
+                
+                server_config['disk_mappings'] = new_mappings
+                needs_save = True
+                logger.info(f"Migration vers sections pour {server_name}: {len(new_mappings)} disques")
         
         # Sauvegarder si nécessaire
         if needs_save:
             self.save_config_to_file(config)
-            logger.info("Configuration nettoyée des champs legacy")
+            logger.info("Configuration nettoyée des champs legacy et migrée vers sections")
         
         return config
     
