@@ -1911,6 +1911,8 @@
             
             console.log('updateServers called, serversData:', serversData);
             console.log('config:', config);
+            console.log('serversData keys:', Object.keys(serversData || {}));
+            console.log('config keys:', Object.keys(config || {}));
 
             // Créer un ensemble de tous les serveurs (config + données de statut)
             const allServers = new Set();
@@ -1924,6 +1926,8 @@
             if (serversData && Object.keys(serversData).length > 0) {
                 Object.keys(serversData).forEach(serverName => allServers.add(serverName));
             }
+            
+            console.log('allServers found:', Array.from(allServers));
             
             // Si aucun serveur trouvé nulle part
             if (allServers.size === 0) {
