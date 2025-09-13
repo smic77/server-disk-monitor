@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.2.4"
+VERSION = "4.2.5"
 BUILD_DATE = "2025-09-13"
 
 from flask import Flask, render_template, request, jsonify
@@ -684,6 +684,10 @@ class ServerDiskMonitorWeb:
             self.disk_status[server_name] = server_status
         
         self.last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        # Debug: vérifier que les serveurs sont bien ajoutés
+        logger.info(f"Serveurs dans disk_status: {list(self.disk_status.keys())}")
+        logger.debug(f"Contenu disk_status: {self.disk_status}")
         
         # AJOUT: Vérification des changements et notifications
         notifications = self.notification_manager.check_disk_state_changes(self.disk_status)
