@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.2.1"
+VERSION = "4.2.2"
 BUILD_DATE = "2025-09-13"
 
 from flask import Flask, render_template, request, jsonify
@@ -415,7 +415,8 @@ class ServerDiskMonitorWeb:
                     logger.info(f"Supprimé champ legacy '{field}' pour {server_name}")
             
             # Migration vers le système de sections si pas encore fait
-            if 'sections' not in server_config and 'disk_mappings' in server_config:
+            if 'sections' not in server_config:
+                # Créer une section par défaut même s'il n'y a pas de disk_mappings
                 server_config['sections'] = [{
                     "name": "Section principale",
                     "rows": 2,
@@ -427,28 +428,38 @@ class ServerDiskMonitorWeb:
                 old_mappings = server_config.get('disk_mappings', {})
                 new_mappings = {}
                 
-                for old_key, disk_info in old_mappings.items():
-                    # Si c'est déjà dans le nouveau format, garder tel quel
-                    if old_key.startswith('s') and '_' in old_key:
-                        new_mappings[old_key] = disk_info
-                        # S'assurer que les métadonnées de section sont présentes
-                        if 'section' not in disk_info:
-                            parts = old_key.split('_')
-                            if len(parts) >= 3:
-                                disk_info['section'] = int(parts[0][1:])  # s0 -> 0
-                                disk_info['row'] = int(parts[1])
-                                disk_info['col'] = int(parts[2])
-                    else:
-                        # Convertir l'ancien format vers le nouveau
-                        new_key = f"s0_{len(new_mappings) // 6}_{len(new_mappings) % 6}"
-                        disk_info['section'] = 0
-                        disk_info['row'] = len(new_mappings) // 6
-                        disk_info['col'] = len(new_mappings) % 6
-                        new_mappings[new_key] = disk_info
-                
-                server_config['disk_mappings'] = new_mappings
-                needs_save = True
-                logger.info(f"Migration vers sections pour {server_name}: {len(new_mappings)} disques")
+                # Ne migrer que s'il y a des disk_mappings
+                if old_mappings:
+                    for old_key, disk_info in old_mappings.items():
+                        # Si c'est déjà dans le nouveau format, garder tel quel
+                        if old_key.startswith('s') and '_' in old_key:
+                            new_mappings[old_key] = disk_info
+                            # S'assurer que les métadonnées de section sont présentes
+                            if 'section' not in disk_info:
+                                parts = old_key.split('_')
+                                if len(parts) >= 3:
+                                    disk_info['section'] = int(parts[0][1:])  # s0 -> 0
+                                    disk_info['row'] = int(parts[1])
+                                    disk_info['col'] = int(parts[2])
+                        else:
+                            # Convertir l'ancien format vers le nouveau
+                            # Utiliser un index séquentiel simple
+                            position = len(new_mappings)
+                            row = position // 6
+                            col = position % 6
+                            new_key = f"s0_{row}_{col}"
+                            disk_info['section'] = 0
+                            disk_info['row'] = row
+                            disk_info['col'] = col
+                            new_mappings[new_key] = disk_info
+                    
+                    server_config['disk_mappings'] = new_mappings
+                    needs_save = True
+                    logger.info(f"Migration vers sections pour {server_name}: {len(new_mappings)} disques")
+                else:
+                    # Pas de disk_mappings existants, créer un dictionnaire vide
+                    server_config['disk_mappings'] = {}
+                    needs_save = True
         
         # Sauvegarder si nécessaire
         if needs_save:
