@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.2.3"
+VERSION = "4.2.4"
 BUILD_DATE = "2025-09-13"
 
 from flask import Flask, render_template, request, jsonify
@@ -414,15 +414,12 @@ class ServerDiskMonitorWeb:
                     needs_save = True
                     logger.info(f"Supprimé champ legacy '{field}' pour {server_name}")
             
-            # Migration vers le système de sections si pas encore fait
-            if 'sections' not in server_config:
-                # Créer une section par défaut même s'il n'y a pas de disk_mappings
-                server_config['sections'] = [{
-                    "name": "Section principale",
-                    "rows": 2,
-                    "cols": 6,
-                    "orientation": "horizontal"
-                }]
+            # Migration vers le système de sections (force migration si disk_mappings vide)
+            if 'sections' not in server_config or len(server_config.get('disk_mappings', {})) == 0:
+                # Créer une section par défaut adaptée au type de serveur
+                section_config = self.get_default_section_for_server(server_name)
+                server_config['sections'] = [section_config]
+                logger.info(f"Section créée pour {server_name}: {section_config['rows']}x{section_config['cols']}")
                 
                 # Migrer les disk_mappings vers le nouveau format avec sections
                 old_mappings = server_config.get('disk_mappings', {})
@@ -468,6 +465,61 @@ class ServerDiskMonitorWeb:
             logger.info("Configuration nettoyée des champs legacy et migrée vers sections")
         
         return config
+    
+    def get_default_section_for_server(self, server_name):
+        """Retourne une configuration de section par défaut basée sur le nom du serveur"""
+        server_name_upper = server_name.upper()
+        
+        if 'DL380' in server_name_upper:
+            return {
+                "name": "Section principale", 
+                "rows": 2, 
+                "cols": 12, 
+                "orientation": "horizontal"
+            }
+        elif 'DL180' in server_name_upper:
+            return {
+                "name": "Section principale", 
+                "rows": 2, 
+                "cols": 6, 
+                "orientation": "horizontal"
+            }
+        elif 'DL80' in server_name_upper:
+            return {
+                "name": "Section principale", 
+                "rows": 1, 
+                "cols": 4, 
+                "orientation": "horizontal"
+            }
+        elif 'P2000' in server_name_upper:
+            return {
+                "name": "Section principale", 
+                "rows": 2, 
+                "cols": 6, 
+                "orientation": "horizontal"
+            }
+        elif 'CHIA' in server_name_upper:
+            return {
+                "name": "Section principale", 
+                "rows": 4, 
+                "cols": 6, 
+                "orientation": "horizontal"
+            }
+        elif '5288' in server_name_upper:
+            return {
+                "name": "Section principale", 
+                "rows": 2, 
+                "cols": 12, 
+                "orientation": "horizontal"
+            }
+        else:
+            # Configuration par défaut
+            return {
+                "name": "Section principale", 
+                "rows": 2, 
+                "cols": 6, 
+                "orientation": "horizontal"
+            }
     
     def save_config(self):
         """Sauvegarde la configuration dans le fichier"""
@@ -1169,6 +1221,7 @@ def migrate_disk_mappings():
     except Exception as e:
         logger.error(f"Erreur migration disk_mappings: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
 
 # WebSocket events
 @socketio.on('connect')
