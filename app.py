@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.6.3"
+VERSION = "4.7.0"
 BUILD_DATE = "2025-09-14"
 
 from flask import Flask, render_template, request, jsonify
@@ -448,6 +448,39 @@ class ServerDiskMonitorWeb:
             logger.warning(f"Impossible de pinger {ip}")
             return False
     
+    def generate_all_positions(self, server_config):
+        """Générer toutes les positions possibles basées sur les sections du serveur"""
+        all_positions = set()
+        
+        # Récupérer les sections configurées
+        sections = server_config.get('sections', [])
+        
+        if not sections:
+            # Si pas de sections, vérifier s'il y a d'anciennes configurations rack
+            if server_config.get('front_rack', {}).get('enabled'):
+                rack = server_config['front_rack']
+                for row in range(rack.get('rows', 0)):
+                    for col in range(rack.get('cols', 0)):
+                        all_positions.add(f"front_{row}_{col}")
+            
+            if server_config.get('back_rack', {}).get('enabled'):
+                rack = server_config['back_rack']
+                for row in range(rack.get('rows', 0)):
+                    for col in range(rack.get('cols', 0)):
+                        all_positions.add(f"back_{row}_{col}")
+        else:
+            # Générer positions basées sur les sections
+            for section_index, section in enumerate(sections):
+                rows = section.get('rows', 0)
+                cols = section.get('cols', 0)
+                
+                for row in range(rows):
+                    for col in range(cols):
+                        position = f"s{section_index}_{row}_{col}"
+                        all_positions.add(position)
+        
+        return sorted(all_positions)
+    
     def check_disk_ssh(self, server_config, disk_info):
         """Vérifie le statut d'un disque via SSH"""
         # CORRECTION : Créer une clé de cache unique pour ce disque
@@ -534,30 +567,46 @@ class ServerDiskMonitorWeb:
                 "disks": {}
             }
             
+            # Générer toutes les positions possibles basées sur les sections
+            all_positions = self.generate_all_positions(config)
             disk_mappings = config.get('disk_mappings', {})
-            logger.info(f"Serveur {server_name}: {len(disk_mappings)} disk_mappings trouvés")
-            if len(disk_mappings) == 0:
-                logger.warning(f"Serveur {server_name}: Aucun disk_mapping configuré !")
             
-            for position, disk_info in disk_mappings.items():
-                total_disks += 1
+            logger.info(f"Serveur {server_name}: {len(all_positions)} positions générées, {len(disk_mappings)} configurées")
+            
+            for position in all_positions:
+                disk_info = disk_mappings.get(position)
                 
-                if server_online:
-                    disk_status = self.check_disk_ssh(config, disk_info)
-                    if disk_status['mounted']:
-                        mounted_disks += 1
+                if disk_info:
+                    # Position configurée - vérification SSH normale
+                    total_disks += 1
+                    
+                    if server_online:
+                        disk_status = self.check_disk_ssh(config, disk_info)
+                        if disk_status['mounted']:
+                            mounted_disks += 1
+                    else:
+                        disk_status = {"exists": False, "mounted": False}
+                    
+                    server_status["disks"][position] = {
+                        "uuid": disk_info['uuid'],
+                        "device": disk_info['device'],
+                        "label": disk_info.get('label', ''),
+                        "capacity": disk_info.get('capacity', ''),
+                        "description": disk_info.get('description', ''),
+                        "exists": disk_status['exists'],
+                        "mounted": disk_status['mounted']
+                    }
                 else:
-                    disk_status = {"exists": False, "mounted": False}
-                
-                server_status["disks"][position] = {
-                    "uuid": disk_info['uuid'],
-                    "device": disk_info['device'],
-                    "label": disk_info.get('label', ''),
-                    "capacity": disk_info.get('capacity', ''),
-                    "description": disk_info.get('description', ''),
-                    "exists": disk_status['exists'],
-                    "mounted": disk_status['mounted']
-                }
+                    # Position non configurée - slot vide
+                    server_status["disks"][position] = {
+                        "uuid": "",
+                        "device": "",
+                        "label": "",
+                        "capacity": "",
+                        "description": "",
+                        "exists": False,
+                        "mounted": False
+                    }
             
             self.disk_status[server_name] = server_status
         
