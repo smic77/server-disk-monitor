@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.7.1"
+VERSION = "4.8.0"
 BUILD_DATE = "2025-09-14"
 
 from flask import Flask, render_template, request, jsonify
@@ -1054,6 +1054,34 @@ def import_complete_config():
         logger.error(f"Erreur import complet: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
+@app.route('/api/save_server_order', methods=['POST'])
+def save_server_order():
+    """Sauvegarde l'ordre d'affichage des serveurs"""
+    try:
+        data = request.get_json()
+        
+        # Vérifier que les données sont valides
+        if not data or not isinstance(data, dict):
+            return jsonify({'success': False, 'error': 'Données invalides'}), 400
+        
+        # Mettre à jour l'ordre d'affichage pour chaque serveur
+        servers_config = monitor.servers_config.get('servers', {})
+        
+        for server_name, display_order in data.items():
+            if server_name in servers_config:
+                servers_config[server_name]['display_order'] = int(display_order)
+        
+        # Sauvegarder la configuration
+        if monitor.save_config():
+            logger.info(f"Ordre des serveurs mis à jour: {data}")
+            return jsonify({'success': True, 'message': 'Ordre des serveurs sauvegardé'})
+        else:
+            return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
+            
+    except Exception as e:
+        logger.error(f"Erreur sauvegarde ordre serveurs: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # WebSocket events

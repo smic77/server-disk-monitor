@@ -13,6 +13,8 @@ Dashboard web pour la surveillance des disques durs sur serveurs distants, acces
 - **Déploiement Facile** : Compatible Portainer Stack
 - **🆕 Notifications Telegram** : Alertes instantanées des changements d'état
 - **🆕 Détection Intelligente** : Surveillance des déconnexions/reconnexions de disques
+- **🆕 Indicateurs Visuels SSH** : Statut des mots de passe SSH sur les fiches serveurs
+- **🆕 Réorganisation Serveurs** : Modification de l'ordre d'affichage par glisser-déposer
 
 ## 📢 Système de Notifications Telegram
 
@@ -261,6 +263,8 @@ Une fois déployée, l'application est accessible via :
 - **Actualisation** : Bouton de refresh manuel
 - **Export/Import** : Sauvegarde et restauration de configuration
 - **🆕 Test Notifications** : Vérification des alertes Telegram
+- **🆕 Indicateurs SSH** : Statut visuel des mots de passe SSH (🔒 configuré / 🔓 manquant)
+- **🆕 Réorganisation** : Bouton ↕️ pour modifier l'ordre d'affichage des serveurs
 - **Basculement de thème** : Mode sombre/clair adaptatif
 
 ## 🔧 Configuration Avancée

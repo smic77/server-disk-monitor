@@ -1228,6 +1228,61 @@
             color: #fff;
         }
 
+        /* Styles pour la liste de serveurs réordonnables */
+        .server-order-list {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .server-order-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 15px;
+            margin: 5px 0;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-primary);
+            border-radius: 8px;
+            cursor: move;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .server-order-item:hover {
+            background: var(--bg-tertiary);
+            border-color: #007bff;
+        }
+
+        .server-order-item.dragging {
+            opacity: 0.6;
+            transform: scale(1.02);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .server-order-item .drag-handle {
+            margin-right: 10px;
+            color: var(--text-secondary);
+            font-size: 16px;
+            cursor: grab;
+        }
+
+        .server-order-item .drag-handle:active {
+            cursor: grabbing;
+        }
+
+        .server-order-item .server-name {
+            flex-grow: 1;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .server-order-item .server-status {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
         /* Styles pour les onglets de configuration */
         .config-tabs {
             display: flex;
@@ -1839,6 +1894,24 @@
         </div>
     </div>
 
+    <!-- Modal Ordre des Serveurs -->
+    <div id="serverOrderModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('serverOrderModal')">&times;</span>
+            <h2>↕️ Modifier l'ordre d'affichage des serveurs</h2>
+            <p style="color: #666; margin-bottom: 20px;">Glissez et déposez les serveurs pour modifier leur ordre d'affichage.</p>
+            
+            <div id="serverOrderList" class="server-order-list">
+                <!-- Liste des serveurs sera générée dynamiquement -->
+            </div>
+            
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn" onclick="saveServerOrder()" style="background: #28a745; margin-right: 10px;">💾 Sauvegarder</button>
+                <button class="btn" onclick="closeModal('serverOrderModal')">Annuler</button>
+            </div>
+        </div>
+    </div>
+
     <div class="status-bar">
         <div class="connection-status">
             <div class="connection-indicator" id="connectionIndicator"></div>
@@ -2052,9 +2125,10 @@
                 return;
             }
 
-            // Créer des cartes pour TOUS les serveurs trouvés
+            // Créer des cartes pour TOUS les serveurs trouvés, triés par ordre d'affichage
             console.log(`Création de ${allServers.size} cartes serveurs`);
-            allServers.forEach(serverName => {
+            const sortedServers = sortServersByDisplayOrder(Array.from(allServers));
+            sortedServers.forEach(serverName => {
                 const serverData = serversData[serverName] || null;
                 const serverConfig = config[serverName] || null;
                 
@@ -2139,12 +2213,14 @@
                         <button class="btn-mini btn-server-edit" onclick="showServerEditModal('${serverName}')" title="Modifier ce serveur" style="background: #0969da; color: white; margin-right: 5px;">
                             ✏️
                         </button>
+                        <button class="btn-mini btn-order" onclick="showServerOrderModal()" title="Modifier l'ordre d'affichage" style="background: #6f42c1; color: white; margin-right: 5px;">
+                            ↕️
+                        </button>
                         <button class="btn-mini btn-add-section" onclick="showAddSectionModal('${serverName}')" title="Ajouter une nouvelle section" style="background: #28a745; color: white;">
                             ➕
                         </button>
-                        <button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" title="Configurer mot de passe SSH">
-                            🔐
-                        </button>
+                        ${getPasswordButtonHTML(serverName, serverConfig)}
+                    
                         <div class="server-status ${statusClass}">
                             ${statusText}
                         </div>
@@ -2505,6 +2581,172 @@
                 return `${row}-${col}`;
             }
             return position;
+        }
+
+        // Fonction pour générer le bouton de mot de passe avec indicateur de statut
+        function getPasswordButtonHTML(serverName, serverConfig) {
+            const hasPassword = serverConfig && serverConfig.password && serverConfig.password !== '';
+            
+            if (hasPassword) {
+                // Mot de passe configuré - bouton vert avec cadenas fermé
+                return `<button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" 
+                               title="Mot de passe SSH configuré - Cliquer pour modifier" 
+                               style="background: #28a745; color: white; border: 2px solid #1e7e34;">
+                            🔒
+                        </button>`;
+            } else {
+                // Pas de mot de passe - bouton orange avec cadenas ouvert
+                return `<button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" 
+                               title="Mot de passe SSH manquant - Cliquer pour configurer" 
+                               style="background: #fd7e14; color: white; border: 2px solid #e3650b;">
+                            🔓
+                        </button>`;
+            }
+        }
+
+        // Fonction pour trier les serveurs par ordre d'affichage
+        function sortServersByDisplayOrder(serverNames) {
+            return serverNames.sort((a, b) => {
+                const configA = config[a] || {};
+                const configB = config[b] || {};
+                
+                // Utiliser display_order si défini, sinon ordre alphabétique
+                const orderA = configA.display_order ?? 999;
+                const orderB = configB.display_order ?? 999;
+                
+                // Si même ordre, tri alphabétique
+                if (orderA === orderB) {
+                    return a.localeCompare(b);
+                }
+                
+                return orderA - orderB;
+            });
+        }
+
+        // Fonctions pour le modal de réorganisation des serveurs
+        function showServerOrderModal() {
+            const modal = document.getElementById('serverOrderModal');
+            const orderList = document.getElementById('serverOrderList');
+            
+            // Récupérer la liste des serveurs avec leur configuration actuelle
+            const serverNames = Object.keys(config.servers || {});
+            const sortedServers = sortServersByDisplayOrder(serverNames);
+            
+            // Générer la liste des serveurs réorganisables
+            let html = '';
+            sortedServers.forEach((serverName, index) => {
+                const serverConfig = config.servers[serverName] || {};
+                const isOnline = serversData[serverName] && serversData[serverName].online;
+                const statusText = isOnline ? '🟢 En ligne' : '🔴 Hors ligne';
+                
+                html += `
+                    <div class="server-order-item" draggable="true" data-server-name="${serverName}" data-original-order="${index}">
+                        <div class="drag-handle">☰</div>
+                        <div class="server-name">${serverName}</div>
+                        <div class="server-status">${statusText}</div>
+                    </div>
+                `;
+            });
+            
+            orderList.innerHTML = html;
+            
+            // Ajouter les événements drag-and-drop
+            initializeDragAndDrop();
+            
+            modal.style.display = 'block';
+        }
+
+        function initializeDragAndDrop() {
+            const items = document.querySelectorAll('.server-order-item');
+            
+            items.forEach(item => {
+                item.addEventListener('dragstart', handleDragStart);
+                item.addEventListener('dragover', handleDragOver);
+                item.addEventListener('drop', handleDrop);
+                item.addEventListener('dragend', handleDragEnd);
+            });
+        }
+
+        let draggedElement = null;
+
+        function handleDragStart(e) {
+            draggedElement = this;
+            this.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', this.outerHTML);
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            
+            const container = document.getElementById('serverOrderList');
+            const afterElement = getDragAfterElement(container, e.clientY);
+            
+            if (afterElement == null) {
+                container.appendChild(draggedElement);
+            } else {
+                container.insertBefore(draggedElement, afterElement);
+            }
+        }
+
+        function handleDrop(e) {
+            e.stopPropagation();
+            return false;
+        }
+
+        function handleDragEnd(e) {
+            this.classList.remove('dragging');
+            draggedElement = null;
+        }
+
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.server-order-item:not(.dragging)')];
+            
+            return draggableElements.reduce((closest, child) => {
+                const box = child.getBoundingClientRect();
+                const offset = y - box.top - box.height / 2;
+                
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function saveServerOrder() {
+            const items = document.querySelectorAll('.server-order-item');
+            const newOrder = {};
+            
+            items.forEach((item, index) => {
+                const serverName = item.getAttribute('data-server-name');
+                newOrder[serverName] = index;
+            });
+            
+            // Sauvegarder le nouvel ordre
+            fetch('/api/save_server_order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newOrder)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Recharger la configuration et mettre à jour l'affichage
+                    loadInitialData();
+                    closeModal('serverOrderModal');
+                    showNotification('Ordre des serveurs mis à jour avec succès', 'success');
+                } else {
+                    showNotification('Erreur lors de la sauvegarde de l\'ordre des serveurs', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('Erreur:', error);
+                showNotification('Erreur de communication avec le serveur', 'error');
+            });
         }
 
         function createDiskSlot(serverName, position, diskData, serverOnline, diskConfig = {}) {
