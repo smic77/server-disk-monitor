@@ -28,23 +28,23 @@
         }
 
         [data-theme="light"] {
-            /* Light Theme Variables (Uptime Kuma style) */
-            --bg-primary: #f8f9fa;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #f1f3f4;
+            /* Light Theme Variables - Improved contrast and readability */
+            --bg-primary: #ffffff;
+            --bg-secondary: #fafbfc;
+            --bg-tertiary: #f6f8fa;
             --bg-card: #ffffff;
-            --bg-card-hover: #f8f9fa;
-            --text-primary: #1f2328;
-            --text-secondary: #656d76;
-            --text-accent: #0969da;
-            --border-primary: #d0d7de;
-            --border-accent: #5cdd8b;
-            --accent-primary: #5cdd8b;
-            --accent-secondary: #0969da;
-            --success: #1a7f37;
-            --warning: #9a6700;
-            --danger: #cf222e;
-            --info: #0969da;
+            --bg-card-hover: #f6f8fa;
+            --text-primary: #24292f;
+            --text-secondary: #57606a;
+            --text-accent: #0550ae;
+            --border-primary: #d1d9e0;
+            --border-accent: #1f883d;
+            --accent-primary: #1f883d;
+            --accent-secondary: #0550ae;
+            --success: #1f883d;
+            --warning: #bf8700;
+            --danger: #da3633;
+            --info: #0550ae;
         }
 
         * {
@@ -931,6 +931,136 @@
 
         .disk-slot.disk-error .disk-capacity {
             color: #fecaca;
+        }
+
+        /* Améliorations pour le thème clair */
+        [data-theme="light"] .disk-slot {
+            background: #ffffff;
+            border: 2px solid #e1e5e9;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        [data-theme="light"] .disk-slot.has-disk {
+            border-color: #1f883d;
+            background: #f6ffed;
+            box-shadow: 0 1px 3px rgba(31, 136, 61, 0.2);
+        }
+
+        [data-theme="light"] .disk-slot.disk-unmounted {
+            border-color: #bf8700;
+            background: #fffbf0;
+            box-shadow: 0 1px 3px rgba(191, 135, 0, 0.2);
+        }
+
+        [data-theme="light"] .disk-slot.disk-error {
+            border-color: #da3633;
+            background: #fff5f5;
+            box-shadow: 0 1px 3px rgba(218, 54, 51, 0.2);
+        }
+
+        [data-theme="light"] .slot-position {
+            background: rgba(0, 0, 0, 0.05);
+            border: 1px solid #d1d9e0;
+            color: #656d76;
+        }
+
+        [data-theme="light"] .disk-label {
+            color: #24292f;
+            text-shadow: none;
+        }
+
+        [data-theme="light"] .disk-slot.has-disk .disk-label {
+            color: #1f2328;
+            font-weight: 600;
+        }
+
+        [data-theme="light"] .disk-slot.disk-unmounted .disk-label {
+            color: #7d4e00;
+            font-weight: 600;
+        }
+
+        [data-theme="light"] .disk-slot.disk-error .disk-label {
+            color: #a40e26;
+            font-weight: 600;
+        }
+
+        [data-theme="light"] .disk-capacity {
+            background: rgba(0, 0, 0, 0.05);
+            color: #656d76;
+        }
+
+        [data-theme="light"] .disk-slot.has-disk .disk-capacity {
+            color: #1f883d;
+            background: rgba(31, 136, 61, 0.1);
+        }
+
+        [data-theme="light"] .disk-slot.disk-unmounted .disk-capacity {
+            color: #bf8700;
+            background: rgba(191, 135, 0, 0.1);
+        }
+
+        [data-theme="light"] .disk-slot.disk-error .disk-capacity {
+            color: #da3633;
+            background: rgba(218, 54, 51, 0.1);
+        }
+
+        /* Indicateurs d'état pour le thème clair */
+        [data-theme="light"] .disk-slot::before {
+            background: #d1d9e0;
+            border-color: #afb8c1;
+        }
+
+        [data-theme="light"] .disk-slot.has-disk::before {
+            background: #1f883d;
+            border-color: #1a7f37;
+        }
+
+        [data-theme="light"] .disk-slot.disk-unmounted::before {
+            background: #bf8700;
+            border-color: #9a6700;
+        }
+
+        [data-theme="light"] .disk-slot.disk-error::before {
+            background: #da3633;
+            border-color: #cf222e;
+        }
+
+        /* Améliorations des cartes serveur pour le thème clair */
+        [data-theme="light"] .server-card {
+            background: #ffffff;
+            border: 1px solid #d1d9e0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+        }
+
+        [data-theme="light"] .server-card:hover {
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+            border-color: #afb8c1;
+        }
+
+        /* Améliorer les sections dans le thème clair */
+        [data-theme="light"] .section-card {
+            background: #ffffff !important;
+            border: 1px solid #d1d9e0 !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08) !important;
+        }
+
+        /* Améliorer la lisibilité des textes de status */
+        [data-theme="light"] .server-status {
+            font-weight: 600;
+        }
+
+        [data-theme="light"] .section-info {
+            color: #656d76 !important;
+        }
+
+        /* Améliorer les boutons dans le thème clair */
+        [data-theme="light"] .btn-mini {
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        [data-theme="light"] .btn-mini:hover {
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .disk-status-indicator {
