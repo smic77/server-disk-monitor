@@ -2027,8 +2027,8 @@
                         <button class="btn-mini btn-server-edit" onclick="showServerEditModal('${serverName}')" title="Modifier ce serveur" style="background: #0969da; color: white; margin-right: 5px;">
                             ✏️
                         </button>
-                        <button class="btn-mini btn-disk-config" onclick="showDiskConfigModal('${serverName}')" title="Configurer les disques du serveur">
-                            💾
+                        <button class="btn-mini btn-add-section" onclick="showAddSectionModal('${serverName}')" title="Ajouter une nouvelle section" style="background: #28a745; color: white;">
+                            ➕ Section
                         </button>
                         <button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" title="Configurer mot de passe SSH">
                             🔐
@@ -2096,29 +2096,45 @@
 
         // Création du HTML des racks basé sur les templates
         function createRacksHTML(serverName, serverConfig, serverData) {
-            // Système basé sur les sections avec grilles définies
+            // Système basé sur les sections avec cartes individuelles
             const sections = serverConfig.sections || [];
             const diskMappings = serverConfig.disk_mappings || {};
             
             if (sections.length === 0) {
                 return `
                     <div style="text-align: center; padding: 20px; color: #666; border: 1px dashed #333; border-radius: 5px; margin: 10px 0;">
-                        <p>🔧 Aucune section configurée</p>
-                        <p><small>Cliquez sur le bouton "💾" pour configurer les sections</small></p>
+                        <p>📂 Aucune section configurée</p>
+                        <p><small>Cliquez sur le bouton "➕ Section" pour ajouter une section</small></p>
                     </div>
                 `;
             }
             
-            let html = '<div class="sections-container">';
+            let html = '<div class="sections-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px;">';
             
-            // Créer chaque section
+            // Créer chaque section comme une carte individuelle
             sections.forEach((section, sectionIndex) => {
                 html += `
-                    <div class="section-container" style="margin: 15px 0; padding: 10px; border: 1px solid #333; border-radius: 5px; background: rgba(0,0,0,0.2);">
-                        <h4 style="margin: 0 0 10px 0; color: #58a6ff; font-size: 0.9em;">
-                            📋 ${section.name} (${section.rows}x${section.cols}, ${section.orientation})
-                        </h4>
-                        <div class="section-grid" style="display: grid; grid-template-columns: repeat(${section.cols}, 1fr); gap: 4px;">`;
+                    <div class="section-card" style="border: 1px solid #333; border-radius: 8px; background: rgba(0,0,0,0.3); padding: 15px;">
+                        <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <h4 style="margin: 0; color: #58a6ff; font-size: 1em;">
+                                📋 ${section.name}
+                            </h4>
+                            <div class="section-actions" style="display: flex; gap: 5px;">
+                                <button class="btn-mini" onclick="showEditSectionModal('${serverName}', ${sectionIndex})" title="Modifier cette section" style="background: #0969da; color: white; padding: 4px 8px; font-size: 0.8em;">
+                                    ✏️
+                                </button>
+                                <button class="btn-mini" onclick="showConfigureDisksModal('${serverName}', ${sectionIndex})" title="Configurer les disques" style="background: #7c3aed; color: white; padding: 4px 8px; font-size: 0.8em;">
+                                    💽
+                                </button>
+                                <button class="btn-mini" onclick="removeSectionConfirm('${serverName}', ${sectionIndex})" title="Supprimer cette section" style="background: #dc2626; color: white; padding: 4px 8px; font-size: 0.8em;">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                        <div class="section-info" style="font-size: 0.8em; color: #ccc; margin-bottom: 10px;">
+                            ${section.rows}x${section.cols} • ${section.orientation || 'horizontal'}
+                        </div>
+                        <div class="section-grid" style="display: grid; grid-template-columns: repeat(${section.cols}, 1fr); gap: 3px; min-height: ${section.rows * 30}px;">`;
                 
                 // Générer la grille pour cette section
                 for (let row = 0; row < section.rows; row++) {
@@ -3518,6 +3534,258 @@
                 statusMsg.textContent = '❌ Erreur de communication';
                 statusMsg.style.color = 'red';
             }
+        }
+
+        // Nouvelles fonctions pour le workflow simplifié
+        function showAddSectionModal(serverName) {
+            // Utiliser le modal existant mais en mode ajout rapide
+            currentServerForDiskConfig = serverName;
+            
+            // Créer une section par défaut
+            const serverConfig = config[serverName];
+            if (!serverConfig.sections) {
+                serverConfig.sections = [];
+            }
+            
+            const newSection = {
+                name: `Section ${serverConfig.sections.length + 1}`,
+                rows: 2,
+                cols: 6,
+                orientation: "horizontal"
+            };
+            
+            // Ajouter la section directement
+            serverConfig.sections.push(newSection);
+            
+            // Sauvegarder immédiatement
+            saveServerConfig(serverName)
+                .then(() => {
+                    refreshData();
+                    console.log(`✅ Nouvelle section ajoutée à ${serverName}`);
+                })
+                .catch(error => {
+                    console.error('❌ Erreur lors de l\'ajout de la section:', error);
+                    alert('Erreur lors de l\'ajout de la section');
+                });
+        }
+        
+        function showEditSectionModal(serverName, sectionIndex) {
+            currentServerForDiskConfig = serverName;
+            const serverConfig = config[serverName];
+            const section = serverConfig.sections[sectionIndex];
+            
+            if (!section) {
+                alert('Section non trouvée');
+                return;
+            }
+            
+            // Créer un modal simple pour éditer la section
+            const modalHtml = `
+                <div id="editSectionModal" class="modal">
+                    <div class="modal-content" style="max-width: 600px;">
+                        <div class="modal-header">
+                            <h2 id="editSectionTitle">✏️ Modifier Section</h2>
+                            <span class="close" onclick="closeModal('editSectionModal')">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; margin-bottom: 5px; color: #f0f6fc;">Nom de la section:</label>
+                                <input type="text" id="editSectionName" value="${section.name}" style="width: 100%; padding: 8px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 4px;">
+                            </div>
+                            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; color: #f0f6fc;">Lignes:</label>
+                                    <input type="number" id="editSectionRows" value="${section.rows}" min="1" max="10" style="width: 100%; padding: 8px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; color: #f0f6fc;">Colonnes:</label>
+                                    <input type="number" id="editSectionCols" value="${section.cols}" min="1" max="20" style="width: 100%; padding: 8px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <label style="display: block; margin-bottom: 5px; color: #f0f6fc;">Orientation:</label>
+                                    <select id="editSectionOrientation" style="width: 100%; padding: 8px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 4px;">
+                                        <option value="horizontal" ${section.orientation === 'horizontal' ? 'selected' : ''}>Horizontale</option>
+                                        <option value="vertical" ${section.orientation === 'vertical' ? 'selected' : ''}>Verticale</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeModal('editSectionModal')">Annuler</button>
+                            <button class="btn btn-primary" onclick="saveEditSection('${serverName}', ${sectionIndex})">💾 Sauvegarder</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Supprimer l'ancien modal s'il existe
+            const existingModal = document.getElementById('editSectionModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+            
+            // Ajouter le nouveau modal au DOM
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            document.getElementById('editSectionModal').style.display = 'block';
+        }
+        
+        function saveEditSection(serverName, sectionIndex) {
+            const serverConfig = config[serverName];
+            const section = serverConfig.sections[sectionIndex];
+            
+            // Récupérer les nouvelles valeurs
+            const newName = document.getElementById('editSectionName').value.trim();
+            const newRows = parseInt(document.getElementById('editSectionRows').value);
+            const newCols = parseInt(document.getElementById('editSectionCols').value);
+            const newOrientation = document.getElementById('editSectionOrientation').value;
+            
+            // Validation
+            if (!newName) {
+                alert('Le nom de la section est requis');
+                return;
+            }
+            
+            if (newRows < 1 || newRows > 10) {
+                alert('Le nombre de lignes doit être entre 1 et 10');
+                return;
+            }
+            
+            if (newCols < 1 || newCols > 20) {
+                alert('Le nombre de colonnes doit être entre 1 et 20');
+                return;
+            }
+            
+            // Mettre à jour la section
+            section.name = newName;
+            section.rows = newRows;
+            section.cols = newCols;
+            section.orientation = newOrientation;
+            
+            // Sauvegarder
+            saveServerConfig(serverName)
+                .then(() => {
+                    closeModal('editSectionModal');
+                    refreshData();
+                    console.log(`✅ Section ${sectionIndex} modifiée pour ${serverName}`);
+                })
+                .catch(error => {
+                    console.error('❌ Erreur lors de la sauvegarde:', error);
+                    alert('Erreur lors de la sauvegarde');
+                });
+        }
+        
+        function showConfigureDisksModal(serverName, sectionIndex) {
+            // Utiliser le modal existant mais centré sur une section spécifique
+            currentServerForDiskConfig = serverName;
+            const serverConfig = config[serverName];
+            
+            // Charger la configuration existante
+            sectionsConfig = JSON.parse(JSON.stringify(serverConfig.sections || []));
+            diskConfigData = JSON.parse(JSON.stringify(serverConfig.disk_mappings || {}));
+            
+            // Ouvrir le modal classique mais se concentrer sur la section
+            const modal = document.getElementById('diskConfigModal');
+            const title = document.getElementById('diskConfigTitle');
+            
+            const section = sectionsConfig[sectionIndex];
+            title.innerHTML = `💽 Configuration Disques - ${section.name} 
+                <div style="font-size: 0.9em; color: #ccc; margin-top: 5px;">
+                    ${serverConfig.username}@${serverConfig.ip}
+                </div>`;
+            
+            populateSectionsAndDisksList();
+            modal.style.display = 'block';
+            
+            // Faire défiler vers la section concernée
+            setTimeout(() => {
+                const sectionElement = document.getElementById(`disksSection${sectionIndex}`);
+                if (sectionElement) {
+                    sectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+        
+        function removeSectionConfirm(serverName, sectionIndex) {
+            const serverConfig = config[serverName];
+            const section = serverConfig.sections[sectionIndex];
+            
+            if (!section) {
+                alert('Section non trouvée');
+                return;
+            }
+            
+            const confirmation = confirm(`Supprimer la section "${section.name}" ?\n\nTous les disques de cette section seront également supprimés.`);
+            if (!confirmation) return;
+            
+            // Supprimer tous les disques de cette section
+            if (serverConfig.disk_mappings) {
+                Object.keys(serverConfig.disk_mappings).forEach(key => {
+                    if (key.startsWith(`s${sectionIndex}_`)) {
+                        delete serverConfig.disk_mappings[key];
+                    }
+                });
+            }
+            
+            // Supprimer la section
+            serverConfig.sections.splice(sectionIndex, 1);
+            
+            // Re-numéroter les clés des disques des sections suivantes
+            if (serverConfig.disk_mappings) {
+                const newDiskMappings = {};
+                Object.keys(serverConfig.disk_mappings).forEach(oldKey => {
+                    const matches = oldKey.match(/^s(\d+)_(\d+)_(\d+)$/);
+                    if (matches) {
+                        const oldSectionIndex = parseInt(matches[1]);
+                        const row = matches[2];
+                        const col = matches[3];
+                        
+                        if (oldSectionIndex > sectionIndex) {
+                            // Re-numéroter cette section
+                            const newKey = `s${oldSectionIndex - 1}_${row}_${col}`;
+                            newDiskMappings[newKey] = serverConfig.disk_mappings[oldKey];
+                        } else if (oldSectionIndex < sectionIndex) {
+                            // Garder cette section telle quelle
+                            newDiskMappings[oldKey] = serverConfig.disk_mappings[oldKey];
+                        }
+                        // Les disques de la section supprimée sont ignorés
+                    } else {
+                        // Clés non-section (compatibilité arrière)
+                        newDiskMappings[oldKey] = serverConfig.disk_mappings[oldKey];
+                    }
+                });
+                serverConfig.disk_mappings = newDiskMappings;
+            }
+            
+            // Sauvegarder
+            saveServerConfig(serverName)
+                .then(() => {
+                    refreshData();
+                    console.log(`✅ Section "${section.name}" supprimée de ${serverName}`);
+                })
+                .catch(error => {
+                    console.error('❌ Erreur lors de la suppression:', error);
+                    alert('Erreur lors de la suppression de la section');
+                });
+        }
+        
+        // Fonction utilitaire pour sauvegarder la configuration d'un serveur
+        async function saveServerConfig(serverName) {
+            const response = await fetch('/api/config', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    servers: config
+                })
+            });
+            
+            const result = await response.json();
+            if (!result.success) {
+                throw new Error(result.error);
+            }
+            
+            return result;
         }
 
         // Modal d'édition serveur indépendant
