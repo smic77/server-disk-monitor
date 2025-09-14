@@ -2303,7 +2303,7 @@
             // Optimisation des labels après le rendu
             setTimeout(() => {
                 optimizeDiskLabels();
-                updateToggleAllButton();
+                // updateToggleAllButton(); // Temporairement désactivé pour debug
                 console.log(`🎯 Optimisation des labels terminée pour ${allServers.size} serveurs`);
             }, 100);
         }
@@ -5176,10 +5176,10 @@
                     : 'rotate(0deg)';
             }, 150);
             
-            // Mettre à jour l'icône du bouton global après changement individuel
-            setTimeout(() => {
-                updateToggleAllButton();
-            }, 200);
+            // Mettre à jour l'icône du bouton global après changement individuel  
+            // setTimeout(() => {
+            //     updateToggleAllButton();
+            // }, 200);
         }
 
         // Fonction pour restaurer l'état des sections collapsed au chargement
@@ -5199,7 +5199,7 @@
             }
             
             // Mettre à jour l'icône du bouton global après restauration
-            updateToggleAllButton();
+            // updateToggleAllButton(); // Temporairement désactivé pour debug
         }
 
         // Fonction pour mettre à jour l'icône du bouton global selon l'état des sections
@@ -5287,43 +5287,6 @@
             localStorage.setItem('collapsedServers', JSON.stringify(collapsedServers));
             
             console.log(`Toggled all sections: ${shouldExpand ? 'expanded' : 'collapsed'} all`);
-        }
-        
-        // Fonction pour mettre à jour l'icône du bouton toggle selon l'état actuel
-        function updateToggleAllButton() {
-            const toggleButton = document.getElementById('toggleAllSectionsBtn');
-            const allSectionsContainers = document.querySelectorAll('[id^="sections-"]');
-            
-            if (!toggleButton || allSectionsContainers.length === 0) {
-                return;
-            }
-            
-            const hasCollapsedSections = Array.from(allSectionsContainers).some(container => 
-                container.classList.contains('collapsed')
-            );
-            
-            if (hasCollapsedSections) {
-                toggleButton.textContent = '🔽';
-                toggleButton.setAttribute('data-tooltip', 'Déplier toutes les sections');
-            } else {
-                toggleButton.textContent = '🔼';
-                toggleButton.setAttribute('data-tooltip', 'Replier toutes les sections');
-            }
-        }
-                    collapsedServers[serverName] = true;
-                });
-            }
-            // Si on expand tout, on laisse collapsedServers vide
-            
-            localStorage.setItem('collapsedServers', JSON.stringify(collapsedServers));
-            
-            // Animation du bouton pour feedback visuel
-            toggleButton.style.transform = 'scale(1.2)';
-            setTimeout(() => {
-                toggleButton.style.transform = 'scale(1)';
-            }, 150);
-            
-            console.log(`${shouldExpand ? 'Expanded' : 'Collapsed'} ${allSectionsContainers.length} server sections`);
         }
 
         // Gestion des modals
