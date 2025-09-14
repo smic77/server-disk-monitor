@@ -372,6 +372,29 @@
             color: #ffffff; /* Couleur claire pour thème clair */
         }
 
+        /* Boutons avec gros symboles - même taille de conteneur mais symboles grands */
+        .icon-btn.large-symbol {
+            width: 50px;
+            height: 50px;
+            padding: 4px;
+            overflow: hidden;
+        }
+
+        .icon-btn.large-symbol svg {
+            max-width: 56px;
+            max-height: 56px;
+        }
+
+        /* Adaptation des boutons + selon les thèmes */
+        .btn-add-section {
+            background: #28a745 !important;
+            color: #1a1a1a !important; /* Couleur sombre pour thème sombre */
+        }
+
+        [data-theme="light"] .btn-add-section {
+            color: #ffffff !important; /* Couleur claire pour thème clair */
+        }
+
         /* Tooltips pour les icônes */
         .tooltip {
             position: relative;
@@ -1828,10 +1851,10 @@
         <button class="icon-btn success tooltip" data-tooltip="Ajouter un nouveau serveur" onclick="showServerEditModal()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M17,13H13V17H11V13H7V11H11V7H13V11H17V13Z"/></svg>
         </button>
-        <button class="icon-btn info tooltip" data-tooltip="Modifier l'ordre d'affichage des serveurs" onclick="showServerOrderModal()">
+        <button class="icon-btn info tooltip large-symbol" data-tooltip="Modifier l'ordre d'affichage des serveurs" onclick="showServerOrderModal()">
             <svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M7,15L12,10L17,15H7Z M7,9L12,14L17,9H7Z"/></svg>
         </button>
-        <button class="icon-btn warning tooltip" id="toggleAllSectionsBtn" data-tooltip="Déplier/Replier toutes les sections" onclick="toggleAllServerSections()">
+        <button class="icon-btn warning tooltip large-symbol" id="toggleAllSectionsBtn" data-tooltip="Déplier/Replier toutes les sections" onclick="toggleAllServerSections()">
             <svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
         </button>
         <button class="icon-btn purple tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">
@@ -1984,14 +2007,14 @@
                             <div id="sectionsContainer">
                                 <!-- Sections seront générées dynamiquement -->
                             </div>
-                            <button type="button" class="btn btn-info" onclick="addSection()" style="margin-top: 10px;">➕ Ajouter Section</button>
+                            <button type="button" class="btn btn-info" onclick="addSection()" style="margin-top: 10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M17,13H13V17H11V13H7V11H11V7H13V11H17V13Z"/></svg> Ajouter Section</button>
                         </div>
                     </div>
                 </div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
                 <button class="btn btn-success" onclick="saveCurrentTemplate()" id="saveTemplateBtn" style="display: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarder Template</button>
-                <button class="btn btn-primary" onclick="createNewTemplate()">➕ Nouveau Template</button>
+                <button class="btn btn-primary" onclick="createNewTemplate()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M17,13H13V17H11V13H7V11H11V7H13V11H17V13Z"/></svg> Nouveau Template</button>
                 <button class="btn" onclick="closeModal('templateManagerModal')">❌ Fermer</button>
             </div>
         </div>
@@ -2030,7 +2053,7 @@
                         <div class="chat-ids-container" id="chatIdsContainer">
                             <!-- Les Chat IDs seront ajoutés ici -->
                         </div>
-                        <button type="button" class="btn-add" onclick="addChatId()">➕ Ajouter Chat ID</button>
+                        <button type="button" class="btn-add" onclick="addChatId()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M17,13H13V17H11V13H7V11H11V7H13V11H17V13Z"/></svg> Ajouter Chat ID</button>
                         <small style="color: #ccc; font-size: 0.9em; display: block; margin-top: 5px;">
                             Pour obtenir votre Chat ID : envoyez /start à @userinfobot
                         </small>
@@ -2422,7 +2445,7 @@
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>
                         </button>
                         <button class="btn-mini btn-add-section" onclick="showAddSectionModal('${serverName}')" title="Ajouter une nouvelle section" style="background: #28a745; color: white; margin-right: 5px;">
-                            ➕
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M17,13H13V17H11V13H7V11H11V7H13V11H17V13Z"/></svg>
                         </button>
                         <button class="btn-mini btn-delete-server" onclick="deleteServer('${serverName}')" title="Supprimer ce serveur" style="background: #dc3545; color: white; margin-right: 5px;">
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg>
@@ -4139,7 +4162,7 @@
                         </div>
                         <div class="modal-body">
                             <div style="margin-bottom: 15px;">
-                                <button class="btn btn-secondary" onclick="addDiskToSpecificSection('${serverName}', ${sectionIndex})">➕ Ajouter un disque</button>
+                                <button class="btn btn-secondary" onclick="addDiskToSpecificSection('${serverName}', ${sectionIndex})"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M17,13H13V17H11V13H7V11H11V7H13V11H17V13Z"/></svg> Ajouter un disque</button>
                                 <span style="margin-left: 15px; color: #666; font-size: 0.9em;">
                                     ${getUsedSlotsCount(diskMappings, sectionIndex)} / ${section.rows * section.cols} emplacements utilisés
                                 </span>
@@ -4556,7 +4579,7 @@
             
             if (serverName === null || serverName === undefined) {
                 // Mode ajout de nouveau serveur
-                title.textContent = '➕ Nouveau Serveur';
+                title.textContent = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M17,13H13V17H11V13H7V11H11V7H13V11H17V13Z"/></svg> Nouveau Serveur';
                 nameField.value = '';
                 nameField.readOnly = false; // Permettre la saisie du nom
                 nameField.placeholder = 'ex: MON-SERVEUR-01';
