@@ -479,7 +479,7 @@
 
         .server-grid {
             display: grid;
-            gap: 30px;
+            gap: 12px; /* Réduction drastique de l'espacement entre cartes */
             grid-template-columns: repeat(auto-fit, minmax(600px, 1fr));
         }
 
@@ -520,19 +520,9 @@
             font-size: 0.85em;
         }
         
-        /* Boutons plus compacts dans les cartes repliées */
+        /* Boutons normaux dans les cartes repliées - seul l'espacement est réduit */
         .server-card.all-collapsed .server-actions {
-            gap: 4px;
-        }
-        
-        .server-card.all-collapsed .server-actions .icon-btn {
-            padding: 4px 6px;
-            font-size: 0.9em;
-        }
-        
-        .server-card.all-collapsed .server-actions .btn-mini {
-            padding: 2px 6px;
-            font-size: 0.8em;
+            gap: 6px; /* Légère réduction de l'espacement entre boutons */
         }
 
         .server-header {
