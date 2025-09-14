@@ -498,6 +498,12 @@
             transform: translateY(-2px);
         }
 
+        /* Carte serveur compacte quand toutes les sections sont repliées */
+        .server-card.all-collapsed {
+            padding: 16px 24px; /* Réduction du padding vertical */
+            min-height: auto;
+        }
+
         .server-header {
             display: flex;
             justify-content: space-between;
@@ -2312,6 +2318,7 @@
         function createServerCard(serverName, serverData) {
             const card = document.createElement('div');
             card.className = 'server-card';
+            card.setAttribute('data-server-name', serverName);
 
             const serverConfig = config[serverName];
             if (!serverConfig) return card;
@@ -5176,7 +5183,8 @@
                     : 'rotate(0deg)';
             }, 150);
             
-            // Mettre à jour l'icône du bouton global après changement individuel  
+            // Mettre à jour l'état compact de la carte et l'icône du bouton global
+            updateServerCardCompact(serverName);
             setTimeout(() => {
                 updateToggleAllButton();
             }, 200);
@@ -5194,6 +5202,8 @@
                     if (sectionsContainer && collapseIndicator) {
                         sectionsContainer.classList.add('collapsed');
                         collapseIndicator.classList.add('collapsed');
+                        // Mettre à jour l'état compact de la carte
+                        updateServerCardCompact(serverName);
                     }
                 }
             }
@@ -5239,6 +5249,25 @@
             }
         }
 
+        // Fonction pour mettre à jour l'état compact d'une carte serveur
+        function updateServerCardCompact(serverName) {
+            const serverCard = document.querySelector(`[data-server-name="${serverName}"]`);
+            const sectionsContainer = document.getElementById(`sections-${serverName}`);
+            
+            if (!serverCard || !sectionsContainer) {
+                return;
+            }
+            
+            // Vérifier si les sections sont repliées
+            const isCollapsed = sectionsContainer.classList.contains('collapsed');
+            
+            if (isCollapsed) {
+                serverCard.classList.add('all-collapsed');
+            } else {
+                serverCard.classList.remove('all-collapsed');
+            }
+        }
+
         // Fonction pour expand/collapse toutes les sections de tous les serveurs
         function toggleAllServerSections() {
             const toggleButton = document.getElementById('toggleAllSectionsBtn');
@@ -5261,6 +5290,7 @@
             // Appliquer l'action à toutes les sections
             allSectionsContainers.forEach((container, index) => {
                 const indicator = allCollapseIndicators[index];
+                const serverName = container.id.replace('sections-', '');
                 
                 if (shouldExpand) {
                     // Expand : retirer la classe collapsed
@@ -5271,6 +5301,9 @@
                     container.classList.add('collapsed');
                     if (indicator) indicator.classList.add('collapsed');
                 }
+                
+                // Mettre à jour l'état compact de chaque carte
+                updateServerCardCompact(serverName);
             });
             
             // Mettre à jour l'icône du bouton et le tooltip
