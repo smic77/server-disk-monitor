@@ -1848,8 +1848,8 @@
         <button class="icon-btn purple tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12,22A2,2 0 0,0 14,20H10A2,2 0 0,0 12,22M21,19V20H3V19L5,17V11C5,7.9 7.03,5.17 10,4.29C10,4.19 10,4.1 10,4A2,2 0 0,1 12,2A2,2 0 0,1 14,4C14,4.1 14,4.19 14,4.29C16.97,5.17 19,7.9 19,11V17L21,19Z"/></svg>
         </button>
-        <button class="icon-btn cyan tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z M12,19L16,15H13.5V12H10.5V15H8L12,19Z"/></svg>
+        <button class="icon-btn cyan tooltip" data-tooltip="Vue globale de la santé SMART des disques" onclick="showSmartHealthModal()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4M11,16.5L6.5,12L7.91,10.59L11,13.67L16.59,8.09L18,9.5L11,16.5Z"/></svg>
         </button>
         <button class="icon-btn pink tooltip" data-tooltip="Importer une configuration depuis un fichier JSON" onclick="importConfig()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z M12,12L16,16H13.5V19H10.5V16H8L12,12Z"/></svg>
@@ -2076,6 +2076,33 @@
             <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22,21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg> Statistiques Détaillées</h2>
             <div id="statsContent">
                 <!-- Contenu des statistiques -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Santé SMART -->
+    <div id="smartHealthModal" class="modal">
+        <div class="modal-content" style="max-width: 800px;">
+            <span class="close" onclick="closeModal('smartHealthModal')">&times;</span>
+            <h2>🔍 Vue Globale - Santé SMART des Disques</h2>
+            <div id="smartHealthContent">
+                <div style="margin-bottom: 20px;">
+                    <p style="color: var(--text-secondary); font-size: 0.9em;">
+                        Surveillance en temps réel de l'état de santé et de la température de tous les disques configurés.
+                    </p>
+                </div>
+                <div id="smartHealthList">
+                    <!-- Contenu généré dynamiquement -->
+                </div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button class="btn btn-primary" onclick="refreshSmartData()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.65,6.35C16.2,4.9 14.21,4 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20C15.73,20 18.84,17.45 19.73,14H17.65C16.83,16.33 14.61,18 12,18A6,6 0 0,1 6,12A6,6 0 0,1 12,6C13.66,6 15.14,6.69 16.22,7.78L13,11H20V4L17.65,6.35Z"/>
+                    </svg>
+                    Actualiser
+                </button>
+                <button class="btn" onclick="closeModal('smartHealthModal')">Fermer</button>
             </div>
         </div>
     </div>
@@ -3060,8 +3087,65 @@
             const serialNumber = diskConfig.serial || diskData.serial || diskData.serialNumber || '';
             const displaySerial = serialNumber ? (serialNumber.length > 12 ? serialNumber.substring(0, 12) + '...' : serialNumber) : '';
 
-            // Construction du tooltip informatif
-            const tooltipContent = `${label} - ${capacity} - ${statusText}${diskData.device ? ' (' + diskData.device + ')' : ''}${serialNumber ? ' - S/N: ' + serialNumber : ''}`;
+            // === NOUVEAU: Gestion des données SMART ===
+            let smartIndicator = '';
+            let smartTooltip = '';
+            
+            if (diskData.smart_health && diskData.smart_health !== 'EMPTY') {
+                const smartHealth = diskData.smart_health;
+                const smartTemp = diskData.smart_temperature;
+                
+                // Indicateur de santé SMART
+                let healthIcon = '❓';
+                let healthColor = '#666';
+                
+                switch (smartHealth) {
+                    case 'PASSED':
+                        healthIcon = '✅';
+                        healthColor = '#00ff00';
+                        break;
+                    case 'FAILED':
+                        healthIcon = '❌';
+                        healthColor = '#ff0000';
+                        break;
+                    case 'ERROR':
+                        healthIcon = '⚠️';
+                        healthColor = '#ff6600';
+                        break;
+                    default:
+                        healthIcon = '❓';
+                        healthColor = '#666';
+                }
+                
+                // Indicateur de température avec seuils
+                let tempIndicator = '';
+                if (smartTemp !== null && smartTemp !== undefined) {
+                    let tempColor = '#00ff00'; // Vert par défaut
+                    let tempIcon = '🌡️';
+                    
+                    if (smartTemp >= 60) {
+                        tempColor = '#ff0000'; // Rouge critique
+                        tempIcon = '🔥';
+                    } else if (smartTemp >= 55) {
+                        tempColor = '#ff6600'; // Orange warning
+                        tempIcon = '🌡️';
+                    }
+                    
+                    tempIndicator = `<span style="color: ${tempColor}; font-size: 0.8em;">${tempIcon}${smartTemp}°</span>`;
+                }
+                
+                smartIndicator = `
+                    <div class="smart-indicators" style="display: flex; gap: 2px; font-size: 0.8em; margin-top: 2px;">
+                        <span style="color: ${healthColor};" title="SMART Health: ${smartHealth}">${healthIcon}</span>
+                        ${tempIndicator}
+                    </div>
+                `;
+                
+                smartTooltip = ` - SMART: ${smartHealth}${smartTemp !== null ? `, ${smartTemp}°C` : ''}`;
+            }
+
+            // Construction du tooltip informatif enrichi avec SMART
+            const tooltipContent = `${label} - ${capacity} - ${statusText}${diskData.device ? ' (' + diskData.device + ')' : ''}${serialNumber ? ' - S/N: ' + serialNumber : ''}${smartTooltip}`;
 
             return `
                 <div class="disk-slot ${statusClass}" 
@@ -3071,6 +3155,7 @@
                     <div class="${labelClass}" data-original-label="${label}">${displayLabel}</div>
                     ${displaySerial ? `<div class="disk-serial">${displaySerial}</div>` : ''}
                     <div class="disk-capacity">${displayCapacity}</div>
+                    ${smartIndicator}
                 </div>
             `;
         }
@@ -3174,6 +3259,33 @@
                         <label>🗂️ Système de fichiers:</label>
                         <p style="font-size: 0.9em;">${diskData.fs_type}</p>
                     </div>
+                ` : ''}
+                ${diskData.smart_health && diskData.smart_health !== 'EMPTY' ? `
+                    <hr style="margin: 20px 0; border: 1px solid #333;">
+                    <h4 style="margin: 15px 0 10px 0; color: var(--text-accent);">🔍 Données SMART</h4>
+                    <div class="form-group">
+                        <label>💚 État de santé:</label>
+                        <p style="font-weight: bold; color: ${diskData.smart_health === 'PASSED' ? '#00ff00' : diskData.smart_health === 'FAILED' ? '#ff0000' : '#ff6600'}; font-size: 0.9em;">
+                            ${diskData.smart_health === 'PASSED' ? '✅ PASSED' : 
+                              diskData.smart_health === 'FAILED' ? '❌ FAILED' : 
+                              diskData.smart_health === 'ERROR' ? '⚠️ ERROR' : '❓ ' + diskData.smart_health}
+                        </p>
+                    </div>
+                    ${diskData.smart_temperature !== null && diskData.smart_temperature !== undefined ? `
+                        <div class="form-group">
+                            <label>🌡️ Température:</label>
+                            <p style="font-weight: bold; color: ${diskData.smart_temperature >= 60 ? '#ff0000' : diskData.smart_temperature >= 55 ? '#ff6600' : '#00ff00'}; font-size: 0.9em;">
+                                ${diskData.smart_temperature >= 60 ? '🔥' : '🌡️'} ${diskData.smart_temperature}°C
+                                ${diskData.smart_temperature >= 60 ? ' - CRITIQUE' : diskData.smart_temperature >= 55 ? ' - ÉLEVÉE' : ' - NORMALE'}
+                            </p>
+                        </div>
+                    ` : ''}
+                    ${diskData.smart_error ? `
+                        <div class="form-group">
+                            <label>⚠️ Erreur SMART:</label>
+                            <p style="color: #ff6600; font-size: 0.9em;">${diskData.smart_error}</p>
+                        </div>
+                    ` : ''}
                 ` : ''}
             `;
 
@@ -5055,6 +5167,163 @@
             `;
             
             modal.style.display = 'block';
+        }
+
+        // === NOUVELLES FONCTIONS SMART ===
+        function showSmartHealthModal() {
+            const modal = document.getElementById('smartHealthModal');
+            const content = document.getElementById('smartHealthList');
+            
+            populateSmartHealthContent();
+            modal.style.display = 'block';
+        }
+
+        function populateSmartHealthContent() {
+            const content = document.getElementById('smartHealthList');
+            let html = '';
+            let smartStats = {
+                total: 0,
+                passed: 0,
+                failed: 0,
+                unknown: 0,
+                tempCritical: 0,
+                tempWarning: 0,
+                tempNormal: 0
+            };
+
+            // Parcourir tous les serveurs et disques
+            Object.entries(serversData).forEach(([serverName, serverData]) => {
+                const serverOnline = serverData.online;
+                let serverDisksHtml = '';
+                let serverSmartCount = 0;
+
+                Object.entries(serverData.disks || {}).forEach(([position, diskData]) => {
+                    if (diskData.smart_health && diskData.smart_health !== 'EMPTY') {
+                        smartStats.total++;
+                        serverSmartCount++;
+                        
+                        let healthStatus = diskData.smart_health;
+                        let healthColor = '#666';
+                        let healthIcon = '❓';
+                        
+                        switch (healthStatus) {
+                            case 'PASSED':
+                                smartStats.passed++;
+                                healthColor = '#00ff00';
+                                healthIcon = '✅';
+                                break;
+                            case 'FAILED':
+                                smartStats.failed++;
+                                healthColor = '#ff0000';
+                                healthIcon = '❌';
+                                break;
+                            case 'ERROR':
+                                healthColor = '#ff6600';
+                                healthIcon = '⚠️';
+                                smartStats.unknown++;
+                                break;
+                            default:
+                                smartStats.unknown++;
+                        }
+
+                        let tempInfo = '';
+                        let tempColor = '#666';
+                        const temp = diskData.smart_temperature;
+                        
+                        if (temp !== null && temp !== undefined) {
+                            if (temp >= 60) {
+                                smartStats.tempCritical++;
+                                tempColor = '#ff0000';
+                                tempInfo = `🔥 ${temp}°C CRITIQUE`;
+                            } else if (temp >= 55) {
+                                smartStats.tempWarning++;
+                                tempColor = '#ff6600';
+                                tempInfo = `🌡️ ${temp}°C ÉLEVÉE`;
+                            } else {
+                                smartStats.tempNormal++;
+                                tempColor = '#00ff00';
+                                tempInfo = `🌡️ ${temp}°C OK`;
+                            }
+                        } else {
+                            tempInfo = '🌡️ N/A';
+                        }
+
+                        serverDisksHtml += `
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin: 4px 0; background: var(--bg-tertiary); border-radius: 4px; border-left: 4px solid ${healthColor};">
+                                <div style="flex: 1;">
+                                    <strong>${diskData.label || 'Disque'}</strong>
+                                    <small style="color: var(--text-secondary); margin-left: 8px;">${position} - ${diskData.device}</small>
+                                </div>
+                                <div style="display: flex; gap: 15px; align-items: center;">
+                                    <span style="color: ${healthColor};" title="Santé SMART: ${healthStatus}">${healthIcon} ${healthStatus}</span>
+                                    <span style="color: ${tempColor};" title="Température du disque">${tempInfo}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                });
+
+                if (serverSmartCount > 0) {
+                    html += `
+                        <div style="margin-bottom: 30px;">
+                            <h3 style="color: var(--text-accent); border-bottom: 2px solid var(--border-primary); padding-bottom: 8px; margin-bottom: 15px;">
+                                🖥️ ${serverName} 
+                                <span style="font-size: 0.8em; color: var(--text-secondary);">
+                                    (${serverOnline ? '🟢 En ligne' : '🔴 Hors ligne'} - ${serverSmartCount} disque${serverSmartCount > 1 ? 's' : ''})
+                                </span>
+                            </h3>
+                            ${serverDisksHtml}
+                        </div>
+                    `;
+                }
+            });
+
+            // Résumé global en haut
+            const summaryHtml = `
+                <div style="background: var(--bg-tertiary); padding: 20px; border-radius: 8px; margin-bottom: 25px;">
+                    <h3 style="margin-top: 0; color: var(--text-accent);">📊 Résumé Général</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.8em; font-weight: bold; color: var(--text-primary);">${smartStats.total}</div>
+                            <div style="color: var(--text-secondary);">Disques SMART</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.8em; font-weight: bold; color: #00ff00;">✅ ${smartStats.passed}</div>
+                            <div style="color: var(--text-secondary);">Santé OK</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.8em; font-weight: bold; color: #ff0000;">❌ ${smartStats.failed}</div>
+                            <div style="color: var(--text-secondary);">Échecs</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.8em; font-weight: bold; color: #ff6600;">⚠️ ${smartStats.unknown}</div>
+                            <div style="color: var(--text-secondary);">Erreurs</div>
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-primary);">
+                        <div style="text-align: center;">
+                            <span style="color: #00ff00;">🌡️ ${smartStats.tempNormal}</span> Temp. OK
+                        </div>
+                        <div style="text-align: center;">
+                            <span style="color: #ff6600;">🌡️ ${smartStats.tempWarning}</span> Temp. Élevée
+                        </div>
+                        <div style="text-align: center;">
+                            <span style="color: #ff0000;">🔥 ${smartStats.tempCritical}</span> Temp. Critique
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            content.innerHTML = summaryHtml + (html || '<p style="text-align: center; color: var(--text-secondary); padding: 40px;">Aucune donnée SMART disponible pour le moment.</p>');
+        }
+
+        function refreshSmartData() {
+            updateStatusMessage('🔄 Actualisation des données SMART...');
+            requestRefresh();
+            setTimeout(() => {
+                populateSmartHealthContent();
+                updateStatusMessage('✅ Données SMART actualisées');
+            }, 2000);
         }
 
         // Export de configuration complète (nouveau format unifié)

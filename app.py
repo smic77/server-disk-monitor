@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "4.9.26"
+VERSION = "5.0.0"
 BUILD_DATE = "2025-09-14"
 
 # =============================================================================
@@ -440,6 +440,9 @@ class ServerDiskMonitorWeb:
         # AJOUT : Cache pour éviter les changements de statut aléatoires
         self.status_cache = {}
         
+        # Cache spécialisé pour les données SMART (durée de vie plus longue)
+        self.smart_cache = {}
+        
         # AJOUT: Gestionnaire de notifications avec référence au cipher
         self.notification_manager = NotificationManager(cipher=self.cipher)
         
@@ -622,6 +625,97 @@ class ServerDiskMonitorWeb:
         self.status_cache.clear()
         logger.info("Cache de statut vidé")
     
+    def check_disk_smart(self, server_config, disk_info):
+        """
+        Collecte les données SMART d'un disque via SSH
+        
+        Args:
+            server_config (dict): Configuration du serveur
+            disk_info (dict): Information du disque avec 'device'
+            
+        Returns:
+            dict: Données SMART {health_status, temperature, power_on_hours, reallocated_sectors}
+        """
+        cache_key = f"smart_{server_config['ip']}_{disk_info['device']}"
+        
+        try:
+            # Vérifier si mot de passe configuré
+            if not server_config.get('password'):
+                return {"health_status": "UNKNOWN", "temperature": None, "error": "No password configured"}
+            
+            # Déchiffrer le mot de passe
+            encrypted_password = server_config['password']
+            if encrypted_password == '***':
+                return {"health_status": "UNKNOWN", "temperature": None, "error": "Password masked"}
+            
+            try:
+                encrypted_bytes = base64.b64decode(encrypted_password.encode())
+                password = self.cipher.decrypt(encrypted_bytes).decode()
+            except Exception as e:
+                logger.error(f"Erreur déchiffrement mot de passe: {e}")
+                return {"health_status": "UNKNOWN", "temperature": None, "error": "Password decrypt failed"}
+            
+            # Connexion SSH
+            ssh = paramiko.SSHClient()
+            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            ssh.connect(
+                hostname=server_config['ip'],
+                username=server_config['username'],
+                password=password,
+                timeout=10
+            )
+            
+            device = disk_info['device']
+            smart_data = {"health_status": "UNKNOWN", "temperature": None}
+            
+            # 1. Vérifier l'état de santé global
+            stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -H {device}")
+            health_output = stdout.read().decode('utf-8', errors='ignore')
+            
+            if "PASSED" in health_output:
+                smart_data["health_status"] = "PASSED"
+            elif "FAILED" in health_output:
+                smart_data["health_status"] = "FAILED"
+            else:
+                smart_data["health_status"] = "UNKNOWN"
+            
+            # 2. Récupérer la température
+            stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -A {device} | grep -i temperature")
+            temp_output = stdout.read().decode('utf-8', errors='ignore')
+            
+            # Chercher température dans la sortie (format typique: "194 Temperature_Celsius     0x0022   117   099   000    Old_age   Always       -       27 (Min/Max 18/42)")
+            import re
+            temp_match = re.search(r'Temperature.*?(\d+)\s*\(.*?\)', temp_output)
+            if temp_match:
+                smart_data["temperature"] = int(temp_match.group(1))
+            else:
+                # Format alternatif
+                temp_match = re.search(r'Temperature.*?(\d+)$', temp_output, re.MULTILINE)
+                if temp_match:
+                    smart_data["temperature"] = int(temp_match.group(1))
+            
+            ssh.close()
+            
+            # Mettre en cache avec durée de vie plus longue (SMART change lentement)
+            self.smart_cache[cache_key] = {
+                'data': smart_data,
+                'timestamp': time.time(),
+                'ttl': 300  # 5 minutes de cache pour SMART
+            }
+            
+            return smart_data
+            
+        except Exception as e:
+            logger.error(f"Erreur collecte SMART pour {server_config['ip']}: {e}")
+            
+            # Utiliser cache si disponible
+            if cache_key in self.smart_cache:
+                cached = self.smart_cache[cache_key]
+                if time.time() - cached['timestamp'] < cached['ttl']:
+                    return cached['data']
+            
+            return {"health_status": "ERROR", "temperature": None, "error": str(e)}
+    
     def update_all_disk_status(self):
         """Met à jour le statut de tous les disques avec notifications"""
         logger.info("Mise à jour du statut des disques...")
@@ -665,8 +759,17 @@ class ServerDiskMonitorWeb:
                             disk_status = self.check_disk_ssh(config, disk_info)
                             if disk_status['mounted']:
                                 mounted_disks += 1
+                            
+                            # Collecter données SMART si le disque existe
+                            smart_data = {"health_status": "UNKNOWN", "temperature": None}
+                            if disk_status['exists'] and disk_info.get('device'):
+                                try:
+                                    smart_data = self.check_disk_smart(config, disk_info)
+                                except Exception as e:
+                                    logger.error(f"Erreur collecte SMART pour {position}: {e}")
                         else:
                             disk_status = {"exists": False, "mounted": False}
+                            smart_data = {"health_status": "UNKNOWN", "temperature": None}
                         
                         server_status["disks"][position] = {
                             "uuid": disk_info['uuid'],
@@ -675,7 +778,11 @@ class ServerDiskMonitorWeb:
                             "capacity": disk_info.get('capacity', ''),
                             "description": disk_info.get('description', ''),
                             "exists": disk_status['exists'],
-                            "mounted": disk_status['mounted']
+                            "mounted": disk_status['mounted'],
+                            # Nouvelles données SMART
+                            "smart_health": smart_data.get("health_status", "UNKNOWN"),
+                            "smart_temperature": smart_data.get("temperature"),
+                            "smart_error": smart_data.get("error")
                         }
                     else:
                         # Position non configurée - slot vide
@@ -686,7 +793,11 @@ class ServerDiskMonitorWeb:
                             "capacity": "",
                             "description": "",
                             "exists": False,
-                            "mounted": False
+                            "mounted": False,
+                            # Données SMART vides pour slots vides
+                            "smart_health": "EMPTY",
+                            "smart_temperature": None,
+                            "smart_error": None
                         }
                 
                 self.disk_status[server_name] = server_status
