@@ -787,6 +787,7 @@
             border: 2px solid #333;
             border-radius: 6px;
             padding: 8px;
+            padding-top: 20px;
             text-align: center;
             min-height: 85px;
             max-height: 110px;
@@ -861,15 +862,19 @@
 
 
         .slot-position {
-            font-size: 0.7em;
-            color: #aaa;
-            margin-bottom: 4px;
-            font-weight: 700;
-            background: rgba(0, 0, 0, 0.4);
-            padding: 2px 5px;
-            border-radius: 4px;
-            display: inline-block;
-            border: 1px solid #444;
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            font-size: 0.6em;
+            color: #666;
+            font-weight: 600;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+            padding: 1px 4px;
+            text-align: center;
+            line-height: 1;
+            z-index: 1;
+            border: 1px solid #555;
         }
 
         .disk-label {
@@ -938,6 +943,7 @@
             background: #ffffff;
             border: 2px solid #e1e5e9;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            padding-top: 20px;
         }
 
         [data-theme="light"] .disk-slot.has-disk {
@@ -959,11 +965,11 @@
         }
 
         [data-theme="light"] .slot-position {
-            background: transparent;
+            background: rgba(255, 255, 255, 0.9);
             border: 1px solid #d1d9e0;
-            color: #24292f;
-            font-weight: 700;
-            font-size: 0.8em;
+            color: #656d76;
+            font-weight: 600;
+            font-size: 0.6em;
         }
 
         [data-theme="light"] .disk-label {
@@ -1008,6 +1014,18 @@
         [data-theme="light"] .disk-slot.disk-error .disk-capacity {
             color: #da3633;
             background: transparent;
+        }
+
+        .disk-serial {
+            font-size: 0.65em;
+            color: #888;
+            margin-top: 2px;
+            font-family: monospace;
+            opacity: 0.8;
+        }
+
+        [data-theme="light"] .disk-serial {
+            color: #656d76;
         }
 
         /* Indicateurs d'état pour le thème clair */
@@ -2544,9 +2562,13 @@
             // Gestion de la capacité
             const capacity = diskData.capacity || 'N/A';
             const displayCapacity = capacity.length > 10 ? capacity.replace(/\s+/g, '') : capacity;
+            
+            // Numéro de série (si disponible)
+            const serialNumber = diskData.serial || diskData.serialNumber || '';
+            const displaySerial = serialNumber ? (serialNumber.length > 12 ? serialNumber.substring(0, 12) + '...' : serialNumber) : '';
 
             // Construction du tooltip informatif
-            const tooltipContent = `${label} - ${capacity} - ${statusText}${diskData.device ? ' (' + diskData.device + ')' : ''}`;
+            const tooltipContent = `${label} - ${capacity} - ${statusText}${diskData.device ? ' (' + diskData.device + ')' : ''}${serialNumber ? ' - S/N: ' + serialNumber : ''}`;
 
             return `
                 <div class="disk-slot ${statusClass}" 
@@ -2554,6 +2576,7 @@
                      title="${tooltipContent}">
                     <div class="slot-position">${formatPosition(position)}</div>
                     <div class="${labelClass}" data-original-label="${label}">${displayLabel}</div>
+                    ${displaySerial ? `<div class="disk-serial">${displaySerial}</div>` : ''}
                     <div class="disk-capacity">${displayCapacity}</div>
                 </div>
             `;
@@ -3187,18 +3210,6 @@
             });
         }
 
-        function updateDiskConfig(key, field, value) {
-            if (diskConfigData[key]) {
-                diskConfigData[key][field] = value;
-            }
-        }
-
-        function removeDisk(key) {
-            if (confirm(`Supprimer le disque "${key}" ?`)) {
-                delete diskConfigData[key];
-                populateSectionsAndDisksList();
-            }
-        }
 
         // Nouvelles fonctions pour la gestion des sections
         function addNewSection() {
@@ -3209,7 +3220,7 @@
                 orientation: "horizontal"
             };
             sectionsConfig.push(newSection);
-            populateSectionsAndDisksList();
+            populateSectionsList();
         }
 
         function updateSection(sectionIndex, field, value) {
@@ -3245,7 +3256,7 @@
                 // Re-numéroter les clés des disques des sections suivantes
                 renumberDiskKeys();
                 
-                populateSectionsAndDisksList();
+                populateSectionsList();
             }
         }
 
@@ -3361,78 +3372,6 @@
             
             container.appendChild(grid);
             
-            // Liste détaillée des disques configurés
-            if (sectionDisks.length > 0) {
-                const detailsHeader = document.createElement('h5');
-                detailsHeader.textContent = '🔧 Configuration des disques:';
-                detailsHeader.style.cssText = 'margin: 15px 0 10px 0; color: #f0f6fc;';
-                container.appendChild(detailsHeader);
-                
-                sectionDisks.forEach(key => {
-                    console.log('Processing disk key:', key, 'keyParts:', key.split('_'));
-                    const diskConfig = diskConfigData[key];
-                    const keyParts = key.split('_');
-                    const row = keyParts[1] || '0';
-                    const col = keyParts[2] || '0';
-                    
-                    const diskItem = document.createElement('div');
-                    diskItem.style.cssText = 'border: 1px solid #444; border-radius: 5px; padding: 10px; margin-bottom: 8px; background: #1a1a1a;';
-                    
-                    diskItem.innerHTML = `
-                        <div style="display: grid; grid-template-columns: 1fr 2fr 1fr auto; gap: 10px; align-items: center; margin-bottom: 8px;">
-                            <div>
-                                <label style="font-size: 0.8em; color: #666;">Position:</label>
-                                <div style="font-weight: bold; color: #58a6ff;">Ligne ${parseInt(row)+1}, Col ${parseInt(col)+1}</div>
-                            </div>
-                            <div>
-                                <label style="font-size: 0.8em; color: #666;">UUID:</label>
-                                <input type="text" value="${diskConfig.uuid || ''}" 
-                                       onchange="updateDiskConfig('${key}', 'uuid', this.value)"
-                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                       placeholder="UUID du disque">
-                            </div>
-                            <div>
-                                <label style="font-size: 0.8em; color: #666;">Device:</label>
-                                <input type="text" value="${diskConfig.device || ''}" 
-                                       onchange="updateDiskConfig('${key}', 'device', this.value)"
-                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                       placeholder="/dev/sdX">
-                            </div>
-                            <div>
-                                <button class="btn-mini" onclick="removeDisk('${key}')" 
-                                        style="background: #f85149; color: white;" title="Supprimer ce disque">
-                                    🗑️
-                                </button>
-                            </div>
-                        </div>
-                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
-                            <div>
-                                <label style="font-size: 0.8em; color: #666;">Label:</label>
-                                <input type="text" value="${diskConfig.label || ''}" 
-                                       onchange="updateDiskConfig('${key}', 'label', this.value)"
-                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                       placeholder="Nom du disque">
-                            </div>
-                            <div>
-                                <label style="font-size: 0.8em; color: #666;">Capacité:</label>
-                                <input type="text" value="${diskConfig.capacity || ''}" 
-                                       onchange="updateDiskConfig('${key}', 'capacity', this.value)"
-                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                       placeholder="ex: 2TB">
-                            </div>
-                            <div>
-                                <label style="font-size: 0.8em; color: #666;">Description:</label>
-                                <input type="text" value="${diskConfig.description || ''}" 
-                                       onchange="updateDiskConfig('${key}', 'description', this.value)"
-                                       style="width: 100%; background: #0d1117; border: 1px solid #333; color: white; padding: 5px; border-radius: 3px;"
-                                       placeholder="Description optionnelle">
-                            </div>
-                        </div>
-                    `;
-                    
-                    container.appendChild(diskItem);
-                });
-            }
         }
 
         function addDiskAtPosition(sectionIndex, row, col) {
@@ -3815,6 +3754,13 @@
                                     <input type="text" value="${diskConfig.description || ''}" 
                                            onchange="updateSectionDisk('${position}', 'description', this.value)"
                                            style="width: 100%; padding: 5px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 3px; font-size: 0.8em;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8em; color: #ccc;">Numéro de série:</label>
+                                    <input type="text" value="${diskConfig.serial || ''}" 
+                                           onchange="updateSectionDisk('${position}', 'serial', this.value)"
+                                           style="width: 100%; padding: 5px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 3px; font-size: 0.8em;" 
+                                           placeholder="S/N du disque">
                                 </div>
                                 <div>
                                     <label style="font-size: 0.8em; color: #ccc;">Capacité:</label>

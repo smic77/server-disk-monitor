@@ -7,7 +7,7 @@ Dashboard web pour la surveillance des disques durs sur serveurs distants, acces
 - **Interface Web Moderne** : Dashboard responsive accessible via navigateur
 - **Temps Réel** : Mise à jour automatique via WebSocket
 - **Multi-Serveurs** : Surveillance de plusieurs serveurs simultanément
-- **Configuration Flexible** : Racks configurables (lignes × colonnes)
+- **Configuration Flexible** : Sections personnalisables avec grilles configurables
 - **Sécurité** : Chiffrement des mots de passe
 - **Persistance** : Configuration sauvegardée dans volumes Docker
 - **Déploiement Facile** : Compatible Portainer Stack
@@ -183,13 +183,19 @@ Une fois déployée, l'application est accessible via :
 ## ⚙️ Configuration Initiale
 
 1. **Accéder à l'interface web**
-2. **Configurer les serveurs** :
-   - Cliquer sur "⚙️ Configuration"
-   - La configuration se fait actuellement via import/export JSON
-3. **Définir les mots de passe** :
+2. **Ajouter un serveur** :
+   - Cliquer sur "➕ Ajouter Serveur"
+   - Entrer le nom, IP et nom d'utilisateur SSH
+3. **Configurer les sections** :
+   - Cliquer sur "➕ Ajouter Section" dans chaque serveur
+   - Définir le nom, dimensions et orientation de chaque section
+4. **Configurer les disques** :
+   - Cliquer sur "⚙️ Configurer" dans chaque section
+   - Remplir UUID, device, label, numéro de série, description et capacité
+5. **Définir les mots de passe** :
    - Cliquer sur "🔐 Mots de passe"
    - Entrer les mots de passe SSH pour chaque serveur
-4. **🆕 Configurer les notifications** :
+6. **🆕 Configurer les notifications** :
    - Cliquer sur "📢 Notifications"
    - Activer Telegram et configurer le bot
 
@@ -201,23 +207,26 @@ Une fois déployée, l'application est accessible via :
     "SERVER-01": {
       "ip": "192.168.1.10",
       "username": "admin",
-      "front_rack": {
-        "enabled": true,
-        "rows": 3,
-        "cols": 4,
-        "total_slots": 12
-      },
-      "back_rack": {
-        "enabled": true,
-        "rows": 2,
-        "cols": 2,
-        "total_slots": 4
-      },
+      "sections": [
+        {
+          "name": "Section principale",
+          "rows": 3,
+          "cols": 4,
+          "orientation": "horizontal"
+        },
+        {
+          "name": "Section stockage",
+          "rows": 2,
+          "cols": 6,
+          "orientation": "vertical"
+        }
+      ],
       "disk_mappings": {
-        "front_0_0": {
+        "s0_0_0": {
           "uuid": "550e8400-e29b-41d4-a716-446655440001",
           "device": "/dev/sda",
           "label": "OS Principal",
+          "serial": "WD123456789",
           "description": "Disque système Ubuntu Server",
           "capacity": "500GB SSD"
         }
@@ -234,20 +243,25 @@ Une fois déployée, l'application est accessible via :
 
 - **Statistiques Globales** : Vue d'ensemble des serveurs et disques
 - **Cartes Serveurs** : Affichage en temps réel de l'état de chaque serveur
-- **Racks Visuels** : Représentation graphique des faces avant/arrière
+- **Sections Configurables** : Grilles personnalisables par section
+- **Informations Détaillées** : Numéro de série, capacité, position discrète
 - **🆕 Bouton Notifications** : Configuration des alertes Telegram
 - **Codes Couleur** :
   - 🟢 **Vert** : Disque monté et fonctionnel
   - 🟠 **Orange** : Disque détecté mais non monté
   - 🔴 **Rouge** : Disque non détecté ou serveur hors ligne
   - ⚫ **Gris** : Slot vide
+- **Thèmes** : Mode sombre et mode clair avec lisibilité optimisée
 
 ### Interactions
 
-- **Clic sur un disque** : Affiche les détails complets
+- **Clic sur un disque** : Affiche les détails complets avec numéro de série
+- **Configuration par section** : Boutons "⚙️ Configurer" spécifiques
+- **Ajout de sections** : Boutons "➕" pour créer de nouvelles sections
 - **Actualisation** : Bouton de refresh manuel
 - **Export/Import** : Sauvegarde et restauration de configuration
 - **🆕 Test Notifications** : Vérification des alertes Telegram
+- **Basculement de thème** : Mode sombre/clair adaptatif
 
 ## 🔧 Configuration Avancée
 
@@ -570,8 +584,12 @@ Ce projet est sous licence MIT. Libre d'utilisation, modification et distributio
 - **🧪 Fonction de Test** intégrée
 - **🔐 Chiffrement des Tokens** pour la sécurité
 - **📱 Support Multi-Chat** (personnel + groupes)
-- **🎨 Interface Responsive** améliorée
+- **🎨 Interface Responsive** améliorée avec thèmes optimisés
 - **📊 Statistiques Notifications** dans le dashboard
+- **⚙️ Système de sections** : Configuration flexible par sections nommées
+- **🔢 Numéros de série** : Suivi détaillé des disques
+- **🎯 Positions discrètes** : Numérotation compacte et claire
+- **🌗 Thème clair amélioré** : Lisibilité et contraste optimisés
 
 ### 🛠️ Améliorations Techniques
 
