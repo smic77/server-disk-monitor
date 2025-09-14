@@ -86,25 +86,6 @@
             text-align: center;
         }
 
-        .header-actions {
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
-            display: flex;
-            align-items: center;
-        }
-
-        .btn-header {
-            font-weight: 500;
-            font-size: 0.9em;
-            transition: all 0.2s;
-        }
-
-        .btn-header:hover {
-            opacity: 0.9;
-            transform: translateY(-1px);
-        }
 
         .header h1 {
             font-size: 2.2em;
@@ -115,6 +96,10 @@
         }
 
         .theme-toggle {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
             background: var(--bg-card);
             border: 2px solid var(--border-primary);
             border-radius: 25px;
@@ -128,7 +113,7 @@
         .theme-toggle:hover {
             border-color: var(--border-accent);
             background: var(--bg-card-hover);
-            transform: scale(1.05);
+            transform: translateY(-50%) scale(1.05);
         }
 
         .version-info {
@@ -1581,14 +1566,9 @@
                 <span class="build-date">Build: {{ build_date }}</span>
             </div>
         </div>
-        <div class="header-actions">
-            <button class="btn-header" onclick="showServerOrderModal()" title="Modifier l'ordre d'affichage des serveurs" style="background: #6f42c1; color: white; margin-right: 10px; padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer;">
-                ↕️ Ordre
-            </button>
-            <button class="theme-toggle" onclick="toggleTheme()" title="Basculer le thème">
-                🌓
-            </button>
-        </div>
+        <button class="theme-toggle" onclick="toggleTheme()" title="Basculer le thème">
+            🌓
+        </button>
     </div>
 
     <div class="stats-bar" id="statsBar">
@@ -1617,7 +1597,7 @@
     <div class="controls">
         <button class="icon-btn primary tooltip" data-tooltip="Actualiser les données en temps réel" onclick="refreshData()">🔄</button>
         <button class="icon-btn success tooltip" data-tooltip="Ajouter un nouveau serveur" onclick="showServerEditModal()">➕</button>
-        <button class="icon-btn success tooltip" data-tooltip="Configuration générale et export/import" onclick="showConfigModal()">⚙️</button>
+        <button class="icon-btn info tooltip" data-tooltip="Modifier l'ordre d'affichage des serveurs" onclick="showServerOrderModal()">↕️</button>
         <button class="icon-btn info tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">📢</button>
         <button class="icon-btn tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">💾</button>
         <button class="icon-btn warning tooltip" data-tooltip="Importer une configuration depuis un fichier JSON" onclick="importConfig()">📁</button>
@@ -1637,30 +1617,6 @@
 
     <!-- Modal Configuration -->
 
-    <!-- Modal Configuration Générale -->
-    <div id="configModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('configModal')">&times;</span>
-            <h2>⚙️ Configuration Générale</h2>
-            <div id="configContent">
-                <div class="alert alert-info">
-                    <strong>Configuration et Outils :</strong><br>
-                    • Export/import de la configuration complète<br>
-                    • Utilisez le bouton ➕ pour ajouter des serveurs
-                </div>
-                
-                <!-- Section Export/Import -->
-                <div style="margin: 20px 0;">
-                    <h3>📦 Export / Import</h3>
-                    <div style="text-align: center; margin: 15px 0;">
-                        <button class="btn btn-primary" onclick="exportConfig()">💾 Exporter Config</button>
-                        <button class="btn btn-warning" onclick="importConfig()">📁 Importer Config</button>
-                    </div>
-                </div>
-                
-            </div>
-        </div>
-    </div>
 
 
     <!-- Modal Mot de passe individuel -->
@@ -2197,8 +2153,11 @@
                         <button class="btn-mini btn-server-edit" onclick="showServerEditModal('${serverName}')" title="Modifier ce serveur" style="background: #0969da; color: white; margin-right: 5px;">
                             ✏️
                         </button>
-                        <button class="btn-mini btn-add-section" onclick="showAddSectionModal('${serverName}')" title="Ajouter une nouvelle section" style="background: #28a745; color: white;">
+                        <button class="btn-mini btn-add-section" onclick="showAddSectionModal('${serverName}')" title="Ajouter une nouvelle section" style="background: #28a745; color: white; margin-right: 5px;">
                             ➕
+                        </button>
+                        <button class="btn-mini btn-delete-server" onclick="deleteServer('${serverName}')" title="Supprimer ce serveur" style="background: #dc3545; color: white; margin-right: 5px;">
+                            🗑️
                         </button>
                         ${getPasswordButtonHTML(serverName, serverConfig)}
                     
@@ -3116,12 +3075,6 @@
                 });
         }
 
-        // Configuration
-        function showConfigModal() {
-            document.getElementById('configModal').style.display = 'block';
-        }
-        
-        
         // Variables pour la gestion des serveurs
         let currentEditingServer = null;
         let isEditMode = false;
@@ -4467,6 +4420,35 @@
             }
         }
         
+        function deleteServer(serverName) {
+            if (!confirm(`Êtes-vous sûr de vouloir supprimer le serveur "${serverName}" ?\n\nCette action est irréversible et supprimera :\n• La configuration du serveur\n• Tous les mappings de disques\n• Toutes les sections configurées`)) {
+                return;
+            }
+            
+            updateStatusMessage(`🗑️ Suppression du serveur "${serverName}" en cours...`);
+            
+            fetch(`/api/server/${serverName}/delete`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateStatusMessage(`✅ Serveur "${serverName}" supprimé avec succès`);
+                    // Rafraîchir l'affichage pour retirer la carte du serveur
+                    refreshData();
+                } else {
+                    updateStatusMessage(`❌ Erreur lors de la suppression: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Erreur suppression serveur:', error);
+                updateStatusMessage(`❌ Erreur de communication lors de la suppression`);
+            });
+        }
+        
         // Templates de serveurs supprimés - Utilisation de configuration libre par serveur
 
         async function loadServerTemplates() {
@@ -4893,7 +4875,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'serverPasswordModal', 'serverEditModal', 'diskModal', 'statsModal', 'notificationModal', 'serverOrderModal'];
+            const modals = ['serverPasswordModal', 'serverEditModal', 'diskModal', 'statsModal', 'notificationModal', 'serverOrderModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {

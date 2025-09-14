@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.8.3"
+VERSION = "4.9.0"
 BUILD_DATE = "2025-09-14"
 
 from flask import Flask, render_template, request, jsonify
@@ -1081,6 +1081,29 @@ def save_server_order():
             
     except Exception as e:
         logger.error(f"Erreur sauvegarde ordre serveurs: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/server/<server_name>/delete', methods=['DELETE'])
+def delete_server(server_name):
+    """Supprime un serveur de la configuration"""
+    try:
+        # Vérifier que le serveur existe
+        if server_name not in monitor.servers_config.get('servers', {}):
+            return jsonify({'success': False, 'error': 'Serveur non trouvé'}), 404
+        
+        # Supprimer le serveur de la configuration
+        del monitor.servers_config['servers'][server_name]
+        
+        # Sauvegarder la configuration
+        if monitor.save_config():
+            logger.info(f"Serveur supprimé: {server_name}")
+            return jsonify({'success': True, 'message': f'Serveur {server_name} supprimé'})
+        else:
+            return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
+            
+    except Exception as e:
+        logger.error(f"Erreur suppression serveur {server_name}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
