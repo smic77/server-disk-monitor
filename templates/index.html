@@ -1312,6 +1312,41 @@
             border-radius: 8px;
         }
 
+        /* Styles pour les alertes de disques dans le bandeau serveur */
+        .disk-alert {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.8em;
+            animation: pulse 2s infinite;
+        }
+
+        .disk-alert-warning {
+            background: rgba(255, 193, 7, 0.2);
+            border: 1px solid #ffc107;
+            color: #ffc107;
+        }
+
+        .disk-alert-critical {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid #dc3545;
+            color: #dc3545;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+
+        .disk-alert:hover {
+            animation: none;
+            opacity: 1;
+            transform: scale(1.05);
+            transition: transform 0.2s;
+        }
+
         /* Styles pour les onglets de configuration */
         .config-tabs {
             display: flex;
@@ -2179,6 +2214,7 @@
                 <div class="server-header" onclick="toggleServerSections('${serverName}')" style="cursor: pointer;" title="Cliquer pour masquer/afficher les sections">
                     <div class="server-name">
                         <span class="collapse-indicator" id="collapse-${serverName}">🔽</span> 🖥️ ${serverName}
+                        ${getDiskAlertHTML(serverName, serverData)}
                         <div style="font-size: 0.8em; color: #ccc; margin-top: 5px;">
                             ${serverData.username}@${serverData.ip}
                         </div>
@@ -4900,6 +4936,89 @@
                 }
             };
             input.click();
+        }
+
+        // Fonction pour générer l'alerte de disques dans le bandeau serveur
+        function getDiskAlertHTML(serverName, serverData) {
+            if (!serverData || !serverData.online) {
+                // Serveur hors ligne - pas d'alerte spécifique aux disques
+                return '';
+            }
+            
+            const issues = analyzeDiskIssues(serverName, serverData);
+            
+            if (issues.total === 0) {
+                return ''; // Pas de problème détecté
+            }
+            
+            // Déterminer la sévérité et l'icône
+            let alertClass = 'disk-alert-warning';
+            let alertIcon = '⚠️';
+            let alertColor = '#ffc107';
+            
+            if (issues.critical > 0) {
+                alertClass = 'disk-alert-critical';
+                alertIcon = '🚨';
+                alertColor = '#dc3545';
+            }
+            
+            // Construire le message de tooltip
+            let tooltip = `Problèmes détectés sur ${serverName}:\\n`;
+            if (issues.missing > 0) tooltip += `• ${issues.missing} disque(s) manquant(s) ou non détecté(s)\\n`;
+            if (issues.unmounted > 0) tooltip += `• ${issues.unmounted} disque(s) détecté(s) mais non monté(s)\\n`;
+            if (issues.errors > 0) tooltip += `• ${issues.errors} erreur(s) SSH ou de configuration\\n`;
+            
+            return `
+                <span class="disk-alert ${alertClass}" 
+                      title="${tooltip}" 
+                      style="margin-left: 8px; font-size: 0.9em; color: ${alertColor}; cursor: help;">
+                    ${alertIcon} ${issues.total}
+                </span>
+            `;
+        }
+
+        // Fonction pour analyser les problèmes de disques d'un serveur
+        function analyzeDiskIssues(serverName, serverData) {
+            const issues = {
+                missing: 0,      // Disques configurés mais non détectés
+                unmounted: 0,    // Disques détectés mais non montés  
+                errors: 0,       // Disques en erreur
+                total: 0,
+                critical: 0      // Problèmes critiques (missing, errors)
+            };
+            
+            if (!serverData || !serverData.disks) {
+                return issues;
+            }
+            
+            // Analyser chaque disque
+            for (const [position, diskData] of Object.entries(serverData.disks)) {
+                if (!diskData) {
+                    // Slot vide - pas un problème
+                    continue;
+                }
+                
+                // Vérifier l'état du disque selon les différents statuts possibles
+                if (diskData.status === 'missing' || diskData.status === 'not_detected') {
+                    issues.missing++;
+                    issues.critical++;
+                } else if (diskData.status === 'ssh_error' || diskData.status === 'auth_error') {
+                    issues.errors++;
+                    issues.critical++;
+                } else if (diskData.status === 'no_password') {
+                    issues.errors++;
+                    issues.critical++;
+                } else if (!diskData.mounted && diskData.status !== 'mounted') {
+                    // Disque détecté mais non monté (sauf si explicitement monté)
+                    if (diskData.status && diskData.status !== 'unmounted') {
+                        // Ne compte que si ce n'est pas un statut d'erreur déjà compté
+                        issues.unmounted++;
+                    }
+                }
+            }
+            
+            issues.total = issues.missing + issues.unmounted + issues.errors;
+            return issues;
         }
 
         // Fonction pour collapse/expand des sections serveur
