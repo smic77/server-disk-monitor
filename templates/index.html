@@ -1284,6 +1284,34 @@
             color: var(--text-secondary);
         }
 
+        /* Styles pour le collapse/expand des sections serveur */
+        .collapse-indicator {
+            display: inline-block;
+            transition: transform 0.3s ease;
+            margin-right: 5px;
+        }
+
+        .collapse-indicator.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .racks-container {
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+
+        .racks-container.collapsed {
+            max-height: 0;
+            opacity: 0;
+            margin: 0;
+            padding: 0;
+        }
+
+        .server-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
         /* Styles pour les onglets de configuration */
         .config-tabs {
             display: flex;
@@ -1998,6 +2026,12 @@
                 updateStats();
                 updateServers();
                 updateConfigInfo();
+                
+                // Restaurer l'état collapsed des serveurs après la mise à jour
+                setTimeout(() => {
+                    restoreCollapsedStates();
+                }, 100);
+                
                 console.log('✅ Affichage mis à jour avec succès');
             } catch (error) {
                 console.error('❌ Erreur lors de la mise à jour de l\'affichage:', error);
@@ -2142,9 +2176,9 @@
             }
 
             card.innerHTML = `
-                <div class="server-header">
+                <div class="server-header" onclick="toggleServerSections('${serverName}')" style="cursor: pointer;" title="Cliquer pour masquer/afficher les sections">
                     <div class="server-name">
-                        🖥️ ${serverName}
+                        <span class="collapse-indicator" id="collapse-${serverName}">🔽</span> 🖥️ ${serverName}
                         <div style="font-size: 0.8em; color: #ccc; margin-top: 5px;">
                             ${serverData.username}@${serverData.ip}
                         </div>
@@ -2166,7 +2200,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="racks-container">
+                <div class="racks-container" id="sections-${serverName}">
                     ${createRacksHTML(serverName, serverConfig, serverData)}
                 </div>
             `;
@@ -4437,8 +4471,8 @@
             .then(data => {
                 if (data.success) {
                     updateStatusMessage(`✅ Serveur "${serverName}" supprimé avec succès`);
-                    // Rafraîchir l'affichage pour retirer la carte du serveur
-                    refreshData();
+                    // Recharger immédiatement les données pour mettre à jour l'affichage
+                    loadInitialData();
                 } else {
                     updateStatusMessage(`❌ Erreur lors de la suppression: ${data.error}`);
                 }
@@ -4866,6 +4900,58 @@
                 }
             };
             input.click();
+        }
+
+        // Fonction pour collapse/expand des sections serveur
+        function toggleServerSections(serverName) {
+            const sectionsContainer = document.getElementById(`sections-${serverName}`);
+            const collapseIndicator = document.getElementById(`collapse-${serverName}`);
+            
+            if (!sectionsContainer || !collapseIndicator) {
+                console.warn(`Éléments non trouvés pour serveur ${serverName}`);
+                return;
+            }
+            
+            // Toggle des classes CSS
+            sectionsContainer.classList.toggle('collapsed');
+            collapseIndicator.classList.toggle('collapsed');
+            
+            // Sauvegarder l'état dans localStorage pour la persistance
+            const isCollapsed = sectionsContainer.classList.contains('collapsed');
+            const collapsedServers = JSON.parse(localStorage.getItem('collapsedServers') || '{}');
+            
+            if (isCollapsed) {
+                collapsedServers[serverName] = true;
+            } else {
+                delete collapsedServers[serverName];
+            }
+            
+            localStorage.setItem('collapsedServers', JSON.stringify(collapsedServers));
+            
+            // Petite animation du bouton pour donner du feedback
+            collapseIndicator.style.transform += ' scale(1.2)';
+            setTimeout(() => {
+                collapseIndicator.style.transform = collapseIndicator.classList.contains('collapsed') 
+                    ? 'rotate(-90deg)' 
+                    : 'rotate(0deg)';
+            }, 150);
+        }
+
+        // Fonction pour restaurer l'état des sections collapsed au chargement
+        function restoreCollapsedStates() {
+            const collapsedServers = JSON.parse(localStorage.getItem('collapsedServers') || '{}');
+            
+            for (const serverName in collapsedServers) {
+                if (collapsedServers[serverName]) {
+                    const sectionsContainer = document.getElementById(`sections-${serverName}`);
+                    const collapseIndicator = document.getElementById(`collapse-${serverName}`);
+                    
+                    if (sectionsContainer && collapseIndicator) {
+                        sectionsContainer.classList.add('collapsed');
+                        collapseIndicator.classList.add('collapsed');
+                    }
+                }
+            }
         }
 
         // Gestion des modals
