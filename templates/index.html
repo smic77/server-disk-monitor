@@ -313,27 +313,51 @@
         }
 
         .icon-btn.primary {
-            background: var(--info);
-            border-color: var(--info);
-            color: white;
+            background: #4A9EFF;
+            border-color: #4A9EFF;
+            color: var(--bg-primary);
         }
 
         .icon-btn.success {
-            background: var(--success);
-            border-color: var(--success);
-            color: white;
+            background: #00D084;
+            border-color: #00D084;
+            color: var(--bg-primary);
         }
 
         .icon-btn.info {
-            background: var(--info);
-            border-color: var(--info);
-            color: white;
+            background: #FF6B35;
+            border-color: #FF6B35;
+            color: var(--bg-primary);
         }
 
         .icon-btn.warning {
-            background: var(--warning);
-            border-color: var(--warning);
-            color: white;
+            background: #FFB800;
+            border-color: #FFB800;
+            color: var(--bg-primary);
+        }
+
+        .icon-btn.purple {
+            background: #8B5CF6;
+            border-color: #8B5CF6;
+            color: var(--bg-primary);
+        }
+
+        .icon-btn.pink {
+            background: #EC4899;
+            border-color: #EC4899;
+            color: var(--bg-primary);
+        }
+
+        .icon-btn.cyan {
+            background: #06B6D4;
+            border-color: #06B6D4;
+            color: var(--bg-primary);
+        }
+
+        .icon-btn.red {
+            background: #EF4444;
+            border-color: #EF4444;
+            color: var(--bg-primary);
         }
 
         /* Tooltips pour les icônes */
@@ -1790,10 +1814,10 @@
         <button class="icon-btn success tooltip" data-tooltip="Ajouter un nouveau serveur" onclick="showServerEditModal()">➕</button>
         <button class="icon-btn info tooltip" data-tooltip="Modifier l'ordre d'affichage des serveurs" onclick="showServerOrderModal()">↕️</button>
         <button class="icon-btn warning tooltip" id="toggleAllSectionsBtn" data-tooltip="Déplier/Replier toutes les sections" onclick="toggleAllServerSections()">🔽</button>
-        <button class="icon-btn info tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">📢</button>
-        <button class="icon-btn tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">💾</button>
-        <button class="icon-btn warning tooltip" data-tooltip="Importer une configuration depuis un fichier JSON" onclick="importConfig()">📁</button>
-        <button class="icon-btn tooltip" data-tooltip="Afficher les statistiques détaillées" onclick="showStatsModal()">📊</button>
+        <button class="icon-btn purple tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">📢</button>
+        <button class="icon-btn cyan tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">💾</button>
+        <button class="icon-btn pink tooltip" data-tooltip="Importer une configuration depuis un fichier JSON" onclick="importConfig()">📁</button>
+        <button class="icon-btn red tooltip" data-tooltip="Afficher les statistiques détaillées" onclick="showStatsModal()">📊</button>
     </div>
 
     <div class="container">
