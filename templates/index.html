@@ -3286,6 +3286,11 @@
                             <p style="color: #ff6600; font-size: 0.9em;">${diskData.smart_error}</p>
                         </div>
                     ` : ''}
+                    <div class="form-group" style="text-align: center; margin-top: 15px;">
+                        <button class="btn btn-secondary" onclick="testSmartDevice('${serverName}', '${diskData.device}')" style="font-size: 0.9em;">
+                            🔧 Tester SMART
+                        </button>
+                    </div>
                 ` : ''}
             `;
 
@@ -5324,6 +5329,49 @@
                 populateSmartHealthContent();
                 updateStatusMessage('✅ Données SMART actualisées');
             }, 2000);
+        }
+
+        function testSmartDevice(serverName, device) {
+            updateStatusMessage('🔧 Test SMART en cours...');
+            
+            // Nettoyer le device path pour l'URL (enlever le / initial)
+            const cleanDevice = device.startsWith('/') ? device.substring(1) : device;
+            
+            fetch(`/api/smart/test/${serverName}/${cleanDevice}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        const smartData = data.smart_data;
+                        const healthStatus = smartData.health_status;
+                        const temperature = smartData.temperature;
+                        const error = smartData.error;
+                        
+                        let resultMessage = `✅ Test SMART terminé pour ${device}:\\n`;
+                        resultMessage += `État: ${healthStatus}\\n`;
+                        if (temperature !== null) {
+                            resultMessage += `Température: ${temperature}°C\\n`;
+                        }
+                        if (error) {
+                            resultMessage += `Erreur: ${error}\\n`;
+                        }
+                        
+                        alert(resultMessage);
+                        updateStatusMessage('✅ Test SMART terminé - Vérifiez la console pour les détails');
+                        
+                        // Optionnel: rafraîchir l'affichage
+                        setTimeout(() => {
+                            requestRefresh();
+                        }, 1000);
+                    } else {
+                        alert(`❌ Erreur test SMART: ${data.error}`);
+                        updateStatusMessage('❌ Échec du test SMART');
+                    }
+                })
+                .catch(error => {
+                    console.error('Erreur test SMART:', error);
+                    alert(`❌ Erreur de communication: ${error.message}`);
+                    updateStatusMessage('❌ Erreur de communication');
+                });
         }
 
         // Export de configuration complète (nouveau format unifié)

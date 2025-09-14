@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.0.0"
+VERSION = "5.0.2"
 BUILD_DATE = "2025-09-14"
 
 # =============================================================================
@@ -668,31 +668,83 @@ class ServerDiskMonitorWeb:
             device = disk_info['device']
             smart_data = {"health_status": "UNKNOWN", "temperature": None}
             
-            # 1. Vérifier l'état de santé global
+            # 1. Vérifier d'abord si smartctl est disponible et le device accessible
+            stdin, stdout, stderr = ssh.exec_command(f"which smartctl")
+            smartctl_path = stdout.read().decode('utf-8', errors='ignore').strip()
+            if not smartctl_path:
+                logger.warning(f"smartctl non trouvé sur {server_config['ip']}")
+                smart_data["health_status"] = "ERROR"
+                smart_data["error"] = "smartctl not found"
+                return smart_data
+            
+            # 2. Tester l'accès au device
+            stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -i {device}")
+            device_info = stdout.read().decode('utf-8', errors='ignore')
+            device_error = stderr.read().decode('utf-8', errors='ignore')
+            
+            logger.info(f"SMART device info for {device}: {device_info[:200]}...")
+            if device_error:
+                logger.warning(f"SMART device error for {device}: {device_error}")
+            
+            # Vérifier si le device supporte SMART
+            if "SMART support is" in device_info and "Disabled" in device_info:
+                logger.warning(f"SMART disabled on {device}")
+                smart_data["health_status"] = "DISABLED"
+                smart_data["error"] = "SMART disabled"
+                return smart_data
+            
+            # 3. Vérifier l'état de santé global
             stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -H {device}")
             health_output = stdout.read().decode('utf-8', errors='ignore')
+            health_error = stderr.read().decode('utf-8', errors='ignore')
             
-            if "PASSED" in health_output:
+            logger.info(f"SMART health for {device}: {health_output}")
+            if health_error:
+                logger.warning(f"SMART health error for {device}: {health_error}")
+            
+            # Parsing plus robuste de l'état de santé
+            if "PASSED" in health_output or "OK" in health_output:
                 smart_data["health_status"] = "PASSED"
-            elif "FAILED" in health_output:
+            elif "FAILED" in health_output or "FAILING_NOW" in health_output:
                 smart_data["health_status"] = "FAILED"
+            elif "unavailable" in health_output.lower() or "not supported" in health_output.lower():
+                smart_data["health_status"] = "UNSUPPORTED"
+                smart_data["error"] = "SMART not supported by device"
             else:
                 smart_data["health_status"] = "UNKNOWN"
+                smart_data["error"] = f"Unparseable health output: {health_output[:100]}"
             
-            # 2. Récupérer la température
-            stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -A {device} | grep -i temperature")
+            # 4. Récupérer la température avec plusieurs méthodes
+            stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -A {device}")
             temp_output = stdout.read().decode('utf-8', errors='ignore')
             
-            # Chercher température dans la sortie (format typique: "194 Temperature_Celsius     0x0022   117   099   000    Old_age   Always       -       27 (Min/Max 18/42)")
+            logger.info(f"SMART attributes for {device}: {temp_output[:300]}...")
+            
+            # Parsing de température plus robuste
             import re
-            temp_match = re.search(r'Temperature.*?(\d+)\s*\(.*?\)', temp_output)
+            # Méthode 1: Format standard avec Temperature_Celsius
+            temp_match = re.search(r'Temperature_Celsius.*?(\d+)', temp_output)
             if temp_match:
                 smart_data["temperature"] = int(temp_match.group(1))
             else:
-                # Format alternatif
-                temp_match = re.search(r'Temperature.*?(\d+)$', temp_output, re.MULTILINE)
+                # Méthode 2: Recherche générale de température
+                temp_match = re.search(r'(?i)temperature.*?(\d+)', temp_output)
                 if temp_match:
                     smart_data["temperature"] = int(temp_match.group(1))
+                else:
+                    # Méthode 3: Parsing par ligne
+                    for line in temp_output.split('\n'):
+                        if 'temperature' in line.lower():
+                            numbers = re.findall(r'\b(\d+)\b', line)
+                            if numbers:
+                                # Prendre le premier nombre raisonnable (20-100°C)
+                                for num in numbers:
+                                    temp_val = int(num)
+                                    if 20 <= temp_val <= 100:
+                                        smart_data["temperature"] = temp_val
+                                        break
+                                if smart_data["temperature"]:
+                                    break
             
             ssh.close()
             
@@ -1103,6 +1155,30 @@ Server Disk Monitor
             
     except Exception as e:
         logger.error(f"Erreur test notification: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/smart/test/<server_name>/<path:device>', methods=['GET'])
+def test_smart_device(server_name, device):
+    """Test SMART pour un device spécifique avec logs détaillés"""
+    try:
+        if server_name not in monitor.servers_config.get('servers', {}):
+            return jsonify({'success': False, 'error': 'Serveur non trouvé'}), 404
+        
+        server_config = monitor.servers_config['servers'][server_name]
+        disk_info = {'device': f"/{device}"}  # Reconstituer le path device
+        
+        logger.info(f"Test SMART manuel pour {server_name}:{device}")
+        smart_result = monitor.check_disk_smart(server_config, disk_info)
+        
+        return jsonify({
+            'success': True, 
+            'server': server_name,
+            'device': f"/{device}",
+            'smart_data': smart_result
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur test SMART {server_name}:{device}: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/server-types', methods=['POST'])
