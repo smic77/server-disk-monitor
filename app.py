@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.7.0"
+VERSION = "4.7.1"
 BUILD_DATE = "2025-09-14"
 
 from flask import Flask, render_template, request, jsonify
@@ -554,61 +554,78 @@ class ServerDiskMonitorWeb:
         logger.info(f"Traitement de {len(self.servers_config.get('servers', {}))} serveurs")
         
         for server_name, config in self.servers_config.get('servers', {}).items():
-            server_online = self.ping_server(config['ip'])
-            
-            if server_online:
-                online_servers += 1
-            
-            server_status = {
-                "name": server_name,
-                "online": server_online,
-                "ip": config['ip'],
-                "username": config['username'],
-                "disks": {}
-            }
-            
-            # Générer toutes les positions possibles basées sur les sections
-            all_positions = self.generate_all_positions(config)
-            disk_mappings = config.get('disk_mappings', {})
-            
-            logger.info(f"Serveur {server_name}: {len(all_positions)} positions générées, {len(disk_mappings)} configurées")
-            
-            for position in all_positions:
-                disk_info = disk_mappings.get(position)
+            try:
+                logger.info(f"Traitement du serveur {server_name}...")
+                server_online = self.ping_server(config['ip'])
                 
-                if disk_info:
-                    # Position configurée - vérification SSH normale
-                    total_disks += 1
+                if server_online:
+                    online_servers += 1
+                
+                server_status = {
+                    "name": server_name,
+                    "online": server_online,
+                    "ip": config['ip'],
+                    "username": config['username'],
+                    "disks": {}
+                }
+                
+                # Générer toutes les positions possibles basées sur les sections
+                all_positions = self.generate_all_positions(config)
+                disk_mappings = config.get('disk_mappings', {})
+                
+                logger.info(f"Serveur {server_name}: {len(all_positions)} positions générées, {len(disk_mappings)} configurées")
+                
+                for position in all_positions:
+                    disk_info = disk_mappings.get(position)
                     
-                    if server_online:
-                        disk_status = self.check_disk_ssh(config, disk_info)
-                        if disk_status['mounted']:
-                            mounted_disks += 1
+                    if disk_info:
+                        # Position configurée - vérification SSH normale
+                        total_disks += 1
+                        
+                        if server_online:
+                            disk_status = self.check_disk_ssh(config, disk_info)
+                            if disk_status['mounted']:
+                                mounted_disks += 1
+                        else:
+                            disk_status = {"exists": False, "mounted": False}
+                        
+                        server_status["disks"][position] = {
+                            "uuid": disk_info['uuid'],
+                            "device": disk_info['device'],
+                            "label": disk_info.get('label', ''),
+                            "capacity": disk_info.get('capacity', ''),
+                            "description": disk_info.get('description', ''),
+                            "exists": disk_status['exists'],
+                            "mounted": disk_status['mounted']
+                        }
                     else:
-                        disk_status = {"exists": False, "mounted": False}
-                    
-                    server_status["disks"][position] = {
-                        "uuid": disk_info['uuid'],
-                        "device": disk_info['device'],
-                        "label": disk_info.get('label', ''),
-                        "capacity": disk_info.get('capacity', ''),
-                        "description": disk_info.get('description', ''),
-                        "exists": disk_status['exists'],
-                        "mounted": disk_status['mounted']
-                    }
-                else:
-                    # Position non configurée - slot vide
-                    server_status["disks"][position] = {
-                        "uuid": "",
-                        "device": "",
-                        "label": "",
-                        "capacity": "",
-                        "description": "",
-                        "exists": False,
-                        "mounted": False
-                    }
-            
-            self.disk_status[server_name] = server_status
+                        # Position non configurée - slot vide
+                        server_status["disks"][position] = {
+                            "uuid": "",
+                            "device": "",
+                            "label": "",
+                            "capacity": "",
+                            "description": "",
+                            "exists": False,
+                            "mounted": False
+                        }
+                
+                self.disk_status[server_name] = server_status
+                logger.info(f"Serveur {server_name} traité avec succès - {len(server_status['disks'])} positions")
+                
+            except Exception as e:
+                logger.error(f"ERREUR lors du traitement du serveur {server_name}: {e}")
+                logger.error(f"Stack trace:", exc_info=True)
+                # Créer un status minimal pour éviter de casser l'affichage
+                error_status = {
+                    "name": server_name,
+                    "online": False,
+                    "ip": config.get('ip', ''),
+                    "username": config.get('username', ''),
+                    "disks": {}
+                }
+                self.disk_status[server_name] = error_status
+                continue
         
         self.last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
