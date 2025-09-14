@@ -5104,8 +5104,11 @@
             };
             
             if (!serverData || !serverData.disks) {
+                console.log(`[${serverName}] Pas de données de disques`);
                 return issues;
             }
+            
+            console.log(`[${serverName}] Analyse des disques:`, serverData.disks);
             
             // Analyser chaque disque
             for (const [position, diskData] of Object.entries(serverData.disks)) {
@@ -5114,26 +5117,30 @@
                     continue;
                 }
                 
+                console.log(`[${serverName}:${position}] Status: ${diskData.status}, Mounted: ${diskData.mounted}, Label: ${diskData.label}`);
+                
                 // Vérifier l'état du disque selon les différents statuts possibles
                 if (diskData.status === 'missing' || diskData.status === 'not_detected') {
                     issues.missing++;
                     issues.critical++;
+                    console.log(`[${serverName}:${position}] → MISSING/NOT_DETECTED`);
                 } else if (diskData.status === 'ssh_error' || diskData.status === 'auth_error') {
                     issues.errors++;
                     issues.critical++;
+                    console.log(`[${serverName}:${position}] → SSH/AUTH ERROR`);
                 } else if (diskData.status === 'no_password') {
                     issues.errors++;
                     issues.critical++;
-                } else if (!diskData.mounted && diskData.status !== 'mounted') {
-                    // Disque détecté mais non monté (sauf si explicitement monté)
-                    if (diskData.status && diskData.status !== 'unmounted') {
-                        // Ne compte que si ce n'est pas un statut d'erreur déjà compté
-                        issues.unmounted++;
-                    }
+                    console.log(`[${serverName}:${position}] → NO PASSWORD`);
+                } else if (diskData.status !== 'mounted' && !diskData.mounted) {
+                    // Disque présent mais pas monté
+                    issues.unmounted++;
+                    console.log(`[${serverName}:${position}] → UNMOUNTED (status: ${diskData.status}, mounted: ${diskData.mounted})`);
                 }
             }
             
             issues.total = issues.missing + issues.unmounted + issues.errors;
+            console.log(`[${serverName}] Issues summary:`, issues);
             return issues;
         }
 
