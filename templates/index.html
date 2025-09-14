@@ -500,8 +500,39 @@
 
         /* Carte serveur compacte quand toutes les sections sont repliées */
         .server-card.all-collapsed {
-            padding: 16px 24px; /* Réduction du padding vertical */
+            padding: 8px 16px; /* Réduction drastique du padding */
             min-height: auto;
+        }
+        
+        /* Header compact pour les cartes repliées */
+        .server-card.all-collapsed .server-header {
+            margin-bottom: 0;
+        }
+        
+        /* Réduire l'espace entre éléments dans le header compact */
+        .server-card.all-collapsed .server-info h3 {
+            margin: 0;
+            font-size: 1.1em;
+        }
+        
+        .server-card.all-collapsed .server-info p {
+            margin: 2px 0;
+            font-size: 0.85em;
+        }
+        
+        /* Boutons plus compacts dans les cartes repliées */
+        .server-card.all-collapsed .server-actions {
+            gap: 4px;
+        }
+        
+        .server-card.all-collapsed .server-actions .icon-btn {
+            padding: 4px 6px;
+            font-size: 0.9em;
+        }
+        
+        .server-card.all-collapsed .server-actions .btn-mini {
+            padding: 2px 6px;
+            font-size: 0.8em;
         }
 
         .server-header {
