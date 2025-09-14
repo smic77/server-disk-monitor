@@ -2256,7 +2256,7 @@
                         const diskConfig = diskMappings[position];
                         const diskStatus = serverData.disks ? serverData.disks[position] : null;
                         
-                        html += createDiskSlot(serverName, position, diskStatus, serverData.online);
+                        html += createDiskSlot(serverName, position, diskStatus, serverData.online, diskConfig);
                     }
                 }
                 
@@ -2432,6 +2432,7 @@
         function createDiskGrid(serverName, face, rackConfig, serverData) {
             const rows = rackConfig.rows;
             const cols = rackConfig.cols;
+            const serverConfig = config[serverName];
             
             let html = `<div class="disk-grid" style="grid-template-columns: repeat(${cols}, 1fr);">`;
 
@@ -2439,8 +2440,9 @@
                 for (let col = 0; col < cols; col++) {
                     const position = `${face}_${row}_${col}`;
                     const diskData = serverData.disks && serverData.disks[position];
+                    const diskConfig = serverConfig && serverConfig.disk_mappings && serverConfig.disk_mappings[position] || {};
                     
-                    html += createDiskSlot(serverName, position, diskData, serverData.online);
+                    html += createDiskSlot(serverName, position, diskData, serverData.online, diskConfig);
                 }
             }
 
@@ -2504,7 +2506,7 @@
             return position;
         }
 
-        function createDiskSlot(serverName, position, diskData, serverOnline) {
+        function createDiskSlot(serverName, position, diskData, serverOnline, diskConfig = {}) {
             if (!diskData) {
                 return `
                     <div class="disk-slot empty-slot" title="Slot vide - Position ${position}">
@@ -2566,8 +2568,8 @@
             const capacity = diskData.capacity || 'N/A';
             const displayCapacity = capacity.length > 10 ? capacity.replace(/\s+/g, '') : capacity;
             
-            // Numéro de série (si disponible)
-            const serialNumber = diskData.serial || diskData.serialNumber || '';
+            // Numéro de série (si disponible dans la configuration)
+            const serialNumber = diskConfig.serial || diskData.serial || diskData.serialNumber || '';
             const displaySerial = serialNumber ? (serialNumber.length > 12 ? serialNumber.substring(0, 12) + '...' : serialNumber) : '';
 
             // Construction du tooltip informatif
@@ -2590,6 +2592,9 @@
             const serverData = serversData[serverName];
             const diskData = serverData && serverData.disks && serverData.disks[position];
             const serverConfig = config[serverName];
+            
+            // Récupérer la configuration du disque pour le numéro de série et autres infos
+            const diskConfig = serverConfig && serverConfig.disk_mappings && serverConfig.disk_mappings[position] || {};
 
             if (!diskData) {
                 alert('Données du disque non disponibles');
@@ -2654,14 +2659,20 @@
                     <label>📏 Capacité:</label>
                     <p>${diskData.capacity || 'N/A'}</p>
                 </div>
+                ${diskConfig.serial ? `
+                    <div class="form-group">
+                        <label>🏷️ Numéro de série:</label>
+                        <p style="font-family: monospace; background: rgba(64,64,64,0.5); padding: 8px; border-radius: 4px;">${diskConfig.serial}</p>
+                    </div>
+                ` : ''}
                 <div class="form-group">
                     <label>📊 Statut détaillé:</label>
                     <p style="font-weight: bold; color: ${statusColor}">${statusText}</p>
                 </div>
-                ${diskData.description ? `
+                ${diskData.description || diskConfig.description ? `
                     <div class="form-group">
                         <label>📝 Description:</label>
-                        <p>${diskData.description}</p>
+                        <p>${diskData.description || diskConfig.description}</p>
                     </div>
                 ` : ''}
                 ${diskData.mount_point ? `
