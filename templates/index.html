@@ -1616,7 +1616,7 @@
 
     <div class="controls">
         <button class="icon-btn primary tooltip" data-tooltip="Actualiser les données en temps réel" onclick="refreshData()">🔄</button>
-        <button class="icon-btn warning tooltip" data-tooltip="Gérer les serveurs (ajouter/modifier/supprimer)" onclick="showServerManagementModal()">🖥️</button>
+        <button class="icon-btn success tooltip" data-tooltip="Ajouter un nouveau serveur" onclick="showServerEditModal()">➕</button>
         <button class="icon-btn success tooltip" data-tooltip="Configuration générale et export/import" onclick="showConfigModal()">⚙️</button>
         <button class="icon-btn info tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">📢</button>
         <button class="icon-btn tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">💾</button>
@@ -1636,33 +1636,6 @@
     </div>
 
     <!-- Modal Configuration -->
-    <!-- Modal Gestion des Serveurs -->
-    <div id="serverManagementModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('serverManagementModal')">&times;</span>
-            <h2>🖥️ Gestion des Serveurs</h2>
-            <div id="serverManagementContent">
-                <div class="alert alert-info">
-                    <strong>Gestion des Serveurs :</strong><br>
-                    • Ajoutez, modifiez et supprimez vos serveurs<br>
-                    • Configuration actuelle : <span id="serverManagementCount">0</span> serveur(s)
-                </div>
-                
-                <!-- Gestion des serveurs -->
-                <div style="margin: 20px 0;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h3>📋 Liste des Serveurs</h3>
-                        <button class="btn btn-success" onclick="showAddServerForm()">➕ Ajouter un Serveur</button>
-                    </div>
-                    
-                    <div id="serversManagementList">
-                        <!-- Liste des serveurs générée dynamiquement -->
-                    </div>
-                    <!-- Ancien formulaire supprimé - utilisation du modal dédié serverEditModal -->
-                </div>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal Configuration Générale -->
     <div id="configModal" class="modal">
@@ -1673,8 +1646,7 @@
                 <div class="alert alert-info">
                     <strong>Configuration et Outils :</strong><br>
                     • Export/import de la configuration complète<br>
-                    • Migration des données legacy<br>
-                    • Utilisez le bouton 🖥️ "Gestion des Serveurs" pour ajouter/modifier les serveurs
+                    • Utilisez le bouton ➕ pour ajouter des serveurs
                 </div>
                 
                 <!-- Section Export/Import -->
@@ -1686,15 +1658,6 @@
                     </div>
                 </div>
                 
-                <!-- Section Migration -->
-                <div style="border-top: 1px solid #333; padding-top: 20px; margin-top: 20px;">
-                    <h3>🔄 Migration des Données</h3>
-                    <p style="font-size: 14px; color: #666; text-align: center;">Migrer les anciennes clés disk_mappings vers le nouveau format</p>
-                    <div style="text-align: center;">
-                        <button class="btn" style="background: #17a2b8; color: white;" onclick="checkMigrationNeeded()">🔍 Vérifier Migration</button>
-                        <button class="btn" style="background: #28a745; color: white;" onclick="migrateDiskMappings()">🚀 Migrer Maintenant</button>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
@@ -2140,7 +2103,7 @@
                 container.innerHTML = `
                     <div style="text-align: center; color: #666; padding: 50px;">
                         <h3>Aucun serveur configuré</h3>
-                        <p>Utilisez le bouton "🖥️ Gestion des Serveurs" pour ajouter des serveurs</p>
+                        <p>Utilisez le bouton "➕" pour ajouter des serveurs</p>
                     </div>
                 `;
                 return;
@@ -2625,8 +2588,8 @@
         // Fonction pour trier les serveurs par ordre d'affichage
         function sortServersByDisplayOrder(serverNames) {
             return serverNames.sort((a, b) => {
-                const configA = config.servers && config.servers[a] || {};
-                const configB = config.servers && config.servers[b] || {};
+                const configA = config && config[a] || {};
+                const configB = config && config[b] || {};
                 
                 // Utiliser display_order si défini, sinon ordre alphabétique
                 const orderA = configA.display_order ?? 999;
@@ -2649,9 +2612,8 @@
             // Récupérer la liste des serveurs avec leur configuration actuelle
             console.log('Config disponible:', config);
             console.log('Type de config:', typeof config);
-            console.log('config.servers:', config.servers);
             
-            const serverNames = Object.keys(config.servers || {});
+            const serverNames = Object.keys(config || {});
             console.log('Serveurs trouvés:', serverNames);
             
             if (serverNames.length === 0) {
@@ -2667,7 +2629,7 @@
             // Générer la liste des serveurs réorganisables
             let html = '';
             sortedServers.forEach((serverName, index) => {
-                const serverConfig = config.servers[serverName] || {};
+                const serverConfig = config[serverName] || {};
                 const isOnline = serversData[serverName] && serversData[serverName].online;
                 const statusText = isOnline ? '🟢 En ligne' : '🔴 Hors ligne';
                 
@@ -3159,11 +3121,6 @@
             document.getElementById('configModal').style.display = 'block';
         }
         
-        function showServerManagementModal() {
-            document.getElementById('serverManagementModal').style.display = 'block';
-            populateServersManagementList();
-            updateServerManagementCount();
-        }
         
         // Variables pour la gestion des serveurs
         let currentEditingServer = null;
@@ -4929,76 +4886,6 @@
             input.click();
         }
 
-        // Migration des disk_mappings
-        function checkMigrationNeeded() {
-            fetch('/api/migration/check')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.success) {
-                        if (data.migration_needed) {
-                            let message = '🔍 Migration nécessaire!\n\n';
-                            
-                            for (const [serverName, info] of Object.entries(data.affected_servers)) {
-                                message += `📡 ${serverName} (${info.template}):\n`;
-                                message += `  • ${info.obsolete_disks.length} disque(s) avec clés obsolètes\n`;
-                                message += `  • Sections disponibles: ${info.valid_sections.join(', ')}\n\n`;
-                            }
-                            
-                            message += 'Cliquez sur "🚀 Migrer Maintenant" pour corriger automatiquement.';
-                            alert(message);
-                        } else {
-                            alert('✅ Aucune migration nécessaire!\n\nTous vos disk_mappings utilisent déjà le bon format.');
-                        }
-                    } else {
-                        alert('Erreur lors de la vérification: ' + data.error);
-                    }
-                })
-                .catch(error => {
-                    alert('Erreur lors de la vérification: ' + error.message);
-                });
-        }
-
-        function migrateDiskMappings() {
-            if (!confirm('🚀 Migrer les disk_mappings?\n\nCette opération va:\n• Convertir front_X_Y vers la première section du template\n• Convertir back_X_Y vers la deuxième section du template\n• Sauvegarder automatiquement\n\nContinuer?')) {
-                return;
-            }
-
-            updateStatusMessage('🔄 Migration en cours...');
-
-            fetch('/api/migration/migrate', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    let message = data.message + '\n\n';
-                    
-                    if (Object.keys(data.details).length > 0) {
-                        message += 'Détails de la migration:\n';
-                        for (const [serverName, info] of Object.entries(data.details)) {
-                            message += `• ${serverName}: ${info.migrated_disks} disque(s) → ${info.sections_used.join(', ')}\n`;
-                        }
-                        
-                        // Rafraîchir l'affichage
-                        refreshData();
-                    }
-                    
-                    alert('✅ ' + message);
-                    updateStatusMessage('✅ Migration terminée');
-                } else {
-                    alert('❌ Erreur lors de la migration: ' + data.error);
-                    updateStatusMessage('❌ Erreur de migration');
-                }
-            })
-            .catch(error => {
-                alert('❌ Erreur lors de la migration: ' + error.message);
-                updateStatusMessage('❌ Erreur de migration');
-            });
-        }
-
         // Gestion des modals
         function closeModal(modalId) {
             document.getElementById(modalId).style.display = 'none';
@@ -5006,7 +4893,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'serverManagementModal', 'serverPasswordModal', 'serverEditModal', 'diskModal', 'statsModal', 'notificationModal'];
+            const modals = ['configModal', 'serverPasswordModal', 'serverEditModal', 'diskModal', 'statsModal', 'notificationModal', 'serverOrderModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {
