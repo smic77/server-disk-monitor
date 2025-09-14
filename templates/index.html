@@ -1829,10 +1829,10 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M17,13H13V17H11V13H7V11H11V7H13V11H17V13Z"/></svg>
         </button>
         <button class="icon-btn info tooltip" data-tooltip="Modifier l'ordre d'affichage des serveurs" onclick="showServerOrderModal()">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7,15L12,10L17,15H7Z M7,9L12,14L17,9H7Z"/></svg>
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M7,15L12,10L17,15H7Z M7,9L12,14L17,9H7Z"/></svg>
         </button>
         <button class="icon-btn warning tooltip" id="toggleAllSectionsBtn" data-tooltip="Déplier/Replier toutes les sections" onclick="toggleAllServerSections()">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>
         </button>
         <button class="icon-btn purple tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M12,22A2,2 0 0,0 14,20H10A2,2 0 0,0 12,22M21,19V20H3V19L5,17V11C5,7.9 7.03,5.17 10,4.29C10,4.19 10,4.1 10,4A2,2 0 0,1 12,2A2,2 0 0,1 14,4C14,4.1 14,4.19 14,4.29C16.97,5.17 19,7.9 19,11V17L21,19Z"/></svg>
@@ -1885,12 +1885,12 @@
                 <div class="form-group">
                     <div class="checkbox-group">
                         <input type="checkbox" id="showPassword" onchange="togglePasswordVisibility()">
-                        <label for="showPassword">👁️ Afficher le mot de passe</label>
+                        <label for="showPassword"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z"/></svg> Afficher le mot de passe</label>
                     </div>
                 </div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
-                <button class="btn btn-success" onclick="saveServerPassword()">💾 Sauvegarder</button>
+                <button class="btn btn-success" onclick="saveServerPassword()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarder</button>
                 <button class="btn btn-info" onclick="testSSHConnection()">🧪 Tester</button>
                 <button class="btn" onclick="closeModal('serverPasswordModal')">❌ Annuler</button>
             </div>
@@ -1902,7 +1902,7 @@
     <div id="serverEditModal" class="modal">
         <div class="modal-content" style="max-width: 600px;">
             <span class="close" onclick="closeModal('serverEditModal')">&times;</span>
-            <h2 id="serverEditTitle">✏️ Modifier le Serveur</h2>
+            <h2 id="serverEditTitle"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg> Modifier le Serveur</h2>
             <div id="serverEditContent">
                 <div class="alert alert-info">
                     <strong>ℹ️ Configuration du serveur :</strong><br>
@@ -1933,7 +1933,7 @@
                 <div id="serverEditStatus" style="margin: 15px 0; text-align: center;"></div>
             </div>
             <div class="modal-actions" style="text-align: center; margin-top: 20px;">
-                <button class="btn btn-success" onclick="saveServerEdit()">💾 Sauvegarder</button>
+                <button class="btn btn-success" onclick="saveServerEdit()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarder</button>
                 <button class="btn" onclick="closeModal('serverEditModal')">❌ Annuler</button>
             </div>
         </div>
@@ -1945,7 +1945,7 @@
     <div id="templateManagerModal" class="modal">
         <div class="modal-content" style="max-width: 900px;">
             <span class="close" onclick="closeModal('templateManagerModal')">&times;</span>
-            <h2>⚙️ Gestionnaire de Templates de Serveurs</h2>
+            <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11.02L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.22,8.95 2.27,9.22 2.46,9.37L4.57,11.02C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.22,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.68 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z"/></svg> Gestionnaire de Templates de Serveurs</h2>
             <div id="templateManagerContent">
                 <div class="alert alert-info">
                     <strong>ℹ️ Templates de serveurs :</strong><br>
@@ -1954,7 +1954,7 @@
                 
                 <!-- Liste des templates existants -->
                 <div class="form-group">
-                    <label>📋 Templates existants :</label>
+                    <label><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3Z"/></svg> Templates existants :</label>
                     <div id="templatesList" style="max-height: 300px; overflow-y: auto;">
                         <!-- Templates seront générés dynamiquement -->
                     </div>
@@ -1962,7 +1962,7 @@
                 
                 <!-- Formulaire d'édition de template -->
                 <div class="form-group">
-                    <label>✏️ Édition de template :</label>
+                    <label><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg> Édition de template :</label>
                     <div id="templateEditor" style="background: var(--bg-tertiary); padding: 20px; border-radius: 8px; display: none;">
                         <div style="display: flex; gap: 20px; margin-bottom: 15px;">
                             <div style="flex: 1;">
@@ -1990,7 +1990,7 @@
                 </div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
-                <button class="btn btn-success" onclick="saveCurrentTemplate()" id="saveTemplateBtn" style="display: none;">💾 Sauvegarder Template</button>
+                <button class="btn btn-success" onclick="saveCurrentTemplate()" id="saveTemplateBtn" style="display: none;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarder Template</button>
                 <button class="btn btn-primary" onclick="createNewTemplate()">➕ Nouveau Template</button>
                 <button class="btn" onclick="closeModal('templateManagerModal')">❌ Fermer</button>
             </div>
@@ -2046,7 +2046,7 @@
                 </div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
-                <button class="btn btn-success" onclick="saveNotificationConfig()">💾 Sauvegarder</button>
+                <button class="btn btn-success" onclick="saveNotificationConfig()"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarder</button>
                 <button class="btn btn-info" onclick="testNotification()">🧪 Test</button>
                 <button class="btn" onclick="closeModal('notificationModal')">❌ Annuler</button>
             </div>
@@ -2057,7 +2057,7 @@
     <div id="statsModal" class="modal">
         <div class="modal-content">
             <span class="close" onclick="closeModal('statsModal')">&times;</span>
-            <h2>📊 Statistiques Détaillées</h2>
+            <h2><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22,21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg> Statistiques Détaillées</h2>
             <div id="statsContent">
                 <!-- Contenu des statistiques -->
             </div>
@@ -2090,7 +2090,7 @@
             </div>
             
             <div style="text-align: center; margin-top: 20px;">
-                <button class="btn" onclick="saveServerOrder()" style="background: #28a745; margin-right: 10px;">💾 Sauvegarder</button>
+                <button class="btn" onclick="saveServerOrder()" style="background: #28a745; margin-right: 10px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarder</button>
                 <button class="btn" onclick="closeModal('serverOrderModal')">Annuler</button>
             </div>
         </div>
@@ -2148,7 +2148,7 @@
                 config = data.config || {};
                 updateDisplay();
                 updateLastUpdateTime();
-                updateStatusMessage('📊 Données des disques mises à jour en temps réel');
+                updateStatusMessage('<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22,21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg> Données des disques mises à jour en temps réel');
             });
 
             socket.on('connected', function(data) {
@@ -2368,10 +2368,10 @@
                             <p>⚠️ Erreur d'affichage</p>
                             <p><small>Vérifiez la configuration</small></p>
                             <button class="btn-mini" onclick="showServerEditModal('${serverName}')" style="background: #0969da; color: white; margin: 5px;">
-                                ✏️ Modifier
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg> Modifier
                             </button>
                             <button class="btn-mini" onclick="showDiskConfigModal('${serverName}')" style="background: #0969da; color: white; margin: 5px;">
-                                💾 Configurer
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Configurer
                             </button>
                         </div>
                     `;
@@ -2419,13 +2419,13 @@
                     </div>
                     <div class="server-actions">
                         <button class="btn-mini btn-server-edit" onclick="showServerEditModal('${serverName}')" title="Modifier ce serveur" style="background: #0969da; color: white; margin-right: 5px;">
-                            ✏️
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>
                         </button>
                         <button class="btn-mini btn-add-section" onclick="showAddSectionModal('${serverName}')" title="Ajouter une nouvelle section" style="background: #28a745; color: white; margin-right: 5px;">
                             ➕
                         </button>
                         <button class="btn-mini btn-delete-server" onclick="deleteServer('${serverName}')" title="Supprimer ce serveur" style="background: #dc3545; color: white; margin-right: 5px;">
-                            🗑️
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg>
                         </button>
                         ${getPasswordButtonHTML(serverName, serverConfig)}
                     
@@ -2512,20 +2512,20 @@
                 html += `
                     <div class="section-card" style="border: 1px solid #333; border-radius: 8px; background: rgba(0,0,0,0.3); padding: 15px;">
                         <div class="section-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <h4 style="margin: 0; color: #58a6ff; font-size: 1em;">
-                                📋 ${section.name}
+                            <h4 class="section-name" style="margin: 0; font-size: 1em;">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3Z"/></svg> ${section.name}
                             </h4>
                             <div class="section-actions" style="display: flex; gap: 3px;">
-                                ${sectionIndex > 0 ? `<button class="btn-mini" onclick="moveSectionUp('${serverName}', ${sectionIndex})" title="Déplacer vers le haut" style="background: #6b7280; color: white; padding: 4px 6px; font-size: 0.7em;">⬆️</button>` : ''}
-                                ${sectionIndex < sections.length - 1 ? `<button class="btn-mini" onclick="moveSectionDown('${serverName}', ${sectionIndex})" title="Déplacer vers le bas" style="background: #6b7280; color: white; padding: 4px 6px; font-size: 0.7em;">⬇️</button>` : ''}
+                                ${sectionIndex > 0 ? `<button class="btn-mini" onclick="moveSectionUp('${serverName}', ${sectionIndex})" title="Déplacer vers le haut" style="background: #6b7280; color: white; padding: 4px 6px; font-size: 0.7em;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M13,20H11V8L5.5,13.5L4.08,12.08L12,4.16L19.92,12.08L18.5,13.5L13,8V20Z"/></svg></button>` : ''}
+                                ${sectionIndex < sections.length - 1 ? `<button class="btn-mini" onclick="moveSectionDown('${serverName}', ${sectionIndex})" title="Déplacer vers le bas" style="background: #6b7280; color: white; padding: 4px 6px; font-size: 0.7em;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M11,4H13V16L18.5,10.5L19.92,11.92L12,19.84L4.08,11.92L5.5,10.5L11,16V4Z"/></svg></button>` : ''}
                                 <button class="btn-mini" onclick="showEditSectionModal('${serverName}', ${sectionIndex})" title="Modifier cette section" style="background: #0969da; color: white; padding: 4px 6px; font-size: 0.7em;">
-                                    ✏️
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>
                                 </button>
                                 <button class="btn-mini" onclick="showConfigureDisksModal('${serverName}', ${sectionIndex})" title="Configurer les disques" style="background: #7c3aed; color: white; padding: 4px 6px; font-size: 0.7em;">
                                     💽
                                 </button>
                                 <button class="btn-mini" onclick="removeSectionConfirm('${serverName}', ${sectionIndex})" title="Supprimer cette section" style="background: #dc2626; color: white; padding: 4px 6px; font-size: 0.7em;">
-                                    🗑️
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg>
                                 </button>
                             </div>
                         </div>
@@ -2800,14 +2800,14 @@
                 return `<button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" 
                                title="Mot de passe SSH configuré - Cliquer pour modifier" 
                                style="background: #28a745; color: white; border: 2px solid #1e7e34;">
-                            🔒
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/></svg>
                         </button>`;
             } else {
                 // Pas de mot de passe - bouton orange avec cadenas ouvert
                 return `<button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" 
                                title="Mot de passe SSH manquant - Cliquer pour configurer" 
                                style="background: #fd7e14; color: white; border: 2px solid #e3650b;">
-                            🔓
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10A2,2 0 0,1 6,8H18M18,6H16V4A4,4 0 0,0 12,0A4,4 0 0,0 8,4V6H6A2,2 0 0,0 4,8V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8A2,2 0 0,0 18,6Z"/></svg>
                         </button>`;
             }
         }
@@ -3124,7 +3124,7 @@
                     <p style="font-family: monospace; word-break: break-all; font-size: 0.85em;">${diskData.uuid}</p>
                 </div>
                 <div class="form-group">
-                    <label>💾 Périphérique:</label>
+                    <label><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Périphérique:</label>
                     <p style="font-family: monospace; font-size: 0.9em;">${diskData.device}</p>
                 </div>
                 <div class="form-group">
@@ -3138,7 +3138,7 @@
                     </div>
                 ` : ''}
                 <div class="form-group">
-                    <label>📊 Statut détaillé:</label>
+                    <label><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22,21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg> Statut détaillé:</label>
                     <p style="font-weight: bold; color: ${statusColor}; font-size: 0.9em;">${statusText}</p>
                 </div>
                 ${diskData.description || diskConfig.description ? `
@@ -3369,22 +3369,22 @@
             div.className = 'server-list-item';
             div.style.cssText = 'border: 1px solid #333; padding: 10px; margin-bottom: 8px; border-radius: 5px; background: #0d1117; display: flex; justify-content: space-between; align-items: center;';
             
-            const hasPassword = serverConfig.password ? '🔒 Avec mot de passe' : '🔓 Sans mot de passe';
+            const hasPassword = serverConfig.password ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,17A2,2 0 0,0 14,15C14,13.89 13.1,13 12,13A2,2 0 0,0 10,15A2,2 0 0,0 12,17M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10C4,8.89 4.9,8 6,8H7V6A5,5 0 0,1 12,1A5,5 0 0,1 17,6V8H18M12,3A3,3 0 0,0 9,6V8H15V6A3,3 0 0,0 12,3Z"/></svg> Avec mot de passe' : '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18,8A2,2 0 0,1 20,10V20A2,2 0 0,1 18,22H6A2,2 0 0,1 4,20V10A2,2 0 0,1 6,8H18M18,6H16V4A4,4 0 0,0 12,0A4,4 0 0,0 8,4V6H6A2,2 0 0,0 4,8V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8A2,2 0 0,0 18,6Z"/></svg> Sans mot de passe';
             const diskCount = Object.keys(serverConfig.disk_mappings || {}).length;
             
             div.innerHTML = `
                 <div>
                     <strong style="color: #58a6ff;">🖥️ ${serverName}</strong>
                     <div style="font-size: 0.9em; color: #8b949e; margin-top: 5px;">
-                        🌐 ${serverConfig.ip} | 👤 ${serverConfig.username} | ${hasPassword} | 💾 ${diskCount} disque(s)
+                        🌐 ${serverConfig.ip} | 👤 ${serverConfig.username} | ${hasPassword} | <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> ${diskCount} disque(s)
                     </div>
                 </div>
                 <div>
                     <button class="btn-mini" onclick="editServer('${serverName}')" style="background: #0969da; color: white; margin-right: 5px;" title="Modifier ce serveur">
-                        ✏️
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg>
                     </button>
                     <button class="btn-mini" onclick="deleteServer('${serverName}')" style="background: #f85149; color: white;" title="Supprimer ce serveur">
-                        🗑️
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg>
                     </button>
                 </div>
             `;
@@ -3675,7 +3675,7 @@
                         <div>
                             <button class="btn-mini" onclick="removeSection(${index})" 
                                     style="background: #f85149; color: white;" title="Supprimer cette section">
-                                🗑️
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg>
                             </button>
                         </div>
                     </div>
@@ -3709,7 +3709,7 @@
                     const section = sectionsConfig[sectionIndex];
                     const titleElement = sectionContainer.parentElement.querySelector('h4');
                     if (titleElement) {
-                        titleElement.textContent = `💾 ${section.name} (${section.rows}x${section.cols}, ${section.orientation})`;
+                        titleElement.textContent = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> ${section.name} (${section.rows}x${section.cols}, ${section.orientation})`;
                     }
                 }
             }
@@ -3931,7 +3931,7 @@
             
             try {
                 const statusMsg = document.getElementById('diskConfigStatusMessage');
-                statusMsg.textContent = '💾 Sauvegarde de la configuration des disques...';
+                statusMsg.textContent = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarde de la configuration des disques...';
                 statusMsg.style.color = 'orange';
                 
                 // Mettre à jour la configuration locale avec sections et disques
@@ -4023,7 +4023,7 @@
                 <div id="editSectionModal" class="modal">
                     <div class="modal-content" style="max-width: 600px;">
                         <div class="modal-header">
-                            <h2 id="editSectionTitle">✏️ Modifier Section</h2>
+                            <h2 id="editSectionTitle"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg> Modifier Section</h2>
                             <span class="close" onclick="closeModal('editSectionModal')">&times;</span>
                         </div>
                         <div class="modal-body">
@@ -4051,7 +4051,7 @@
                         </div>
                         <div class="modal-footer">
                             <button class="btn btn-secondary" onclick="closeModal('editSectionModal')">Annuler</button>
-                            <button class="btn btn-primary" onclick="saveEditSection('${serverName}', ${sectionIndex})">💾 Sauvegarder</button>
+                            <button class="btn btn-primary" onclick="saveEditSection('${serverName}', ${sectionIndex})"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarder</button>
                         </div>
                     </div>
                 </div>
@@ -4149,7 +4149,7 @@
                         </div>
                         <div class="modal-footer">
                             <button class="btn btn-secondary" onclick="closeModal('configureSectionDisksModal')">Annuler</button>
-                            <button class="btn btn-primary" onclick="saveSectionDisksConfig('${serverName}', ${sectionIndex})">💾 Sauvegarder</button>
+                            <button class="btn btn-primary" onclick="saveSectionDisksConfig('${serverName}', ${sectionIndex})"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarder</button>
                         </div>
                     </div>
                 </div>
@@ -4203,7 +4203,7 @@
                         <div class="disk-config-slot" style="border: 1px solid #333; border-radius: 5px; padding: 10px; background: ${isEmpty ? '#1a1a1a' : '#2d3748'}; min-height: 200px;">
                             <div style="font-weight: bold; color: #58a6ff; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
                                 <span>Position ${row + 1}-${col + 1}</span>
-                                ${!isEmpty ? `<button class="btn-mini" onclick="removeDiskFromSection('${position}')" style="background: #dc2626; color: white;" title="Supprimer ce disque">🗑️</button>` : ''}
+                                ${!isEmpty ? `<button class="btn-mini" onclick="removeDiskFromSection('${position}')" style="background: #dc2626; color: white;" title="Supprimer ce disque"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg></button>` : ''}
                             </div>
                             <div style="display: grid; gap: 8px;">
                                 <div>
@@ -4322,7 +4322,7 @@
         
         function saveSectionDisksConfig(serverName, sectionIndex) {
             const statusDiv = document.getElementById('configureSectionDisksStatus');
-            statusDiv.innerHTML = '💾 Sauvegarde en cours...';
+            statusDiv.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarde en cours...';
             statusDiv.style.color = 'orange';
             
             try {
@@ -4573,7 +4573,7 @@
                     return;
                 }
                 
-                title.textContent = `✏️ Modifier ${serverName}`;
+                title.textContent = `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg> Modifier ${serverName}`;
                 nameField.value = serverName;
                 nameField.readOnly = true; // Empêcher la modification du nom existant
                 nameField.placeholder = '';
@@ -4606,7 +4606,7 @@
                 return;
             }
             
-            statusDiv.innerHTML = '<span style="color: orange;">💾 Sauvegarde en cours...</span>';
+            statusDiv.innerHTML = '<span style="color: orange;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Sauvegarde en cours...</span>';
             
             try {
                 // Si modification avec changement de nom, supprimer l'ancien
@@ -4693,7 +4693,7 @@
                 return;
             }
             
-            updateStatusMessage(`🗑️ Suppression du serveur "${serverName}" en cours...`);
+            updateStatusMessage(`<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg> Suppression du serveur "${serverName}" en cours...`);
             
             fetch(`/api/server/${serverName}/delete`, {
                 method: 'DELETE',
@@ -4752,9 +4752,9 @@
                                 </small>
                             </div>
                             <div>
-                                <button class="btn btn-mini" onclick="editTemplate('${name}')" title="Éditer">✏️</button>
-                                <button class="btn btn-mini" onclick="duplicateTemplate('${name}')" title="Dupliquer">📋</button>
-                                ${name !== 'Custom' ? `<button class="btn btn-mini" onclick="deleteTemplate('${name}')" title="Supprimer">🗑️</button>` : ''}
+                                <button class="btn btn-mini" onclick="editTemplate('${name}')" title="Éditer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z"/></svg></button>
+                                <button class="btn btn-mini" onclick="duplicateTemplate('${name}')" title="Dupliquer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3Z"/></svg></button>
+                                ${name !== 'Custom' ? `<button class="btn btn-mini" onclick="deleteTemplate('${name}')" title="Supprimer"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg></button>` : ''}
                             </div>
                         </div>
                     </div>
@@ -4886,7 +4886,7 @@
                             </select>
                         </div>
                         <div>
-                            <button type="button" class="btn btn-mini" onclick="removeSection('${sectionId}')" title="Supprimer section">🗑️</button>
+                            <button type="button" class="btn btn-mini" onclick="removeSection('${sectionId}')" title="Supprimer section"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9,3V4H4V6H5V19A2,2 0 0,0 7,21H17A2,2 0 0,0 19,19V6H20V4H15V3H9M9,8H11V17H9V8M13,8H15V17H13V8Z"/></svg></button>
                         </div>
                     </div>
                 </div>
@@ -5005,7 +5005,7 @@
 
             content.innerHTML = `
                 <div class="form-group">
-                    <label>📊 Résumé Global:</label>
+                    <label><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22,21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg> Résumé Global:</label>
                     <p><strong>Serveurs:</strong> ${statsData.online_servers}/${statsData.total_servers} en ligne (${onlinePercentage}%)</p>
                     <p><strong>Disques:</strong> ${statsData.mounted_disks}/${statsData.total_disks} montés (${mountedPercentage}%)</p>
                 </div>
@@ -5017,7 +5017,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>🔧 Configuration:</label>
+                    <label><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M22.7,19L13.6,9.9C14.5,7.6 14,4.9 12.1,3C10.1,1 7.1,0.6 4.7,1.7L9,6L6,9L1.6,4.7C0.4,7.1 0.9,10.1 2.9,12.1C4.8,14 7.5,14.5 9.8,13.6L18.9,22.7C19.3,23.1 19.9,23.1 20.3,22.7L22.6,20.4C23.1,20 23.1,19.3 22.7,19Z"/></svg> Configuration:</label>
                     <p><strong>Serveurs configurés:</strong> ${Object.keys(config).length}</p>
                     <p><strong>Intervalle de rafraîchissement:</strong> 30 secondes</p>
                 </div>
@@ -5029,7 +5029,7 @@
                 </div>
                 
                 <div class="form-group">
-                    <label>📋 Détail par Serveur:</label>
+                    <label><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19,3H14.82C14.4,1.84 13.3,1 12,1C10.7,1 9.6,1.84 9.18,3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V5A2,2 0 0,0 19,3M12,3A1,1 0 0,1 13,4A1,1 0 0,1 12,5A1,1 0 0,1 11,4A1,1 0 0,1 12,3Z"/></svg> Détail par Serveur:</label>
                     ${Object.entries(serversData).map(([name, data]) => `
                         <p><strong>${name}:</strong> 
                         ${data.online ? '🟢 En ligne' : '🔴 Hors ligne'} - 
@@ -5060,7 +5060,7 @@
                     a.click();
                     
                     URL.revokeObjectURL(url);
-                    updateStatusMessage('💾 Configuration complète exportée (' + filename + ')');
+                    updateStatusMessage('<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15,9H5V5H15M12,19A3,3 0 0,1 9,16A3,3 0 0,1 12,13A3,3 0 0,1 15,16A3,3 0 0,1 12,19M17,3H5C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V7L17,3Z"/></svg> Configuration complète exportée (' + filename + ')');
                 })
                 .catch(error => {
                     alert('Erreur lors de l\'export: ' + error.message);
@@ -5310,11 +5310,11 @@
                 // Si mixte, afficher l'icône "expand all" (pour tout déplier)
                 if (collapsedCount === allSectionsContainers.length) {
                     // Toutes collapsed → bouton pour expand
-                    toggleButton.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7,14L12,9L17,14H7Z"/></svg>';
+                    toggleButton.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M7,14L12,9L17,14H7Z"/></svg>';
                     toggleButton.setAttribute('data-tooltip', 'Déplier toutes les sections');
                 } else {
                     // Aucune ou mixte → bouton pour collapse
-                    toggleButton.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>';
+                    toggleButton.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>';
                     toggleButton.setAttribute('data-tooltip', 'Replier toutes les sections');
                 }
             } catch (error) {
@@ -5381,10 +5381,10 @@
             
             // Mettre à jour l'icône du bouton et le tooltip
             if (shouldExpand) {
-                toggleButton.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>';
+                toggleButton.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M7,10L12,15L17,10H7Z"/></svg>';
                 toggleButton.setAttribute('data-tooltip', 'Déplier/Replier toutes les sections');
             } else {
-                toggleButton.innerHTML = '<svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><path d="M7,14L12,9L17,14H7Z"/></svg>';
+                toggleButton.innerHTML = '<svg width="56" height="56" viewBox="0 0 24 24" fill="currentColor"><path d="M7,14L12,9L17,14H7Z"/></svg>';
                 toggleButton.setAttribute('data-tooltip', 'Déplier/Replier toutes les sections');
             }
             
@@ -5439,7 +5439,7 @@
             const status = document.getElementById('monitoringStatus');
             
             if (monitoring) {
-                indicator.textContent = '👁️';
+                indicator.textContent = '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12,9A3,3 0 0,0 9,12A3,3 0 0,0 12,15A3,3 0 0,0 15,12A3,3 0 0,0 12,9M12,17A5,5 0 0,1 7,12A5,5 0 0,1 12,7A5,5 0 0,1 17,12A5,5 0 0,1 12,17M12,4.5C7,4.5 2.73,7.61 1,12C2.73,16.39 7,19.5 12,19.5C17,19.5 21.27,16.39 23,12C21.27,7.61 17,4.5 12,4.5Z"/></svg>';
                 status.textContent = 'Surveillance des serveurs ACTIVE';
                 status.style.color = '#00ff00';
             } else {
