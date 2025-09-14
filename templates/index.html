@@ -1566,29 +1566,6 @@
     </div>
 
     <!-- Modal Configuration Disques Serveur -->
-    <div id="diskConfigModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('diskConfigModal')">&times;</span>
-            <h2 id="diskConfigTitle">💾 Configuration des Disques</h2>
-            <div id="diskConfigContent">
-                <div class="alert alert-info">
-                    <strong>ℹ️ Configuration des disques :</strong><br>
-                    Gérez les disques de ce serveur. Chaque disque est identifié par une clé unique.
-                </div>
-                
-                <div id="disksList">
-                    <!-- Liste des disques générée dynamiquement -->
-                </div>
-
-
-                <div id="diskConfigStatusMessage" style="color: green; margin: 10px 0;"></div>
-            </div>
-            <div class="modal-actions" style="text-align: center; margin-top: 20px;">
-                <button class="btn btn-success" onclick="saveDiskConfig()">💾 Sauvegarder</button>
-                <button class="btn" onclick="closeModal('diskConfigModal')">❌ Annuler</button>
-            </div>
-        </div>
-    </div>
 
     <!-- Modal Gestionnaire de Templates -->
     <div id="templateManagerModal" class="modal">
@@ -2028,7 +2005,7 @@
                             ✏️
                         </button>
                         <button class="btn-mini btn-add-section" onclick="showAddSectionModal('${serverName}')" title="Ajouter une nouvelle section" style="background: #28a745; color: white;">
-                            ➕ Section
+                            ➕
                         </button>
                         <button class="btn-mini btn-password" onclick="showServerPasswordModal('${serverName}')" title="Configurer mot de passe SSH">
                             🔐
@@ -3045,76 +3022,7 @@
         let diskConfigData = {};
         let sectionsConfig = [];
         
-        function showDiskConfigModal(serverName) {
-            currentServerForDiskConfig = serverName;
-            const modal = document.getElementById('diskConfigModal');
-            const title = document.getElementById('diskConfigTitle');
-            
-            const serverConfig = config[serverName];
-            title.innerHTML = `💾 Configuration des Sections et Disques - ${serverName} 
-                <div style="font-size: 0.9em; color: #ccc; margin-top: 5px;">
-                    ${serverConfig.username}@${serverConfig.ip}
-                </div>`;
-            
-            // Charger les sections et disques existants
-            sectionsConfig = JSON.parse(JSON.stringify(serverConfig.sections || []));
-            diskConfigData = JSON.parse(JSON.stringify(serverConfig.disk_mappings || {}));
-            
-            // Si pas de sections, créer une section par défaut
-            if (sectionsConfig.length === 0) {
-                sectionsConfig = [{
-                    name: "Section principale",
-                    rows: 2,
-                    cols: 6,
-                    orientation: "horizontal"
-                }];
-            }
-            
-            populateSectionsAndDisksList();
-            
-            modal.style.display = 'block';
-        }
 
-        function populateSectionsAndDisksList() {
-            const container = document.getElementById('disksList');
-            if (!container) return;
-            
-            container.innerHTML = '';
-            
-            // En-tête pour la gestion des sections
-            const sectionsHeader = document.createElement('div');
-            sectionsHeader.style.cssText = 'margin-bottom: 20px; padding: 15px; background: #161b22; border: 1px solid #333; border-radius: 5px;';
-            sectionsHeader.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="margin: 0; color: #58a6ff;">📋 Gestion des Sections</h3>
-                    <button class="btn btn-secondary" onclick="addNewSection()">➕ Ajouter Section</button>
-                </div>
-                <div id="sectionsList"></div>
-            `;
-            container.appendChild(sectionsHeader);
-            
-            // Afficher les sections
-            populateSectionsList();
-            
-            // Afficher les disques pour chaque section
-            sectionsConfig.forEach((section, sectionIndex) => {
-                const sectionContainer = document.createElement('div');
-                sectionContainer.style.cssText = 'margin: 20px 0; padding: 15px; background: #0d1117; border: 1px solid #333; border-radius: 5px;';
-                
-                sectionContainer.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <h4 style="margin: 0; color: #f0f6fc;">💾 ${section.name} (${section.rows}x${section.cols}, ${section.orientation})</h4>
-                        <button class="btn btn-secondary btn-mini" onclick="addDiskToSection(${sectionIndex})">➕ Ajouter Disque</button>
-                    </div>
-                    <div id="disksSection${sectionIndex}" class="disks-grid"></div>
-                `;
-                
-                container.appendChild(sectionContainer);
-                
-                // Populer les disques de cette section
-                populateDisksForSection(sectionIndex);
-            });
-        }
 
         function populateSectionsList() {
             const container = document.getElementById('sectionsList');
@@ -4743,7 +4651,7 @@
 
         // Fermeture des modals en cliquant à l'extérieur
         window.onclick = function(event) {
-            const modals = ['configModal', 'serverManagementModal', 'serverPasswordModal', 'serverEditModal', 'diskConfigModal', 'diskModal', 'statsModal', 'notificationModal'];
+            const modals = ['configModal', 'serverManagementModal', 'serverPasswordModal', 'serverEditModal', 'diskModal', 'statsModal', 'notificationModal'];
             modals.forEach(modalId => {
                 const modal = document.getElementById(modalId);
                 if (event.target === modal) {

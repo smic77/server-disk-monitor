@@ -5,7 +5,7 @@ Dashboard de surveillance des disques durs accessible via navigateur
 """
 
 # Version de l'application
-VERSION = "4.4.2"
+VERSION = "4.5.0"
 BUILD_DATE = "2025-09-14"
 
 from flask import Flask, render_template, request, jsonify
@@ -387,7 +387,7 @@ class ServerDiskMonitorWeb:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     config = json.load(f)
                     # Nettoyage des champs legacy
-                    config = self.cleanup_legacy_fields(config)
+                    # Migration supprimée - le système de sections est maintenant standard
                     logger.info(f"Configuration chargée: {len(config.get('servers', {}))} serveur(s)")
                     return config
             except Exception as e:
@@ -398,128 +398,6 @@ class ServerDiskMonitorWeb:
             # Sauvegarder la config par défaut
             self.save_config_to_file(self.default_config)
             return self.default_config.copy()
-    
-    def cleanup_legacy_fields(self, config):
-        """Supprime les champs legacy et migre vers le nouveau système de sections"""
-        if 'servers' not in config:
-            return config
-        
-        needs_save = False
-        for server_name, server_config in config['servers'].items():
-            # Supprimer les champs liés aux templates
-            legacy_fields = ['server_type', 'server_template', 'front_rack', 'back_rack']
-            for field in legacy_fields:
-                if field in server_config:
-                    del server_config[field]
-                    needs_save = True
-                    logger.info(f"Supprimé champ legacy '{field}' pour {server_name}")
-            
-            # Migration vers le système de sections (force migration si disk_mappings vide)
-            if 'sections' not in server_config or len(server_config.get('disk_mappings', {})) == 0:
-                # Créer une section par défaut adaptée au type de serveur
-                section_config = self.get_default_section_for_server(server_name)
-                server_config['sections'] = [section_config]
-                logger.info(f"Section créée pour {server_name}: {section_config['rows']}x{section_config['cols']}")
-                
-                # Migrer les disk_mappings vers le nouveau format avec sections
-                old_mappings = server_config.get('disk_mappings', {})
-                new_mappings = {}
-                
-                # Ne migrer que s'il y a des disk_mappings
-                if old_mappings:
-                    for old_key, disk_info in old_mappings.items():
-                        # Si c'est déjà dans le nouveau format, garder tel quel
-                        if old_key.startswith('s') and '_' in old_key:
-                            new_mappings[old_key] = disk_info
-                            # S'assurer que les métadonnées de section sont présentes
-                            if 'section' not in disk_info:
-                                parts = old_key.split('_')
-                                if len(parts) >= 3:
-                                    disk_info['section'] = int(parts[0][1:])  # s0 -> 0
-                                    disk_info['row'] = int(parts[1])
-                                    disk_info['col'] = int(parts[2])
-                        else:
-                            # Convertir l'ancien format vers le nouveau
-                            # Utiliser un index séquentiel simple
-                            position = len(new_mappings)
-                            row = position // 6
-                            col = position % 6
-                            new_key = f"s0_{row}_{col}"
-                            disk_info['section'] = 0
-                            disk_info['row'] = row
-                            disk_info['col'] = col
-                            new_mappings[new_key] = disk_info
-                    
-                    server_config['disk_mappings'] = new_mappings
-                    needs_save = True
-                    logger.info(f"Migration vers sections pour {server_name}: {len(new_mappings)} disques")
-                else:
-                    # Pas de disk_mappings existants, s'assurer qu'il existe
-                    if 'disk_mappings' not in server_config:
-                        server_config['disk_mappings'] = {}
-                        needs_save = True
-        
-        # Sauvegarder si nécessaire
-        if needs_save:
-            self.save_config_to_file(config)
-            logger.info("Configuration nettoyée des champs legacy et migrée vers sections")
-        
-        return config
-    
-    def get_default_section_for_server(self, server_name):
-        """Retourne une configuration de section par défaut basée sur le nom du serveur"""
-        server_name_upper = server_name.upper()
-        
-        if 'DL380' in server_name_upper:
-            return {
-                "name": "Section principale", 
-                "rows": 2, 
-                "cols": 12, 
-                "orientation": "horizontal"
-            }
-        elif 'DL180' in server_name_upper:
-            return {
-                "name": "Section principale", 
-                "rows": 2, 
-                "cols": 6, 
-                "orientation": "horizontal"
-            }
-        elif 'DL80' in server_name_upper:
-            return {
-                "name": "Section principale", 
-                "rows": 1, 
-                "cols": 4, 
-                "orientation": "horizontal"
-            }
-        elif 'P2000' in server_name_upper:
-            return {
-                "name": "Section principale", 
-                "rows": 2, 
-                "cols": 6, 
-                "orientation": "horizontal"
-            }
-        elif 'CHIA' in server_name_upper:
-            return {
-                "name": "Section principale", 
-                "rows": 4, 
-                "cols": 6, 
-                "orientation": "horizontal"
-            }
-        elif '5288' in server_name_upper:
-            return {
-                "name": "Section principale", 
-                "rows": 2, 
-                "cols": 12, 
-                "orientation": "horizontal"
-            }
-        else:
-            # Configuration par défaut
-            return {
-                "name": "Section principale", 
-                "rows": 2, 
-                "cols": 6, 
-                "orientation": "horizontal"
-            }
     
     def save_config(self):
         """Sauvegarde la configuration dans le fichier"""
@@ -1110,121 +988,6 @@ def import_complete_config():
         logger.error(f"Erreur import complet: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/migration/check', methods=['GET'])
-def check_migration_needed():
-    """Vérifie si des serveurs ont des disk_mappings avec des clés obsolètes"""
-    try:
-        migration_info = {}
-        
-        for server_name, config in monitor.servers_config.get('servers', {}).items():
-            
-            if 'disk_mappings' in config:
-                # Vérifier les clés obsolètes (front_, back_)
-                legacy_prefixes = ['front_', 'back_']
-                
-                obsolete_disks = []
-                valid_disks = []
-                
-                for position_key, disk_info in config['disk_mappings'].items():
-                    disk_summary = {
-                        'position_key': position_key,
-                        'label': disk_info.get('label', 'Sans nom'),
-                        'device': disk_info.get('device', 'N/A')
-                    }
-                    
-                    # Vérifier si c'est une clé legacy
-                    is_legacy = any(position_key.startswith(prefix) for prefix in legacy_prefixes)
-                    
-                    if is_legacy:
-                        obsolete_disks.append(disk_summary)
-                    else:
-                        valid_disks.append(disk_summary)
-                
-                if obsolete_disks:
-                    migration_info[server_name] = {
-                        'obsolete_disks': obsolete_disks,
-                        'valid_disks': valid_disks
-                    }
-        
-        return jsonify({
-            'success': True,
-            'migration_needed': len(migration_info) > 0,
-            'affected_servers': migration_info
-        })
-    except Exception as e:
-        logger.error(f"Erreur vérification migration: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/api/migration/migrate', methods=['POST'])
-def migrate_disk_mappings():
-    """Migre automatiquement les disk_mappings avec des clés obsolètes"""
-    try:
-        migration_results = {}
-        
-        for server_name, config in monitor.servers_config.get('servers', {}).items():
-            if 'disk_mappings' not in config:
-                continue
-            
-            old_mappings = config['disk_mappings'].copy()
-            new_mappings = {}
-            migrated_count = 0
-            
-            for position_key, disk_info in old_mappings.items():
-                new_key = None
-                
-                # Migration des clés front_X_Y vers format simple
-                if position_key.startswith('front_'):
-                    coords = position_key[6:]  # Enlever "front_"
-                    new_key = f"disk_{coords}"
-                    migrated_count += 1
-                
-                # Migration des clés back_X_Y vers format simple  
-                elif position_key.startswith('back_'):
-                    coords = position_key[5:]  # Enlever "back_"
-                    new_key = f"disk_back_{coords}"
-                    migrated_count += 1
-                
-                # Garder les autres clés
-                else:
-                    new_key = position_key
-                
-                # Ajouter la nouvelle clé
-                if new_key:
-                    new_mappings[new_key] = disk_info
-            
-            # Mettre à jour la configuration si des migrations ont eu lieu
-            if migrated_count > 0:
-                config['disk_mappings'] = new_mappings
-                migration_results[server_name] = {
-                    'migrated_disks': migrated_count
-                }
-        
-        # Sauvegarder la configuration mise à jour
-        if migration_results and monitor.save_config():
-            # Rafraîchir les données pour appliquer les changements
-            threading.Thread(target=monitor.update_all_disk_status, daemon=True).start()
-            
-            total_migrated = sum(result['migrated_disks'] for result in migration_results.values())
-            message = f"Migration réussie: {total_migrated} disque(s) migré(s) sur {len(migration_results)} serveur(s)"
-            
-            logger.info(f"Migration disk_mappings: {message}")
-            return jsonify({
-                'success': True,
-                'message': message,
-                'details': migration_results
-            })
-        elif migration_results:
-            return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
-        else:
-            return jsonify({
-                'success': True,
-                'message': 'Aucune migration nécessaire',
-                'details': {}
-            })
-            
-    except Exception as e:
-        logger.error(f"Erreur migration disk_mappings: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # WebSocket events
