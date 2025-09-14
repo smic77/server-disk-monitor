@@ -959,49 +959,55 @@
         }
 
         [data-theme="light"] .slot-position {
-            background: rgba(0, 0, 0, 0.05);
+            background: transparent;
             border: 1px solid #d1d9e0;
-            color: #656d76;
+            color: #24292f;
+            font-weight: 700;
+            font-size: 0.8em;
         }
 
         [data-theme="light"] .disk-label {
             color: #24292f;
             text-shadow: none;
+            font-weight: 700;
+            font-size: 0.9em;
         }
 
         [data-theme="light"] .disk-slot.has-disk .disk-label {
-            color: #1f2328;
-            font-weight: 600;
+            color: #1f883d;
+            font-weight: 700;
         }
 
         [data-theme="light"] .disk-slot.disk-unmounted .disk-label {
-            color: #7d4e00;
-            font-weight: 600;
+            color: #bf8700;
+            font-weight: 700;
         }
 
         [data-theme="light"] .disk-slot.disk-error .disk-label {
-            color: #a40e26;
-            font-weight: 600;
+            color: #da3633;
+            font-weight: 700;
         }
 
         [data-theme="light"] .disk-capacity {
-            background: rgba(0, 0, 0, 0.05);
-            color: #656d76;
+            background: transparent;
+            color: #24292f;
+            font-weight: 600;
+            font-size: 0.75em;
         }
 
         [data-theme="light"] .disk-slot.has-disk .disk-capacity {
             color: #1f883d;
-            background: rgba(31, 136, 61, 0.1);
+            background: transparent;
         }
 
         [data-theme="light"] .disk-slot.disk-unmounted .disk-capacity {
             color: #bf8700;
-            background: rgba(191, 135, 0, 0.1);
+            background: transparent;
         }
 
         [data-theme="light"] .disk-slot.disk-error .disk-capacity {
             color: #da3633;
-            background: rgba(218, 54, 51, 0.1);
+            background: transparent;
         }
 
         /* Indicateurs d'état pour le thème clair */
@@ -2548,7 +2554,6 @@
                      title="${tooltipContent}">
                     <div class="slot-position">${formatPosition(position)}</div>
                     <div class="${labelClass}" data-original-label="${label}">${displayLabel}</div>
-                    <div class="disk-status-indicator" style="color: ${statusColor}">${statusIndicator}</div>
                     <div class="disk-capacity">${displayCapacity}</div>
                 </div>
             `;
