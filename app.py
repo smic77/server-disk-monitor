@@ -1,51 +1,130 @@
 #!/usr/bin/env python3
 """
 Server Disk Monitor - Version Web avec Notifications Telegram
-Dashboard de surveillance des disques durs accessible via navigateur
+
+Dashboard web moderne pour la surveillance en temps réel des disques durs
+sur serveurs distants avec notifications Telegram intelligentes.
+
+Fonctionnalités principales:
+- Interface web responsive avec thèmes sombre/clair
+- Surveillance temps réel via WebSocket
+- Configuration flexible des serveurs et sections
+- Notifications Telegram instantanées
+- Chiffrement des mots de passe et tokens
+- API REST complète
+- Compatible Docker/Portainer
+
+Architecture:
+- Flask: Framework web principal
+- SocketIO: Communication temps réel
+- APScheduler: Tâches de surveillance automatisées
+- Paramiko: Connexions SSH sécurisées
+- Cryptography: Chiffrement des données sensibles
+
+Auteur: Server Disk Monitor Team
+License: MIT
+Repository: https://github.com/smic77/server-disk-monitor
 """
 
-# Version de l'application
-VERSION = "4.9.25"
+# Version de l'application - Incrémentée automatiquement par Claude
+VERSION = "4.9.26"
 BUILD_DATE = "2025-09-14"
 
+# =============================================================================
+# IMPORTS DES DÉPENDANCES
+# =============================================================================
+
+# Framework web et communication temps réel
 from flask import Flask, render_template, request, jsonify
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
+
+# Utilitaires Python standard
 import json
 import os
 import threading
 import time
 import subprocess
-import paramiko
-import base64
-from cryptography.fernet import Fernet
-from apscheduler.schedulers.background import BackgroundScheduler
 import uuid
 import logging
 from datetime import datetime
+
+# Connexions SSH et sécurité
+import paramiko
+import base64
+from cryptography.fernet import Fernet
+
+# Planification des tâches et API externe
+from apscheduler.schedulers.background import BackgroundScheduler
 import requests
 
-# Configuration du logging
-logging.basicConfig(level=logging.INFO)
+# =============================================================================
+# CONFIGURATION DU LOGGING
+# =============================================================================
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
 logger = logging.getLogger(__name__)
 
-# Initialisation de l'application Flask
+# =============================================================================
+# INITIALISATION DE L'APPLICATION FLASK
+# =============================================================================
+
+# Création de l'instance Flask principale
 app = Flask(__name__)
+
+# Configuration sécurisée de la clé secrète
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-change-in-production')
+
+# Activation CORS pour permettre les requêtes cross-origin
 CORS(app)
+
+# Configuration SocketIO pour la communication temps réel
+# - cors_allowed_origins="*": Permet toutes les origines (production: spécifier les domaines)
+# - logger=True: Active les logs SocketIO pour le debug
 socketio = SocketIO(app, cors_allowed_origins="*", logger=True, engineio_logger=True)
 
+# =============================================================================
+# GESTIONNAIRE DES NOTIFICATIONS
+# =============================================================================
+
 class NotificationManager:
+    """
+    Gestionnaire des notifications Telegram avec détection intelligente des changements.
+    
+    Cette classe gère:
+    - L'envoi de notifications Telegram via l'API Bot
+    - La détection des changements d'état des disques et serveurs
+    - Le chiffrement/déchiffrement des tokens sensibles
+    - La persistence de la configuration des notifications
+    - La prévention des faux positifs via cache intelligent
+    """
+    
     def __init__(self, cipher=None):
-        self.previous_disk_states = {}
-        self.previous_server_states = {}  # NOUVEAU: États précédents des serveurs
+        """
+        Initialise le gestionnaire de notifications.
+        
+        Args:
+            cipher (Fernet): Instance de chiffrement pour les tokens sensibles
+        """
+        # Cache des états précédents pour détecter les changements
+        self.previous_disk_states = {}      # États des disques par serveur
+        self.previous_server_states = {}    # États de connectivité des serveurs
+        
+        # Configuration par défaut des notifications Telegram
         self.telegram_config = {
-            'enabled': False,
-            'bot_token': '',
-            'chat_ids': [],
-            'parse_mode': 'HTML'
+            'enabled': False,        # Notifications désactivées par défaut
+            'bot_token': '',         # Token du bot Telegram (chiffré)
+            'chat_ids': [],         # Liste des IDs de chat destinations
+            'parse_mode': 'HTML'    # Format des messages (HTML ou Markdown)
         }
-        self.cipher = cipher  # Référence vers le cipher de la classe principale
+        
+        # Référence vers l'instance de chiffrement partagée
+        self.cipher = cipher
+        
+        # Chargement de la configuration persistante
         self.load_notification_config()
     
     def load_notification_config(self):

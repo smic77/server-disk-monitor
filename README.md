@@ -15,6 +15,8 @@ Dashboard web pour la surveillance des disques durs sur serveurs distants, acces
 - **🆕 Détection Intelligente** : Surveillance des déconnexions/reconnexions de disques
 - **🆕 Indicateurs Visuels SSH** : Statut des mots de passe SSH sur les fiches serveurs
 - **🆕 Réorganisation Serveurs** : Modification de l'ordre d'affichage par glisser-déposer
+- **🆕 Interface Moderne** : Boutons d'action colorés avec icônes SVG cohérentes
+- **🆕 Thèmes Adaptatifs** : Contraste optimisé pour les modes sombre et clair
 
 ## 📢 Système de Notifications Telegram
 
@@ -265,6 +267,7 @@ Une fois déployée, l'application est accessible via :
 - **🆕 Test Notifications** : Vérification des alertes Telegram
 - **🆕 Indicateurs SSH** : Statut visuel des mots de passe SSH (🔒 configuré / 🔓 manquant)
 - **🆕 Réorganisation** : Bouton ↕️ pour modifier l'ordre d'affichage des serveurs
+- **🆕 Menu d'Actions** : 8 boutons colorés avec icônes SVG uniformes et lisibles
 - **Basculement de thème** : Mode sombre/clair adaptatif
 
 ## 🔧 Configuration Avancée
