@@ -2303,7 +2303,7 @@
             // Optimisation des labels après le rendu
             setTimeout(() => {
                 optimizeDiskLabels();
-                // updateToggleAllButton(); // Temporairement désactivé pour debug
+                setTimeout(updateToggleAllButton, 50); // Délai supplémentaire pour s'assurer que le DOM est prêt
                 console.log(`🎯 Optimisation des labels terminée pour ${allServers.size} serveurs`);
             }, 100);
         }
@@ -5177,9 +5177,9 @@
             }, 150);
             
             // Mettre à jour l'icône du bouton global après changement individuel  
-            // setTimeout(() => {
-            //     updateToggleAllButton();
-            // }, 200);
+            setTimeout(() => {
+                updateToggleAllButton();
+            }, 200);
         }
 
         // Fonction pour restaurer l'état des sections collapsed au chargement
@@ -5199,34 +5199,43 @@
             }
             
             // Mettre à jour l'icône du bouton global après restauration
-            // updateToggleAllButton(); // Temporairement désactivé pour debug
+            setTimeout(updateToggleAllButton, 100);
         }
 
         // Fonction pour mettre à jour l'icône du bouton global selon l'état des sections
         function updateToggleAllButton() {
-            const toggleButton = document.getElementById('toggleAllSectionsBtn');
-            const allSectionsContainers = document.querySelectorAll('[id^="sections-"]');
-            
-            if (!toggleButton || allSectionsContainers.length === 0) {
-                return;
-            }
-            
-            // Vérifier combien de sections sont collapsed
-            const collapsedCount = Array.from(allSectionsContainers).filter(container => 
-                container.classList.contains('collapsed')
-            ).length;
-            
-            // Si toutes sont collapsed, afficher l'icône "expand all"
-            // Si aucune n'est collapsed, afficher l'icône "collapse all"  
-            // Si mixte, afficher l'icône "expand all" (pour tout déplier)
-            if (collapsedCount === allSectionsContainers.length) {
-                // Toutes collapsed → bouton pour expand
-                toggleButton.textContent = '🔼';
-                toggleButton.setAttribute('data-tooltip', 'Déplier toutes les sections');
-            } else {
-                // Aucune ou mixte → bouton pour collapse
-                toggleButton.textContent = '🔽';
-                toggleButton.setAttribute('data-tooltip', 'Replier toutes les sections');
+            try {
+                // Vérifier que le DOM est prêt
+                if (!document.getElementById('toggleAllSectionsBtn')) {
+                    return; // Bouton pas encore créé
+                }
+                
+                const toggleButton = document.getElementById('toggleAllSectionsBtn');
+                const allSectionsContainers = document.querySelectorAll('[id^="sections-"]');
+                
+                if (!toggleButton || allSectionsContainers.length === 0) {
+                    return;
+                }
+                
+                // Vérifier combien de sections sont collapsed
+                const collapsedCount = Array.from(allSectionsContainers).filter(container => 
+                    container.classList.contains('collapsed')
+                ).length;
+                
+                // Si toutes sont collapsed, afficher l'icône "expand all"
+                // Si aucune n'est collapsed, afficher l'icône "collapse all"  
+                // Si mixte, afficher l'icône "expand all" (pour tout déplier)
+                if (collapsedCount === allSectionsContainers.length) {
+                    // Toutes collapsed → bouton pour expand
+                    toggleButton.textContent = '🔼';
+                    toggleButton.setAttribute('data-tooltip', 'Déplier toutes les sections');
+                } else {
+                    // Aucune ou mixte → bouton pour collapse
+                    toggleButton.textContent = '🔽';
+                    toggleButton.setAttribute('data-tooltip', 'Replier toutes les sections');
+                }
+            } catch (error) {
+                console.warn('Erreur updateToggleAllButton (non critique):', error);
             }
         }
 
