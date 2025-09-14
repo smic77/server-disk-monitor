@@ -1762,6 +1762,7 @@
         <button class="icon-btn primary tooltip" data-tooltip="Actualiser les données en temps réel" onclick="refreshData()">🔄</button>
         <button class="icon-btn success tooltip" data-tooltip="Ajouter un nouveau serveur" onclick="showServerEditModal()">➕</button>
         <button class="icon-btn info tooltip" data-tooltip="Modifier l'ordre d'affichage des serveurs" onclick="showServerOrderModal()">↕️</button>
+        <button class="icon-btn warning tooltip" id="toggleAllSectionsBtn" data-tooltip="Déplier/Replier toutes les sections" onclick="toggleAllServerSections()">🔽</button>
         <button class="icon-btn info tooltip" data-tooltip="Configuration des notifications Telegram" onclick="showNotificationModal()">📢</button>
         <button class="icon-btn tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">💾</button>
         <button class="icon-btn warning tooltip" data-tooltip="Importer une configuration depuis un fichier JSON" onclick="importConfig()">📁</button>
@@ -2302,6 +2303,7 @@
             // Optimisation des labels après le rendu
             setTimeout(() => {
                 optimizeDiskLabels();
+                updateToggleAllButton();
                 console.log(`🎯 Optimisation des labels terminée pour ${allServers.size} serveurs`);
             }, 100);
         }
@@ -5104,11 +5106,8 @@
             };
             
             if (!serverData || !serverData.disks) {
-                console.log(`[${serverName}] Pas de données de disques`);
                 return issues;
             }
-            
-            console.log(`[${serverName}] Analyse des disques:`, serverData.disks);
             
             // Analyser chaque disque
             for (const [position, diskData] of Object.entries(serverData.disks)) {
@@ -5117,30 +5116,29 @@
                     continue;
                 }
                 
-                console.log(`[${serverName}:${position}] Status: ${diskData.status}, Mounted: ${diskData.mounted}, Label: ${diskData.label}`);
+                // Ne pas considérer les disques non configurés comme des alertes
+                if (!diskData.label && !diskData.uuid && !diskData.device) {
+                    // Disque non configuré - pas une alerte
+                    continue;
+                }
                 
                 // Vérifier l'état du disque selon les différents statuts possibles
                 if (diskData.status === 'missing' || diskData.status === 'not_detected') {
                     issues.missing++;
                     issues.critical++;
-                    console.log(`[${serverName}:${position}] → MISSING/NOT_DETECTED`);
                 } else if (diskData.status === 'ssh_error' || diskData.status === 'auth_error') {
                     issues.errors++;
                     issues.critical++;
-                    console.log(`[${serverName}:${position}] → SSH/AUTH ERROR`);
                 } else if (diskData.status === 'no_password') {
                     issues.errors++;
                     issues.critical++;
-                    console.log(`[${serverName}:${position}] → NO PASSWORD`);
                 } else if (diskData.status !== 'mounted' && !diskData.mounted) {
                     // Disque présent mais pas monté
                     issues.unmounted++;
-                    console.log(`[${serverName}:${position}] → UNMOUNTED (status: ${diskData.status}, mounted: ${diskData.mounted})`);
                 }
             }
             
             issues.total = issues.missing + issues.unmounted + issues.errors;
-            console.log(`[${serverName}] Issues summary:`, issues);
             return issues;
         }
 
@@ -5177,6 +5175,11 @@
                     ? 'rotate(-90deg)' 
                     : 'rotate(0deg)';
             }, 150);
+            
+            // Mettre à jour l'icône du bouton global après changement individuel
+            setTimeout(() => {
+                updateToggleAllButton();
+            }, 200);
         }
 
         // Fonction pour restaurer l'état des sections collapsed au chargement
@@ -5194,6 +5197,133 @@
                     }
                 }
             }
+            
+            // Mettre à jour l'icône du bouton global après restauration
+            updateToggleAllButton();
+        }
+
+        // Fonction pour mettre à jour l'icône du bouton global selon l'état des sections
+        function updateToggleAllButton() {
+            const toggleButton = document.getElementById('toggleAllSectionsBtn');
+            const allSectionsContainers = document.querySelectorAll('[id^="sections-"]');
+            
+            if (!toggleButton || allSectionsContainers.length === 0) {
+                return;
+            }
+            
+            // Vérifier combien de sections sont collapsed
+            const collapsedCount = Array.from(allSectionsContainers).filter(container => 
+                container.classList.contains('collapsed')
+            ).length;
+            
+            // Si toutes sont collapsed, afficher l'icône "expand all"
+            // Si aucune n'est collapsed, afficher l'icône "collapse all"  
+            // Si mixte, afficher l'icône "expand all" (pour tout déplier)
+            if (collapsedCount === allSectionsContainers.length) {
+                // Toutes collapsed → bouton pour expand
+                toggleButton.textContent = '🔼';
+                toggleButton.setAttribute('data-tooltip', 'Déplier toutes les sections');
+            } else {
+                // Aucune ou mixte → bouton pour collapse
+                toggleButton.textContent = '🔽';
+                toggleButton.setAttribute('data-tooltip', 'Replier toutes les sections');
+            }
+        }
+
+        // Fonction pour expand/collapse toutes les sections de tous les serveurs
+        function toggleAllServerSections() {
+            const toggleButton = document.getElementById('toggleAllSectionsBtn');
+            const allSectionsContainers = document.querySelectorAll('[id^="sections-"]');
+            const allCollapseIndicators = document.querySelectorAll('[id^="collapse-"]');
+            
+            if (allSectionsContainers.length === 0) {
+                console.warn('Aucune section de serveur trouvée');
+                return;
+            }
+            
+            // Déterminer l'état actuel : si au moins une section est collapsed, on expand tout
+            // Sinon on collapse tout
+            const hasCollapsedSections = Array.from(allSectionsContainers).some(container => 
+                container.classList.contains('collapsed')
+            );
+            
+            const shouldExpand = hasCollapsedSections;
+            
+            // Appliquer l'action à toutes les sections
+            allSectionsContainers.forEach((container, index) => {
+                const indicator = allCollapseIndicators[index];
+                
+                if (shouldExpand) {
+                    // Expand : retirer la classe collapsed
+                    container.classList.remove('collapsed');
+                    if (indicator) indicator.classList.remove('collapsed');
+                } else {
+                    // Collapse : ajouter la classe collapsed
+                    container.classList.add('collapsed');
+                    if (indicator) indicator.classList.add('collapsed');
+                }
+            });
+            
+            // Mettre à jour l'icône du bouton et le tooltip
+            if (shouldExpand) {
+                toggleButton.textContent = '🔽';
+                toggleButton.setAttribute('data-tooltip', 'Déplier/Replier toutes les sections');
+            } else {
+                toggleButton.textContent = '🔼';
+                toggleButton.setAttribute('data-tooltip', 'Déplier/Replier toutes les sections');
+            }
+            
+            // Sauvegarder l'état dans localStorage
+            const collapsedServers = {};
+            if (!shouldExpand) {
+                // Si on collapse tout, marquer tous les serveurs comme collapsed
+                allSectionsContainers.forEach(container => {
+                    const serverName = container.id.replace('sections-', '');
+                    collapsedServers[serverName] = true;
+                });
+            }
+            // Sinon (expand tout), laisser collapsedServers vide
+            
+            localStorage.setItem('collapsedServers', JSON.stringify(collapsedServers));
+            
+            console.log(`Toggled all sections: ${shouldExpand ? 'expanded' : 'collapsed'} all`);
+        }
+        
+        // Fonction pour mettre à jour l'icône du bouton toggle selon l'état actuel
+        function updateToggleAllButton() {
+            const toggleButton = document.getElementById('toggleAllSectionsBtn');
+            const allSectionsContainers = document.querySelectorAll('[id^="sections-"]');
+            
+            if (!toggleButton || allSectionsContainers.length === 0) {
+                return;
+            }
+            
+            const hasCollapsedSections = Array.from(allSectionsContainers).some(container => 
+                container.classList.contains('collapsed')
+            );
+            
+            if (hasCollapsedSections) {
+                toggleButton.textContent = '🔽';
+                toggleButton.setAttribute('data-tooltip', 'Déplier toutes les sections');
+            } else {
+                toggleButton.textContent = '🔼';
+                toggleButton.setAttribute('data-tooltip', 'Replier toutes les sections');
+            }
+        }
+                    collapsedServers[serverName] = true;
+                });
+            }
+            // Si on expand tout, on laisse collapsedServers vide
+            
+            localStorage.setItem('collapsedServers', JSON.stringify(collapsedServers));
+            
+            // Animation du bouton pour feedback visuel
+            toggleButton.style.transform = 'scale(1.2)';
+            setTimeout(() => {
+                toggleButton.style.transform = 'scale(1)';
+            }, 150);
+            
+            console.log(`${shouldExpand ? 'Expanded' : 'Collapsed'} ${allSectionsContainers.length} server sections`);
         }
 
         // Gestion des modals
