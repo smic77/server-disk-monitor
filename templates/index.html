@@ -86,6 +86,26 @@
             text-align: center;
         }
 
+        .header-actions {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            align-items: center;
+        }
+
+        .btn-header {
+            font-weight: 500;
+            font-size: 0.9em;
+            transition: all 0.2s;
+        }
+
+        .btn-header:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
         .header h1 {
             font-size: 2.2em;
             color: var(--accent-primary);
@@ -95,10 +115,6 @@
         }
 
         .theme-toggle {
-            position: absolute;
-            right: 20px;
-            top: 50%;
-            transform: translateY(-50%);
             background: var(--bg-card);
             border: 2px solid var(--border-primary);
             border-radius: 25px;
@@ -112,7 +128,7 @@
         .theme-toggle:hover {
             border-color: var(--border-accent);
             background: var(--bg-card-hover);
-            transform: translateY(-50%) scale(1.05);
+            transform: scale(1.05);
         }
 
         .version-info {
@@ -1565,9 +1581,14 @@
                 <span class="build-date">Build: {{ build_date }}</span>
             </div>
         </div>
-        <button class="theme-toggle" onclick="toggleTheme()" title="Basculer le thème">
-            🌓
-        </button>
+        <div class="header-actions">
+            <button class="btn-header" onclick="showServerOrderModal()" title="Modifier l'ordre d'affichage des serveurs" style="background: #6f42c1; color: white; margin-right: 10px; padding: 8px 12px; border: none; border-radius: 6px; cursor: pointer;">
+                ↕️ Ordre
+            </button>
+            <button class="theme-toggle" onclick="toggleTheme()" title="Basculer le thème">
+                🌓
+            </button>
+        </div>
     </div>
 
     <div class="stats-bar" id="statsBar">
@@ -2213,9 +2234,6 @@
                         <button class="btn-mini btn-server-edit" onclick="showServerEditModal('${serverName}')" title="Modifier ce serveur" style="background: #0969da; color: white; margin-right: 5px;">
                             ✏️
                         </button>
-                        <button class="btn-mini btn-order" onclick="showServerOrderModal()" title="Modifier l'ordre d'affichage" style="background: #6f42c1; color: white; margin-right: 5px;">
-                            ↕️
-                        </button>
                         <button class="btn-mini btn-add-section" onclick="showAddSectionModal('${serverName}')" title="Ajouter une nouvelle section" style="background: #28a745; color: white;">
                             ➕
                         </button>
@@ -2630,10 +2648,20 @@
             
             // Récupérer la liste des serveurs avec leur configuration actuelle
             console.log('Config disponible:', config);
-            const serverNames = Object.keys(config.servers || {});
-            const sortedServers = sortServersByDisplayOrder(serverNames);
+            console.log('Type de config:', typeof config);
+            console.log('config.servers:', config.servers);
             
+            const serverNames = Object.keys(config.servers || {});
             console.log('Serveurs trouvés:', serverNames);
+            
+            if (serverNames.length === 0) {
+                console.error('Aucun serveur trouvé dans la configuration !');
+                orderList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Aucun serveur configuré</div>';
+                modal.style.display = 'block';
+                return;
+            }
+            
+            const sortedServers = sortServersByDisplayOrder(serverNames);
             console.log('Serveurs triés:', sortedServers);
             
             // Générer la liste des serveurs réorganisables
@@ -2642,6 +2670,8 @@
                 const serverConfig = config.servers[serverName] || {};
                 const isOnline = serversData[serverName] && serversData[serverName].online;
                 const statusText = isOnline ? '🟢 En ligne' : '🔴 Hors ligne';
+                
+                console.log(`Génération HTML pour ${serverName}:`, { serverConfig, isOnline, statusText });
                 
                 html += `
                     <div class="server-order-item" draggable="true" data-server-name="${serverName}" data-original-order="${index}">
@@ -2652,7 +2682,13 @@
                 `;
             });
             
+            console.log('HTML généré:', html);
             orderList.innerHTML = html;
+            
+            if (html.trim() === '') {
+                console.error('Aucun HTML généré pour les serveurs !');
+                orderList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666;">Erreur lors de la génération de la liste</div>';
+            }
             
             // Ajouter les événements drag-and-drop
             initializeDragAndDrop();
