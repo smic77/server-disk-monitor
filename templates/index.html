@@ -2119,14 +2119,16 @@
                             <h4 style="margin: 0; color: #58a6ff; font-size: 1em;">
                                 📋 ${section.name}
                             </h4>
-                            <div class="section-actions" style="display: flex; gap: 5px;">
-                                <button class="btn-mini" onclick="showEditSectionModal('${serverName}', ${sectionIndex})" title="Modifier cette section" style="background: #0969da; color: white; padding: 4px 8px; font-size: 0.8em;">
+                            <div class="section-actions" style="display: flex; gap: 3px;">
+                                ${sectionIndex > 0 ? `<button class="btn-mini" onclick="moveSectionUp('${serverName}', ${sectionIndex})" title="Déplacer vers le haut" style="background: #6b7280; color: white; padding: 4px 6px; font-size: 0.7em;">⬆️</button>` : ''}
+                                ${sectionIndex < sections.length - 1 ? `<button class="btn-mini" onclick="moveSectionDown('${serverName}', ${sectionIndex})" title="Déplacer vers le bas" style="background: #6b7280; color: white; padding: 4px 6px; font-size: 0.7em;">⬇️</button>` : ''}
+                                <button class="btn-mini" onclick="showEditSectionModal('${serverName}', ${sectionIndex})" title="Modifier cette section" style="background: #0969da; color: white; padding: 4px 6px; font-size: 0.7em;">
                                     ✏️
                                 </button>
-                                <button class="btn-mini" onclick="showConfigureDisksModal('${serverName}', ${sectionIndex})" title="Configurer les disques" style="background: #7c3aed; color: white; padding: 4px 8px; font-size: 0.8em;">
+                                <button class="btn-mini" onclick="showConfigureDisksModal('${serverName}', ${sectionIndex})" title="Configurer les disques" style="background: #7c3aed; color: white; padding: 4px 6px; font-size: 0.7em;">
                                     💽
                                 </button>
-                                <button class="btn-mini" onclick="removeSectionConfirm('${serverName}', ${sectionIndex})" title="Supprimer cette section" style="background: #dc2626; color: white; padding: 4px 8px; font-size: 0.8em;">
+                                <button class="btn-mini" onclick="removeSectionConfirm('${serverName}', ${sectionIndex})" title="Supprimer cette section" style="background: #dc2626; color: white; padding: 4px 6px; font-size: 0.7em;">
                                     🗑️
                                 </button>
                             </div>
@@ -3560,7 +3562,10 @@
             // Sauvegarder immédiatement
             saveServerConfig(serverName)
                 .then(() => {
-                    refreshData();
+                    // Forcer la mise à jour immédiate de l'affichage
+                    updateDisplay();
+                    // Puis rafraîchir les données serveur
+                    setTimeout(() => refreshData(), 500);
                     console.log(`✅ Nouvelle section ajoutée à ${serverName}`);
                 })
                 .catch(error => {
@@ -3665,7 +3670,10 @@
             saveServerConfig(serverName)
                 .then(() => {
                     closeModal('editSectionModal');
-                    refreshData();
+                    // Forcer la mise à jour immédiate de l'affichage
+                    updateDisplay();
+                    // Puis rafraîchir les données serveur
+                    setTimeout(() => refreshData(), 500);
                     console.log(`✅ Section ${sectionIndex} modifiée pour ${serverName}`);
                 })
                 .catch(error => {
@@ -3759,7 +3767,10 @@
             // Sauvegarder
             saveServerConfig(serverName)
                 .then(() => {
-                    refreshData();
+                    // Forcer la mise à jour immédiate de l'affichage
+                    updateDisplay();
+                    // Puis rafraîchir les données serveur
+                    setTimeout(() => refreshData(), 500);
                     console.log(`✅ Section "${section.name}" supprimée de ${serverName}`);
                 })
                 .catch(error => {
@@ -3786,6 +3797,87 @@
             }
             
             return result;
+        }
+        
+        // Fonctions de réorganisation des sections
+        function moveSectionUp(serverName, sectionIndex) {
+            if (sectionIndex <= 0) return;
+            
+            const serverConfig = config[serverName];
+            const sections = serverConfig.sections;
+            
+            // Échanger les sections
+            [sections[sectionIndex - 1], sections[sectionIndex]] = [sections[sectionIndex], sections[sectionIndex - 1]];
+            
+            // Mettre à jour les mappings de disques
+            updateDiskMappingsAfterSectionMove(serverConfig, sectionIndex - 1, sectionIndex);
+            
+            // Sauvegarder
+            saveServerConfig(serverName)
+                .then(() => {
+                    updateDisplay();
+                    setTimeout(() => refreshData(), 500);
+                    console.log(`✅ Section déplacée vers le haut dans ${serverName}`);
+                })
+                .catch(error => {
+                    console.error('❌ Erreur lors du déplacement:', error);
+                    alert('Erreur lors du déplacement de la section');
+                });
+        }
+        
+        function moveSectionDown(serverName, sectionIndex) {
+            const serverConfig = config[serverName];
+            const sections = serverConfig.sections;
+            
+            if (sectionIndex >= sections.length - 1) return;
+            
+            // Échanger les sections
+            [sections[sectionIndex], sections[sectionIndex + 1]] = [sections[sectionIndex + 1], sections[sectionIndex]];
+            
+            // Mettre à jour les mappings de disques
+            updateDiskMappingsAfterSectionMove(serverConfig, sectionIndex, sectionIndex + 1);
+            
+            // Sauvegarder
+            saveServerConfig(serverName)
+                .then(() => {
+                    updateDisplay();
+                    setTimeout(() => refreshData(), 500);
+                    console.log(`✅ Section déplacée vers le bas dans ${serverName}`);
+                })
+                .catch(error => {
+                    console.error('❌ Erreur lors du déplacement:', error);
+                    alert('Erreur lors du déplacement de la section');
+                });
+        }
+        
+        function updateDiskMappingsAfterSectionMove(serverConfig, indexA, indexB) {
+            if (!serverConfig.disk_mappings) return;
+            
+            const newDiskMappings = {};
+            
+            Object.keys(serverConfig.disk_mappings).forEach(oldKey => {
+                const matches = oldKey.match(/^s(\d+)_(\d+)_(\d+)$/);
+                if (matches) {
+                    const sectionIndex = parseInt(matches[1]);
+                    const row = matches[2];
+                    const col = matches[3];
+                    
+                    let newSectionIndex = sectionIndex;
+                    if (sectionIndex === indexA) {
+                        newSectionIndex = indexB;
+                    } else if (sectionIndex === indexB) {
+                        newSectionIndex = indexA;
+                    }
+                    
+                    const newKey = `s${newSectionIndex}_${row}_${col}`;
+                    newDiskMappings[newKey] = serverConfig.disk_mappings[oldKey];
+                } else {
+                    // Clés non-section (compatibilité arrière)
+                    newDiskMappings[oldKey] = serverConfig.disk_mappings[oldKey];
+                }
+            });
+            
+            serverConfig.disk_mappings = newDiskMappings;
         }
 
         // Modal d'édition serveur indépendant
