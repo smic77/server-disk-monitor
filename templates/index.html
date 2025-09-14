@@ -3683,34 +3683,257 @@
         }
         
         function showConfigureDisksModal(serverName, sectionIndex) {
-            // Utiliser le modal existant mais centré sur une section spécifique
-            currentServerForDiskConfig = serverName;
             const serverConfig = config[serverName];
+            const section = serverConfig.sections[sectionIndex];
+            const diskMappings = serverConfig.disk_mappings || {};
             
-            // Charger la configuration existante
-            sectionsConfig = JSON.parse(JSON.stringify(serverConfig.sections || []));
-            diskConfigData = JSON.parse(JSON.stringify(serverConfig.disk_mappings || {}));
+            if (!section) {
+                alert('Section non trouvée');
+                return;
+            }
             
-            // Ouvrir le modal classique mais se concentrer sur la section
-            const modal = document.getElementById('diskConfigModal');
-            const title = document.getElementById('diskConfigTitle');
+            // Créer un modal spécifique pour cette section
+            const modalHtml = `
+                <div id="configureSectionDisksModal" class="modal">
+                    <div class="modal-content" style="max-width: 900px;">
+                        <div class="modal-header">
+                            <h2>💽 Configuration Disques - ${section.name}</h2>
+                            <div style="font-size: 0.9em; color: #ccc; margin-top: 5px;">
+                                ${serverConfig.username}@${serverConfig.ip} • ${section.rows}x${section.cols}
+                            </div>
+                            <span class="close" onclick="closeModal('configureSectionDisksModal')">&times;</span>
+                        </div>
+                        <div class="modal-body">
+                            <div style="margin-bottom: 15px;">
+                                <button class="btn btn-secondary" onclick="addDiskToSpecificSection('${serverName}', ${sectionIndex})">➕ Ajouter un disque</button>
+                                <span style="margin-left: 15px; color: #666; font-size: 0.9em;">
+                                    ${getUsedSlotsCount(diskMappings, sectionIndex)} / ${section.rows * section.cols} emplacements utilisés
+                                </span>
+                            </div>
+                            <div id="sectionDisksGrid" class="section-disks-grid"></div>
+                            <div id="configureSectionDisksStatus" style="margin-top: 15px; padding: 10px; text-align: center;"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-secondary" onclick="closeModal('configureSectionDisksModal')">Annuler</button>
+                            <button class="btn btn-primary" onclick="saveSectionDisksConfig('${serverName}', ${sectionIndex})">💾 Sauvegarder</button>
+                        </div>
+                    </div>
+                </div>
+            `;
             
-            const section = sectionsConfig[sectionIndex];
-            title.innerHTML = `💽 Configuration Disques - ${section.name} 
-                <div style="font-size: 0.9em; color: #ccc; margin-top: 5px;">
-                    ${serverConfig.username}@${serverConfig.ip}
-                </div>`;
+            // Supprimer l'ancien modal s'il existe
+            const existingModal = document.getElementById('configureSectionDisksModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
             
-            populateSectionsAndDisksList();
-            modal.style.display = 'block';
+            // Ajouter le nouveau modal au DOM
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
             
-            // Faire défiler vers la section concernée
-            setTimeout(() => {
-                const sectionElement = document.getElementById(`disksSection${sectionIndex}`);
-                if (sectionElement) {
-                    sectionElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // Initialiser les variables temporaires
+            currentSectionServerName = serverName;
+            currentSectionIndex = sectionIndex;
+            currentSectionDiskMappings = {};
+            
+            // Copier les données existantes pour cette section
+            Object.keys(diskMappings).forEach(key => {
+                if (key.startsWith(`s${sectionIndex}_`)) {
+                    currentSectionDiskMappings[key] = { ...diskMappings[key] };
                 }
-            }, 100);
+            });
+            
+            // Populer la grille des disques de cette section
+            populateSectionDisksGrid(serverName, sectionIndex);
+            
+            // Afficher le modal
+            document.getElementById('configureSectionDisksModal').style.display = 'block';
+        }
+        
+        function populateSectionDisksGrid(serverName, sectionIndex) {
+            const serverConfig = config[serverName];
+            const section = serverConfig.sections[sectionIndex];
+            const container = document.getElementById('sectionDisksGrid');
+            
+            if (!container || !section) return;
+            
+            let html = `<div class="disks-grid" style="display: grid; grid-template-columns: repeat(${section.cols}, 1fr); gap: 10px; margin: 20px 0;">`;
+            
+            // Créer chaque emplacement de la grille
+            for (let row = 0; row < section.rows; row++) {
+                for (let col = 0; col < section.cols; col++) {
+                    const position = `s${sectionIndex}_${row}_${col}`;
+                    const diskConfig = currentSectionDiskMappings[position] || {};
+                    const isEmpty = !diskConfig.uuid && !diskConfig.device && !diskConfig.label;
+                    
+                    html += `
+                        <div class="disk-config-slot" style="border: 1px solid #333; border-radius: 5px; padding: 10px; background: ${isEmpty ? '#1a1a1a' : '#2d3748'}; min-height: 200px;">
+                            <div style="font-weight: bold; color: #58a6ff; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                                <span>Position ${row + 1}-${col + 1}</span>
+                                ${!isEmpty ? `<button class="btn-mini" onclick="removeDiskFromSection('${position}')" style="background: #dc2626; color: white;" title="Supprimer ce disque">🗑️</button>` : ''}
+                            </div>
+                            <div style="display: grid; gap: 8px;">
+                                <div>
+                                    <label style="font-size: 0.8em; color: #ccc;">UUID:</label>
+                                    <input type="text" value="${diskConfig.uuid || ''}" 
+                                           onchange="updateSectionDisk('${position}', 'uuid', this.value)"
+                                           style="width: 100%; padding: 5px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 3px; font-size: 0.8em;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8em; color: #ccc;">Device:</label>
+                                    <input type="text" value="${diskConfig.device || ''}" 
+                                           onchange="updateSectionDisk('${position}', 'device', this.value)"
+                                           style="width: 100%; padding: 5px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 3px; font-size: 0.8em;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8em; color: #ccc;">Label:</label>
+                                    <input type="text" value="${diskConfig.label || ''}" 
+                                           onchange="updateSectionDisk('${position}', 'label', this.value)"
+                                           style="width: 100%; padding: 5px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 3px; font-size: 0.8em;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8em; color: #ccc;">Description:</label>
+                                    <input type="text" value="${diskConfig.description || ''}" 
+                                           onchange="updateSectionDisk('${position}', 'description', this.value)"
+                                           style="width: 100%; padding: 5px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 3px; font-size: 0.8em;">
+                                </div>
+                                <div>
+                                    <label style="font-size: 0.8em; color: #ccc;">Capacité:</label>
+                                    <input type="text" value="${diskConfig.capacity || ''}" 
+                                           onchange="updateSectionDisk('${position}', 'capacity', this.value)"
+                                           style="width: 100%; padding: 5px; background: #0d1117; border: 1px solid #333; color: white; border-radius: 3px; font-size: 0.8em;">
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+        
+        // Variables temporaires pour le modal spécifique à une section
+        let currentSectionDiskMappings = {};
+        let currentSectionServerName = '';
+        let currentSectionIndex = -1;
+        
+        function updateSectionDisk(position, field, value) {
+            if (!currentSectionDiskMappings[position]) {
+                currentSectionDiskMappings[position] = {};
+            }
+            currentSectionDiskMappings[position][field] = value;
+        }
+        
+        function removeDiskFromSection(position) {
+            if (confirm(`Supprimer le disque à la position ${position} ?`)) {
+                delete currentSectionDiskMappings[position];
+                // Re-populer la grille
+                populateSectionDisksGrid(currentSectionServerName, currentSectionIndex);
+            }
+        }
+        
+        function addDiskToSpecificSection(serverName, sectionIndex) {
+            const serverConfig = config[serverName];
+            const section = serverConfig.sections[sectionIndex];
+            const maxSlots = section.rows * section.cols;
+            
+            // Compter les disques existants dans cette section
+            const existingDisks = Object.keys(currentSectionDiskMappings).filter(key => 
+                key.startsWith(`s${sectionIndex}_`)
+            ).length;
+            
+            if (existingDisks >= maxSlots) {
+                alert(`Cette section est pleine (${maxSlots} emplacements maximum).`);
+                return;
+            }
+            
+            // Trouver le prochain emplacement libre
+            let found = false;
+            for (let row = 0; row < section.rows && !found; row++) {
+                for (let col = 0; col < section.cols && !found; col++) {
+                    const position = `s${sectionIndex}_${row}_${col}`;
+                    if (!currentSectionDiskMappings[position] || 
+                        (!currentSectionDiskMappings[position].uuid && 
+                         !currentSectionDiskMappings[position].device && 
+                         !currentSectionDiskMappings[position].label)) {
+                        currentSectionDiskMappings[position] = {
+                            uuid: '',
+                            device: '',
+                            label: '',
+                            description: '',
+                            capacity: ''
+                        };
+                        found = true;
+                    }
+                }
+            }
+            
+            // Re-populer la grille
+            populateSectionDisksGrid(serverName, sectionIndex);
+        }
+        
+        function getUsedSlotsCount(diskMappings, sectionIndex) {
+            return Object.keys(diskMappings).filter(key => 
+                key.startsWith(`s${sectionIndex}_`) && 
+                (diskMappings[key].uuid || diskMappings[key].device || diskMappings[key].label)
+            ).length;
+        }
+        
+        function saveSectionDisksConfig(serverName, sectionIndex) {
+            const statusDiv = document.getElementById('configureSectionDisksStatus');
+            statusDiv.innerHTML = '💾 Sauvegarde en cours...';
+            statusDiv.style.color = 'orange';
+            
+            try {
+                // Mettre à jour la configuration du serveur avec les modifications de cette section
+                const serverConfig = config[serverName];
+                
+                // Supprimer les anciennes données de cette section
+                Object.keys(serverConfig.disk_mappings || {}).forEach(key => {
+                    if (key.startsWith(`s${sectionIndex}_`)) {
+                        delete serverConfig.disk_mappings[key];
+                    }
+                });
+                
+                // Ajouter les nouvelles données
+                if (!serverConfig.disk_mappings) {
+                    serverConfig.disk_mappings = {};
+                }
+                
+                Object.keys(currentSectionDiskMappings).forEach(key => {
+                    if (key.startsWith(`s${sectionIndex}_`)) {
+                        const diskData = currentSectionDiskMappings[key];
+                        // Ne sauvegarder que si au moins un champ est rempli
+                        if (diskData.uuid || diskData.device || diskData.label) {
+                            serverConfig.disk_mappings[key] = diskData;
+                        }
+                    }
+                });
+                
+                // Sauvegarder
+                saveServerConfig(serverName)
+                    .then(() => {
+                        statusDiv.innerHTML = '✅ Configuration sauvegardée avec succès';
+                        statusDiv.style.color = 'green';
+                        
+                        // Fermer le modal après un délai et rafraîchir l'affichage
+                        setTimeout(() => {
+                            closeModal('configureSectionDisksModal');
+                            updateDisplay();
+                            setTimeout(() => refreshData(), 500);
+                        }, 1500);
+                    })
+                    .catch(error => {
+                        console.error('❌ Erreur lors de la sauvegarde:', error);
+                        statusDiv.innerHTML = `❌ Erreur: ${error.message}`;
+                        statusDiv.style.color = 'red';
+                    });
+                    
+            } catch (error) {
+                console.error('❌ Erreur lors de la préparation:', error);
+                statusDiv.innerHTML = '❌ Erreur de préparation des données';
+                statusDiv.style.color = 'red';
+            }
         }
         
         function removeSectionConfirm(serverName, sectionIndex) {
