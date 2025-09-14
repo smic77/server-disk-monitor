@@ -2607,8 +2607,8 @@
         // Fonction pour trier les serveurs par ordre d'affichage
         function sortServersByDisplayOrder(serverNames) {
             return serverNames.sort((a, b) => {
-                const configA = config[a] || {};
-                const configB = config[b] || {};
+                const configA = config.servers && config.servers[a] || {};
+                const configB = config.servers && config.servers[b] || {};
                 
                 // Utiliser display_order si défini, sinon ordre alphabétique
                 const orderA = configA.display_order ?? 999;
@@ -2629,8 +2629,12 @@
             const orderList = document.getElementById('serverOrderList');
             
             // Récupérer la liste des serveurs avec leur configuration actuelle
+            console.log('Config disponible:', config);
             const serverNames = Object.keys(config.servers || {});
             const sortedServers = sortServersByDisplayOrder(serverNames);
+            
+            console.log('Serveurs trouvés:', serverNames);
+            console.log('Serveurs triés:', sortedServers);
             
             // Générer la liste des serveurs réorganisables
             let html = '';
