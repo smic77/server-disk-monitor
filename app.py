@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.0.4"
+VERSION = "5.0.5"
 BUILD_DATE = "2025-09-15"
 
 # =============================================================================
@@ -677,10 +677,10 @@ class ServerDiskMonitorWeb:
                 smart_data["error"] = "smartctl not found"
                 return smart_data
             
-            # 2. Tester l'accès au device avec PTY et environnement complet
+            # 2. Tester l'accès au device avec timeout et environnement
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -i {device}", 
-                get_pty=True, 
+                timeout=15,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
             device_info = stdout.read().decode('utf-8', errors='ignore')
@@ -697,10 +697,10 @@ class ServerDiskMonitorWeb:
                 smart_data["error"] = "SMART disabled"
                 return smart_data
             
-            # 3. Vérifier l'état de santé global avec PTY
+            # 3. Vérifier l'état de santé global avec timeout
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -H {device}",
-                get_pty=True,
+                timeout=15,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
             health_output = stdout.read().decode('utf-8', errors='ignore')
@@ -722,10 +722,10 @@ class ServerDiskMonitorWeb:
                 smart_data["health_status"] = "UNKNOWN"
                 smart_data["error"] = f"Unparseable health output: {health_output[:100]}"
             
-            # 4. Récupérer la température avec PTY
+            # 4. Récupérer la température avec timeout
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -A {device}",
-                get_pty=True,
+                timeout=15,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
             temp_output = stdout.read().decode('utf-8', errors='ignore')
