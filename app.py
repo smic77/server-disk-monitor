@@ -27,8 +27,8 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.0.2"
-BUILD_DATE = "2025-09-14"
+VERSION = "5.0.3"
+BUILD_DATE = "2025-09-15"
 
 # =============================================================================
 # IMPORTS DES DÉPENDANCES
@@ -677,8 +677,8 @@ class ServerDiskMonitorWeb:
                 smart_data["error"] = "smartctl not found"
                 return smart_data
             
-            # 2. Tester l'accès au device
-            stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -i {device}")
+            # 2. Tester l'accès au device avec chemin complet et environnement
+            stdin, stdout, stderr = ssh.exec_command(f"sudo /usr/sbin/smartctl -i {device}")
             device_info = stdout.read().decode('utf-8', errors='ignore')
             device_error = stderr.read().decode('utf-8', errors='ignore')
             
@@ -693,8 +693,8 @@ class ServerDiskMonitorWeb:
                 smart_data["error"] = "SMART disabled"
                 return smart_data
             
-            # 3. Vérifier l'état de santé global
-            stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -H {device}")
+            # 3. Vérifier l'état de santé global avec chemin complet
+            stdin, stdout, stderr = ssh.exec_command(f"sudo /usr/sbin/smartctl -H {device}")
             health_output = stdout.read().decode('utf-8', errors='ignore')
             health_error = stderr.read().decode('utf-8', errors='ignore')
             
@@ -714,8 +714,8 @@ class ServerDiskMonitorWeb:
                 smart_data["health_status"] = "UNKNOWN"
                 smart_data["error"] = f"Unparseable health output: {health_output[:100]}"
             
-            # 4. Récupérer la température avec plusieurs méthodes
-            stdin, stdout, stderr = ssh.exec_command(f"sudo smartctl -A {device}")
+            # 4. Récupérer la température avec chemin complet
+            stdin, stdout, stderr = ssh.exec_command(f"sudo /usr/sbin/smartctl -A {device}")
             temp_output = stdout.read().decode('utf-8', errors='ignore')
             
             logger.info(f"SMART attributes for {device}: {temp_output[:300]}...")
