@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.0.11"
+VERSION = "5.0.12"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================
@@ -682,6 +682,7 @@ class ServerDiskMonitorWeb:
                 return smart_data
             
             # 2. Tester l'accès au device avec timeout et environnement
+            logger.info(f"⚡ Étape 2: Test device info pour {device}")
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -i {device}", 
                 timeout=8,
@@ -690,6 +691,7 @@ class ServerDiskMonitorWeb:
             )
             device_info = stdout.read().decode('utf-8', errors='ignore')
             device_error = stderr.read().decode('utf-8', errors='ignore')
+            logger.info(f"⚡ Étape 2 terminée pour {device}")
             
             logger.info(f"SMART device info for {device}: {device_info[:200]}...")
             if device_error:
@@ -703,6 +705,7 @@ class ServerDiskMonitorWeb:
                 return smart_data
             
             # 3. Vérifier l'état de santé global avec timeout
+            logger.info(f"⚡ Étape 3: Health check pour {device}")
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -H {device}",
                 timeout=8,
@@ -711,6 +714,7 @@ class ServerDiskMonitorWeb:
             )
             health_output = stdout.read().decode('utf-8', errors='ignore')
             health_error = stderr.read().decode('utf-8', errors='ignore')
+            logger.info(f"⚡ Étape 3 terminée pour {device}")
             
             logger.info(f"SMART health for {device}: {health_output}")
             if health_error:
@@ -729,6 +733,7 @@ class ServerDiskMonitorWeb:
                 smart_data["error"] = f"Unparseable health output: {health_output[:100]}"
             
             # 4. Récupérer la température avec timeout
+            logger.info(f"⚡ Étape 4: Attributs/température pour {device}")
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -A {device}",
                 timeout=8,
@@ -736,6 +741,7 @@ class ServerDiskMonitorWeb:
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
             temp_output = stdout.read().decode('utf-8', errors='ignore')
+            logger.info(f"⚡ Étape 4 terminée pour {device}")
             
             logger.info(f"SMART attributes for {device}: {temp_output[:300]}...")
             
@@ -776,7 +782,9 @@ class ServerDiskMonitorWeb:
             return smart_data
             
         except Exception as e:
-            logger.error(f"Erreur collecte SMART pour {server_config['ip']}: {e}")
+            import traceback
+            logger.error(f"❌ Erreur SMART pour {server_config['ip']} device {disk_info.get('device')}: {str(e)}")
+            logger.error(f"❌ Stack trace complet: {traceback.format_exc()}")
             
             # Utiliser cache si disponible
             if cache_key in self.smart_cache:
