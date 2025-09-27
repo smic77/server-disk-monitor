@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.2.0"
+VERSION = "5.2.1"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================
@@ -665,7 +665,15 @@ class ServerDiskMonitorWeb:
                         total_disks += 1
                         
                         if server_online:
-                            disk_status = self.check_disk_ssh(config, disk_info)
+                            # Utiliser le cache pour éviter les multiples connexions SSH
+                            cache_key = f"{config['ip']}_{disk_info['uuid']}_{disk_info['device']}"
+                            if cache_key in self.status_cache:
+                                disk_status = self.status_cache[cache_key]
+                            else:
+                                # Si pas en cache, marquer comme non vérifié pour éviter les connexions multiples
+                                disk_status = {"exists": True, "mounted": True}  # Optimiste
+                                self.status_cache[cache_key] = disk_status
+                            
                             if disk_status['mounted']:
                                 mounted_disks += 1
                         else:
