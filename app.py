@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.1.4"
+VERSION = "5.1.3"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================
@@ -671,25 +671,8 @@ class ServerDiskMonitorWeb:
             smart_data = {"health_status": "UNKNOWN", "temperature": None}
             logger.info(f"🔧 check_disk_smart START pour device: {device}")
             
-            # 0. Résoudre le device réel si c'est un point de montage
-            real_device = device
-            if not device.startswith('/dev/'):
-                logger.info(f"🔍 Détection device réel pour point de montage: {device}")
-                stdin, stdout, stderr = ssh.exec_command(f"findmnt -n -o SOURCE {device}", timeout=5)
-                try:
-                    mount_source = stdout.read().decode('utf-8', errors='ignore').strip()
-                    if mount_source and mount_source.startswith('/dev/'):
-                        real_device = mount_source
-                        logger.info(f"✅ Device réel détecté: {device} -> {real_device}")
-                    else:
-                        logger.warning(f"⚠️ Impossible de détecter le device réel pour {device}, tentative avec device original")
-                except Exception as e:
-                    logger.warning(f"⚠️ Erreur détection device réel pour {device}: {e}")
-            
-            logger.info(f"🔧 Utilisation du device: {real_device}")
-            
             # 1. Vérifier d'abord si smartctl est disponible et le device accessible
-            logger.info(f"⚡ Étape 1: Vérification smartctl pour {real_device}")
+            logger.info(f"⚡ Étape 1: Vérification smartctl pour {device}")
             stdin, stdout, stderr = ssh.exec_command(f"which smartctl", timeout=5)
             smartctl_path = stdout.read().decode('utf-8', errors='ignore').strip()
             logger.info(f"⚡ Étape 1 terminée: smartctl_path = {smartctl_path}")
@@ -700,9 +683,9 @@ class ServerDiskMonitorWeb:
                 return smart_data
             
             # 2. Tester l'accès au device avec timeout et environnement
-            logger.info(f"⚡ Étape 2: Test device info pour {real_device}")
+            logger.info(f"⚡ Étape 2: Test device info pour {device}")
             stdin, stdout, stderr = ssh.exec_command(
-                f"sudo /usr/sbin/smartctl -i {real_device}", 
+                f"sudo /usr/sbin/smartctl -i {device}", 
                 timeout=8,
                 get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
@@ -715,27 +698,27 @@ class ServerDiskMonitorWeb:
             try:
                 device_info = stdout.read().decode('utf-8', errors='ignore')
                 device_error = stderr.read().decode('utf-8', errors='ignore')
-                logger.info(f"⚡ Étape 2 terminée pour {real_device}")
+                logger.info(f"⚡ Étape 2 terminée pour {device}")
             except socket.timeout:
-                logger.error(f"⏰ Timeout reading SMART output for {real_device}")
+                logger.error(f"⏰ Timeout reading SMART output for {device}")
                 device_info = ""
                 device_error = "Timeout reading SMART data"
             
-            logger.info(f"SMART device info for {real_device}: {device_info[:200]}...")
+            logger.info(f"SMART device info for {device}: {device_info[:200]}...")
             if device_error:
-                logger.warning(f"SMART device error for {real_device}: {device_error}")
+                logger.warning(f"SMART device error for {device}: {device_error}")
             
             # Vérifier si le device supporte SMART
             if "SMART support is" in device_info and "Disabled" in device_info:
-                logger.warning(f"SMART disabled on {real_device}")
+                logger.warning(f"SMART disabled on {device}")
                 smart_data["health_status"] = "DISABLED"
                 smart_data["error"] = "SMART disabled"
                 return smart_data
             
             # 3. Vérifier l'état de santé global avec timeout
-            logger.info(f"⚡ Étape 3: Health check pour {real_device}")
+            logger.info(f"⚡ Étape 3: Health check pour {device}")
             stdin, stdout, stderr = ssh.exec_command(
-                f"sudo /usr/sbin/smartctl -H {real_device}",
+                f"sudo /usr/sbin/smartctl -H {device}",
                 timeout=8,
                 get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
@@ -748,15 +731,15 @@ class ServerDiskMonitorWeb:
             try:
                 health_output = stdout.read().decode('utf-8', errors='ignore')
                 health_error = stderr.read().decode('utf-8', errors='ignore')
-                logger.info(f"⚡ Étape 3 terminée pour {real_device}")
+                logger.info(f"⚡ Étape 3 terminée pour {device}")
             except socket.timeout:
-                logger.error(f"⏰ Timeout reading SMART health for {real_device}")
+                logger.error(f"⏰ Timeout reading SMART health for {device}")
                 health_output = ""
                 health_error = "Timeout reading SMART health data"
             
-            logger.info(f"SMART health for {real_device}: {health_output}")
+            logger.info(f"SMART health for {device}: {health_output}")
             if health_error:
-                logger.warning(f"SMART health error for {real_device}: {health_error}")
+                logger.warning(f"SMART health error for {device}: {health_error}")
             
             # Parsing plus robuste de l'état de santé
             if "PASSED" in health_output or "OK" in health_output:
@@ -771,9 +754,9 @@ class ServerDiskMonitorWeb:
                 smart_data["error"] = f"Unparseable health output: {health_output[:100]}"
             
             # 4. Récupérer la température avec timeout
-            logger.info(f"⚡ Étape 4: Attributs/température pour {real_device}")
+            logger.info(f"⚡ Étape 4: Attributs/température pour {device}")
             stdin, stdout, stderr = ssh.exec_command(
-                f"sudo /usr/sbin/smartctl -A {real_device}",
+                f"sudo /usr/sbin/smartctl -A {device}",
                 timeout=8,
                 get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
@@ -785,12 +768,12 @@ class ServerDiskMonitorWeb:
             
             try:
                 temp_output = stdout.read().decode('utf-8', errors='ignore')
-                logger.info(f"⚡ Étape 4 terminée pour {real_device}")
+                logger.info(f"⚡ Étape 4 terminée pour {device}")
             except socket.timeout:
-                logger.error(f"⏰ Timeout reading SMART attributes for {real_device}")
+                logger.error(f"⏰ Timeout reading SMART attributes for {device}")
                 temp_output = ""
             
-            logger.info(f"SMART attributes for {real_device}: {temp_output[:300]}...")
+            logger.info(f"SMART attributes for {device}: {temp_output[:300]}...")
             
             # Parsing de température simplifié et rapide
             import re
