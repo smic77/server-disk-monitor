@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.1.2"
+VERSION = "5.1.3"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================
@@ -1168,6 +1168,12 @@ def update_config():
                 logger.warning(f"Erreur mise à jour intervalle: {e}")
                 # Continuer malgré l'erreur - l'intervalle sera appliqué au prochain démarrage
         
+        # 🚀 Déclencher une mise à jour immédiate pour refléter les changements
+        logger.info("🔄 Configuration mise à jour - Lancement du rafraîchissement automatique")
+        import threading
+        refresh_thread = threading.Thread(target=monitor.update_all_disk_status, daemon=True)
+        refresh_thread.start()
+        
         return jsonify({'success': True, 'message': 'Configuration mise à jour'})
     
     except Exception as e:
@@ -1184,6 +1190,13 @@ def update_server_password(server_name):
         if server_name in monitor.servers_config.get('servers', {}):
             monitor.servers_config['servers'][server_name]['password'] = monitor.encrypt_password(password)
             monitor.save_config()
+            
+            # 🚀 Déclencher une mise à jour immédiate pour tester le nouveau mot de passe
+            logger.info(f"🔑 Mot de passe mis à jour pour {server_name} - Lancement du rafraîchissement")
+            import threading
+            refresh_thread = threading.Thread(target=monitor.update_all_disk_status, daemon=True)
+            refresh_thread.start()
+            
             return jsonify({'success': True, 'message': 'Mot de passe mis à jour'})
         else:
             return jsonify({'success': False, 'error': 'Serveur non trouvé'}), 404
@@ -1343,6 +1356,12 @@ def update_server_types():
         
         # Sauvegarder la configuration
         if monitor.save_config():
+            # 🚀 Déclencher une mise à jour immédiate pour refléter les changements
+            logger.info("🔄 Types serveurs mis à jour - Lancement du rafraîchissement automatique")
+            import threading
+            refresh_thread = threading.Thread(target=monitor.update_all_disk_status, daemon=True)
+            refresh_thread.start()
+            
             return jsonify({'success': True, 'message': f'{len(data)} type(s) de serveur(s) mis à jour'})
         else:
             return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
@@ -1480,6 +1499,13 @@ def save_server_order():
         # Sauvegarder la configuration
         if monitor.save_config():
             logger.info(f"Ordre des serveurs mis à jour: {data}")
+            
+            # 🚀 Déclencher une mise à jour immédiate pour refléter le nouvel ordre
+            logger.info("🔄 Ordre serveurs mis à jour - Lancement du rafraîchissement automatique")
+            import threading
+            refresh_thread = threading.Thread(target=monitor.update_all_disk_status, daemon=True)
+            refresh_thread.start()
+            
             return jsonify({'success': True, 'message': 'Ordre des serveurs sauvegardé'})
         else:
             return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
@@ -1503,6 +1529,13 @@ def delete_server(server_name):
         # Sauvegarder la configuration
         if monitor.save_config():
             logger.info(f"Serveur supprimé: {server_name}")
+            
+            # 🚀 Déclencher une mise à jour immédiate pour refléter la suppression
+            logger.info(f"🗑️ Serveur {server_name} supprimé - Lancement du rafraîchissement automatique")
+            import threading
+            refresh_thread = threading.Thread(target=monitor.update_all_disk_status, daemon=True)
+            refresh_thread.start()
+            
             return jsonify({'success': True, 'message': f'Serveur {server_name} supprimé'})
         else:
             return jsonify({'success': False, 'error': 'Erreur lors de la sauvegarde'}), 500
