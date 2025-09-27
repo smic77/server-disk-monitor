@@ -27,8 +27,8 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.0.5"
-BUILD_DATE = "2025-09-15"
+VERSION = "5.0.11"
+BUILD_DATE = "2025-09-27"
 
 # =============================================================================
 # IMPORTS DES DÉPENDANCES
@@ -637,6 +637,7 @@ class ServerDiskMonitorWeb:
             dict: Données SMART {health_status, temperature, power_on_hours, reallocated_sectors}
         """
         cache_key = f"smart_{server_config['ip']}_{disk_info['device']}"
+        logger.info(f"🚀 DEBUT check_disk_smart pour {server_config.get('ip')} device {disk_info.get('device')}")
         
         try:
             # Vérifier si mot de passe configuré
@@ -667,10 +668,13 @@ class ServerDiskMonitorWeb:
             
             device = disk_info['device']
             smart_data = {"health_status": "UNKNOWN", "temperature": None}
+            logger.info(f"🔧 check_disk_smart START pour device: {device}")
             
             # 1. Vérifier d'abord si smartctl est disponible et le device accessible
-            stdin, stdout, stderr = ssh.exec_command(f"which smartctl")
+            logger.info(f"⚡ Étape 1: Vérification smartctl pour {device}")
+            stdin, stdout, stderr = ssh.exec_command(f"which smartctl", timeout=5)
             smartctl_path = stdout.read().decode('utf-8', errors='ignore').strip()
+            logger.info(f"⚡ Étape 1 terminée: smartctl_path = {smartctl_path}")
             if not smartctl_path:
                 logger.warning(f"smartctl non trouvé sur {server_config['ip']}")
                 smart_data["health_status"] = "ERROR"
@@ -680,7 +684,8 @@ class ServerDiskMonitorWeb:
             # 2. Tester l'accès au device avec timeout et environnement
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -i {device}", 
-                timeout=15,
+                timeout=8,
+                get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
             device_info = stdout.read().decode('utf-8', errors='ignore')
@@ -700,7 +705,8 @@ class ServerDiskMonitorWeb:
             # 3. Vérifier l'état de santé global avec timeout
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -H {device}",
-                timeout=15,
+                timeout=8,
+                get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
             health_output = stdout.read().decode('utf-8', errors='ignore')
@@ -725,38 +731,38 @@ class ServerDiskMonitorWeb:
             # 4. Récupérer la température avec timeout
             stdin, stdout, stderr = ssh.exec_command(
                 f"sudo /usr/sbin/smartctl -A {device}",
-                timeout=15,
+                timeout=8,
+                get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
             temp_output = stdout.read().decode('utf-8', errors='ignore')
             
             logger.info(f"SMART attributes for {device}: {temp_output[:300]}...")
             
-            # Parsing de température plus robuste
+            # Parsing de température simplifié et rapide
             import re
-            # Méthode 1: Format standard avec Temperature_Celsius
-            temp_match = re.search(r'Temperature_Celsius.*?(\d+)', temp_output)
-            if temp_match:
-                smart_data["temperature"] = int(temp_match.group(1))
-            else:
-                # Méthode 2: Recherche générale de température
-                temp_match = re.search(r'(?i)temperature.*?(\d+)', temp_output)
+            try:
+                # Méthode 1: Format standard Temperature_Celsius
+                temp_match = re.search(r'Temperature_Celsius.*?(\d+)', temp_output)
                 if temp_match:
-                    smart_data["temperature"] = int(temp_match.group(1))
+                    temp_val = int(temp_match.group(1))
+                    if 20 <= temp_val <= 100:
+                        smart_data["temperature"] = temp_val
+                    else:
+                        logger.warning(f"Température hors plage pour {device}: {temp_val}°C")
                 else:
-                    # Méthode 3: Parsing par ligne
-                    for line in temp_output.split('\n'):
-                        if 'temperature' in line.lower():
-                            numbers = re.findall(r'\b(\d+)\b', line)
-                            if numbers:
-                                # Prendre le premier nombre raisonnable (20-100°C)
-                                for num in numbers:
-                                    temp_val = int(num)
-                                    if 20 <= temp_val <= 100:
-                                        smart_data["temperature"] = temp_val
-                                        break
-                                if smart_data["temperature"]:
-                                    break
+                    # Méthode 2: Recherche simple température
+                    temp_match = re.search(r'(?i)temperature.*?(\d+)', temp_output)
+                    if temp_match:
+                        temp_val = int(temp_match.group(1))
+                        if 20 <= temp_val <= 100:
+                            smart_data["temperature"] = temp_val
+                        else:
+                            logger.warning(f"Température hors plage pour {device}: {temp_val}°C")
+                    else:
+                        logger.info(f"Pas de température trouvée pour {device}")
+            except Exception as e:
+                logger.warning(f"Erreur parsing température pour {device}: {e}")
             
             ssh.close()
             
@@ -828,9 +834,13 @@ class ServerDiskMonitorWeb:
                             smart_data = {"health_status": "UNKNOWN", "temperature": None}
                             if disk_status['exists'] and disk_info.get('device'):
                                 try:
+                                    logger.info(f"🔍 Début collecte SMART pour {position} - device: {disk_info.get('device')}")
                                     smart_data = self.check_disk_smart(config, disk_info)
+                                    logger.info(f"✅ SMART terminé pour {position}: {smart_data}")
                                 except Exception as e:
-                                    logger.error(f"Erreur collecte SMART pour {position}: {e}")
+                                    logger.error(f"❌ Erreur collecte SMART pour {position} (device: {disk_info.get('device')}, ip: {config.get('ip')}): {str(e)}")
+                                    import traceback
+                                    logger.error(f"❌ Stack trace: {traceback.format_exc()}")
                         else:
                             disk_status = {"exists": False, "mounted": False}
                             smart_data = {"health_status": "UNKNOWN", "temperature": None}
@@ -884,8 +894,8 @@ class ServerDiskMonitorWeb:
         self.last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         
         # Debug: vérifier que les serveurs sont bien ajoutés
-        logger.info(f"Serveurs dans disk_status: {list(self.disk_status.keys())}")
-        logger.debug(f"Contenu disk_status: {self.disk_status}")
+        logger.info(f"🎯 Serveurs dans disk_status: {list(self.disk_status.keys())}")
+        logger.info(f"📊 Contenu disk_status: {len(str(self.disk_status))} chars")
         
         # AJOUT: Vérification des changements et notifications
         notifications = self.notification_manager.check_disk_state_changes(self.disk_status)
@@ -911,7 +921,7 @@ class ServerDiskMonitorWeb:
             'config': self.get_safe_config()
         })
         
-        logger.info(f"Mise à jour terminée: {mounted_disks}/{total_disks} disques montés")
+        logger.info(f"🎉 Mise à jour terminée: {mounted_disks}/{total_disks} disques montés")
     
     def get_safe_config(self):
         """Retourne la configuration sans les mots de passe"""

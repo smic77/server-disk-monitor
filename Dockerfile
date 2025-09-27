@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     sshpass \
     iputils-ping \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Création du répertoire de travail
