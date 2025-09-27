@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.1.0"
+VERSION = "5.1.1"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================

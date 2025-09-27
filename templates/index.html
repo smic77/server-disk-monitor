@@ -1854,6 +1854,9 @@
         <button class="icon-btn pink tooltip" data-tooltip="Importer une configuration depuis un fichier JSON" onclick="importConfig()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z M12,12L16,16H13.5V19H10.5V16H8L12,12Z"/></svg>
         </button>
+        <button class="icon-btn purple tooltip" data-tooltip="Exporter la configuration vers un fichier JSON" onclick="exportConfig()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M14,2H6A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2M18,20H6V4H13V9H18V20Z M12,15L8,11H10.5V8H13.5V11H16L12,15Z"/></svg>
+        </button>
         <button class="icon-btn red tooltip" data-tooltip="Afficher les statistiques détaillées" onclick="showStatsModal()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M22,21H2V3H4V19H6V10H10V19H12V6H16V19H18V14H22V21Z"/></svg>
         </button>
@@ -5467,6 +5470,45 @@
                 }
             };
             input.click();
+        }
+
+        function exportConfig() {
+            fetch('/api/export/complete', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Erreur réseau: ' + response.status);
+                }
+                return response.json();
+            })
+            .then(data => {
+                // Créer le nom de fichier avec timestamp
+                const now = new Date();
+                const timestamp = now.toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_');
+                const filename = `server_disk_monitor_config_${timestamp}.json`;
+                
+                // Créer et télécharger le fichier
+                const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+                
+                alert('Configuration exportée avec succès!\n\nFichier: ' + filename);
+            })
+            .catch(error => {
+                console.error('Erreur lors de l\'export:', error);
+                alert('Erreur lors de l\'export de la configuration: ' + error.message);
+            });
         }
 
         // Fonction pour générer l'alerte de disques dans le bandeau serveur
