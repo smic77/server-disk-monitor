@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.1.4"
+VERSION = "5.2.0"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================
@@ -441,8 +441,6 @@ class ServerDiskMonitorWeb:
         # AJOUT : Cache pour éviter les changements de statut aléatoires
         self.status_cache = {}
         
-        # Cache spécialisé pour les données SMART (durée de vie plus longue)
-        self.smart_cache = {}
         
         # AJOUT: Gestionnaire de notifications avec référence au cipher
         self.notification_manager = NotificationManager(cipher=self.cipher)
@@ -626,226 +624,6 @@ class ServerDiskMonitorWeb:
         self.status_cache.clear()
         logger.info("Cache de statut vidé")
     
-    def check_disk_smart(self, server_config, disk_info):
-        """
-        Collecte les données SMART d'un disque via SSH
-        
-        Args:
-            server_config (dict): Configuration du serveur
-            disk_info (dict): Information du disque avec 'device'
-            
-        Returns:
-            dict: Données SMART {health_status, temperature, power_on_hours, reallocated_sectors}
-        """
-        cache_key = f"smart_{server_config['ip']}_{disk_info['device']}"
-        logger.info(f"🚀 DEBUT check_disk_smart pour {server_config.get('ip')} device {disk_info.get('device')}")
-        
-        try:
-            # Vérifier si mot de passe configuré
-            if not server_config.get('password'):
-                return {"health_status": "UNKNOWN", "temperature": None, "error": "No password configured"}
-            
-            # Déchiffrer le mot de passe
-            encrypted_password = server_config['password']
-            if encrypted_password == '***':
-                return {"health_status": "UNKNOWN", "temperature": None, "error": "Password masked"}
-            
-            try:
-                encrypted_bytes = base64.b64decode(encrypted_password.encode())
-                password = self.cipher.decrypt(encrypted_bytes).decode()
-            except Exception as e:
-                logger.error(f"Erreur déchiffrement mot de passe: {e}")
-                return {"health_status": "UNKNOWN", "temperature": None, "error": "Password decrypt failed"}
-            
-            # Connexion SSH
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            ssh.connect(
-                hostname=server_config['ip'],
-                username=server_config['username'],
-                password=password,
-                timeout=10
-            )
-            
-            device = disk_info['device']
-            smart_data = {"health_status": "UNKNOWN", "temperature": None}
-            logger.info(f"🔧 check_disk_smart START pour device: {device}")
-            
-            # 0. Détection failsafe du device réel (non-bloquante)
-            real_device = device
-            if not device.startswith('/dev/'):
-                logger.info(f"🔍 Tentative détection device réel pour: {device}")
-                try:
-                    # Timeout très court et gestion d'erreur complète
-                    stdin, stdout, stderr = ssh.exec_command(f"timeout 2 findmnt -n -o SOURCE {device} 2>/dev/null || echo 'DETECTION_FAILED'", timeout=3)
-                    stdout.channel.settimeout(3.0)
-                    mount_result = stdout.read().decode('utf-8', errors='ignore').strip()
-                    
-                    if mount_result and mount_result != 'DETECTION_FAILED' and mount_result.startswith('/dev/'):
-                        real_device = mount_result
-                        logger.info(f"✅ Device réel détecté: {device} -> {real_device}")
-                    else:
-                        logger.info(f"ℹ️  Détection échouée pour {device}, utilisation device original")
-                        
-                except Exception as e:
-                    logger.info(f"ℹ️  Détection device impossible pour {device}: {e}, utilisation device original")
-                    # En cas d'erreur, on continue avec le device original
-                    pass
-            
-            logger.info(f"🔧 Device final utilisé: {real_device}")
-            
-            # 1. Vérifier d'abord si smartctl est disponible et le device accessible
-            logger.info(f"⚡ Étape 1: Vérification smartctl pour {real_device}")
-            stdin, stdout, stderr = ssh.exec_command(f"which smartctl", timeout=5)
-            smartctl_path = stdout.read().decode('utf-8', errors='ignore').strip()
-            logger.info(f"⚡ Étape 1 terminée: smartctl_path = {smartctl_path}")
-            if not smartctl_path:
-                logger.warning(f"smartctl non trouvé sur {server_config['ip']}")
-                smart_data["health_status"] = "ERROR"
-                smart_data["error"] = "smartctl not found"
-                return smart_data
-            
-            # 2. Tester l'accès au device avec timeout et environnement
-            logger.info(f"⚡ Étape 2: Test device info pour {real_device}")
-            stdin, stdout, stderr = ssh.exec_command(
-                f"sudo /usr/sbin/smartctl -i {real_device}", 
-                timeout=8,
-                get_pty=True,
-                environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
-            )
-            
-            # Set channel timeout for read operations
-            stdout.channel.settimeout(10.0)
-            stderr.channel.settimeout(10.0)
-            
-            try:
-                device_info = stdout.read().decode('utf-8', errors='ignore')
-                device_error = stderr.read().decode('utf-8', errors='ignore')
-                logger.info(f"⚡ Étape 2 terminée pour {real_device}")
-            except socket.timeout:
-                logger.error(f"⏰ Timeout reading SMART output for {real_device}")
-                device_info = ""
-                device_error = "Timeout reading SMART data"
-            
-            logger.info(f"SMART device info for {real_device}: {device_info[:200]}...")
-            if device_error:
-                logger.warning(f"SMART device error for {real_device}: {device_error}")
-            
-            # Vérifier si le device supporte SMART
-            if "SMART support is" in device_info and "Disabled" in device_info:
-                logger.warning(f"SMART disabled on {real_device}")
-                smart_data["health_status"] = "DISABLED"
-                smart_data["error"] = "SMART disabled"
-                return smart_data
-            
-            # 3. Vérifier l'état de santé global avec timeout
-            logger.info(f"⚡ Étape 3: Health check pour {real_device}")
-            stdin, stdout, stderr = ssh.exec_command(
-                f"sudo /usr/sbin/smartctl -H {real_device}",
-                timeout=8,
-                get_pty=True,
-                environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
-            )
-            
-            # Set channel timeout for read operations
-            stdout.channel.settimeout(10.0)
-            stderr.channel.settimeout(10.0)
-            
-            try:
-                health_output = stdout.read().decode('utf-8', errors='ignore')
-                health_error = stderr.read().decode('utf-8', errors='ignore')
-                logger.info(f"⚡ Étape 3 terminée pour {real_device}")
-            except socket.timeout:
-                logger.error(f"⏰ Timeout reading SMART health for {real_device}")
-                health_output = ""
-                health_error = "Timeout reading SMART health data"
-            
-            logger.info(f"SMART health for {real_device}: {health_output}")
-            if health_error:
-                logger.warning(f"SMART health error for {real_device}: {health_error}")
-            
-            # Parsing plus robuste de l'état de santé
-            if "PASSED" in health_output or "OK" in health_output:
-                smart_data["health_status"] = "PASSED"
-            elif "FAILED" in health_output or "FAILING_NOW" in health_output:
-                smart_data["health_status"] = "FAILED"
-            elif "unavailable" in health_output.lower() or "not supported" in health_output.lower():
-                smart_data["health_status"] = "UNSUPPORTED"
-                smart_data["error"] = "SMART not supported by device"
-            else:
-                smart_data["health_status"] = "UNKNOWN"
-                smart_data["error"] = f"Unparseable health output: {health_output[:100]}"
-            
-            # 4. Récupérer la température avec timeout
-            logger.info(f"⚡ Étape 4: Attributs/température pour {real_device}")
-            stdin, stdout, stderr = ssh.exec_command(
-                f"sudo /usr/sbin/smartctl -A {real_device}",
-                timeout=8,
-                get_pty=True,
-                environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
-            )
-            
-            # Set channel timeout for read operations
-            stdout.channel.settimeout(10.0)
-            stderr.channel.settimeout(10.0)
-            
-            try:
-                temp_output = stdout.read().decode('utf-8', errors='ignore')
-                logger.info(f"⚡ Étape 4 terminée pour {real_device}")
-            except socket.timeout:
-                logger.error(f"⏰ Timeout reading SMART attributes for {real_device}")
-                temp_output = ""
-            
-            logger.info(f"SMART attributes for {real_device}: {temp_output[:300]}...")
-            
-            # Parsing de température simplifié et rapide
-            import re
-            try:
-                # Méthode 1: Format standard Temperature_Celsius
-                temp_match = re.search(r'Temperature_Celsius.*?(\d+)', temp_output)
-                if temp_match:
-                    temp_val = int(temp_match.group(1))
-                    if 20 <= temp_val <= 100:
-                        smart_data["temperature"] = temp_val
-                    else:
-                        logger.warning(f"Température hors plage pour {device}: {temp_val}°C")
-                else:
-                    # Méthode 2: Recherche simple température
-                    temp_match = re.search(r'(?i)temperature.*?(\d+)', temp_output)
-                    if temp_match:
-                        temp_val = int(temp_match.group(1))
-                        if 20 <= temp_val <= 100:
-                            smart_data["temperature"] = temp_val
-                        else:
-                            logger.warning(f"Température hors plage pour {device}: {temp_val}°C")
-                    else:
-                        logger.info(f"Pas de température trouvée pour {device}")
-            except Exception as e:
-                logger.warning(f"Erreur parsing température pour {device}: {e}")
-            
-            ssh.close()
-            
-            # Mettre en cache avec durée de vie plus longue (SMART change lentement)
-            self.smart_cache[cache_key] = {
-                'data': smart_data,
-                'timestamp': time.time(),
-                'ttl': 300  # 5 minutes de cache pour SMART
-            }
-            
-            return smart_data
-            
-        except Exception as e:
-            import traceback
-            logger.error(f"❌ Erreur SMART pour {server_config['ip']} device {disk_info.get('device')}: {str(e)}")
-            logger.error(f"❌ Stack trace complet: {traceback.format_exc()}")
-            
-            # Utiliser cache si disponible
-            if cache_key in self.smart_cache:
-                cached = self.smart_cache[cache_key]
-                if time.time() - cached['timestamp'] < cached['ttl']:
-                    return cached['data']
-            
-            return {"health_status": "ERROR", "temperature": None, "error": str(e)}
     
     def update_all_disk_status(self):
         """Met à jour le statut de tous les disques - Phase 1: État rapide"""
@@ -901,10 +679,6 @@ class ServerDiskMonitorWeb:
                             "description": disk_info.get('description', ''),
                             "exists": disk_status['exists'],
                             "mounted": disk_status['mounted'],
-                            # SMART initialisé à PENDING pour indiquer qu'il va être collecté
-                            "smart_health": "PENDING",
-                            "smart_temperature": None,
-                            "smart_error": None
                         }
                     else:
                         # Position non configurée - slot vide
@@ -916,10 +690,6 @@ class ServerDiskMonitorWeb:
                             "description": "",
                             "exists": False,
                             "mounted": False,
-                            # Données SMART vides pour slots vides
-                            "smart_health": "EMPTY",
-                            "smart_temperature": None,
-                            "smart_error": None
                         }
                 
                 self.disk_status[server_name] = server_status
@@ -971,97 +741,7 @@ class ServerDiskMonitorWeb:
         
         logger.info(f"🎉 Phase 1 terminée: {mounted_disks}/{total_disks} disques montés")
         
-        # 🚀 Phase 2: Lancer la collecte SMART en arrière-plan
-        logger.info("🔬 Phase 2: Lancement collecte SMART en arrière-plan...")
-        import threading
-        smart_thread = threading.Thread(target=self.update_smart_data_async, daemon=True)
-        smart_thread.start()
     
-    def update_smart_data_async(self):
-        """Phase 2: Collecte SMART asynchrone pour éviter les blocages"""
-        logger.info("🔬 Début de la collecte SMART asynchrone...")
-        
-        updated_count = 0
-        
-        for server_name, config in self.servers_config.get('servers', {}).items():
-            try:
-                # Vérifier si le serveur est en ligne
-                if not self.disk_status.get(server_name, {}).get('online', False):
-                    logger.info(f"⏭️ Serveur {server_name} hors ligne, ignorer SMART")
-                    continue
-                
-                logger.info(f"🔬 Collecte SMART pour serveur {server_name}...")
-                disk_mappings = config.get('disk_mappings', {})
-                
-                for position, disk_info in disk_mappings.items():
-                    try:
-                        # Vérifier si le disque existe avant de collecter SMART
-                        disk_data = self.disk_status[server_name]['disks'].get(position, {})
-                        if not disk_data.get('exists', False):
-                            logger.debug(f"⏭️ Disque {position} n'existe pas, ignorer SMART")
-                            continue
-                        
-                        if not disk_info.get('device'):
-                            logger.debug(f"⏭️ Pas de device pour {position}, ignorer SMART")
-                            continue
-                        
-                        logger.info(f"🔬 Collecte SMART: {server_name}:{position} ({disk_info.get('device')})")
-                        
-                        # Mise à jour du status SMART en "COLLECTING"
-                        self.disk_status[server_name]['disks'][position]['smart_health'] = "COLLECTING"
-                        
-                        # Émission immédiate pour montrer le progrès
-                        socketio.emit('disk_smart_update', {
-                            'server': server_name,
-                            'position': position,
-                            'smart_health': 'COLLECTING'
-                        })
-                        
-                        # Collecte SMART avec timeout plus court
-                        smart_data = self.check_disk_smart(config, disk_info)
-                        
-                        # Mise à jour des données SMART
-                        self.disk_status[server_name]['disks'][position].update({
-                            'smart_health': smart_data.get("health_status", "UNKNOWN"),
-                            'smart_temperature': smart_data.get("temperature"),
-                            'smart_error': smart_data.get("error")
-                        })
-                        
-                        # Émission WebSocket pour mise à jour temps réel
-                        socketio.emit('disk_smart_update', {
-                            'server': server_name,
-                            'position': position,
-                            'smart_health': smart_data.get("health_status", "UNKNOWN"),
-                            'smart_temperature': smart_data.get("temperature"),
-                            'smart_error': smart_data.get("error")
-                        })
-                        
-                        updated_count += 1
-                        logger.info(f"✅ SMART mis à jour: {server_name}:{position} = {smart_data.get('health_status', 'UNKNOWN')}")
-                        
-                        # Petit délai entre les disques pour éviter la surcharge
-                        import time
-                        time.sleep(0.5)
-                        
-                    except Exception as e:
-                        logger.error(f"❌ Erreur SMART {server_name}:{position}: {str(e)}")
-                        # Marquer comme erreur au lieu de laisser PENDING
-                        self.disk_status[server_name]['disks'][position].update({
-                            'smart_health': 'ERROR',
-                            'smart_error': f'SMART collection failed: {str(e)}'
-                        })
-                        
-                        socketio.emit('disk_smart_update', {
-                            'server': server_name,
-                            'position': position,
-                            'smart_health': 'ERROR',
-                            'smart_error': f'SMART collection failed: {str(e)}'
-                        })
-            
-            except Exception as e:
-                logger.error(f"❌ Erreur générale SMART serveur {server_name}: {str(e)}")
-        
-        logger.info(f"🎉 Collecte SMART terminée: {updated_count} disques mis à jour")
     
     def get_safe_config(self):
         """Retourne la configuration sans les mots de passe"""
@@ -1332,29 +1012,6 @@ Server Disk Monitor
         logger.error(f"Erreur test notification: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
-@app.route('/api/smart/test/<server_name>/<path:device>', methods=['GET'])
-def test_smart_device(server_name, device):
-    """Test SMART pour un device spécifique avec logs détaillés"""
-    try:
-        if server_name not in monitor.servers_config.get('servers', {}):
-            return jsonify({'success': False, 'error': 'Serveur non trouvé'}), 404
-        
-        server_config = monitor.servers_config['servers'][server_name]
-        disk_info = {'device': f"/{device}"}  # Reconstituer le path device
-        
-        logger.info(f"Test SMART manuel pour {server_name}:{device}")
-        smart_result = monitor.check_disk_smart(server_config, disk_info)
-        
-        return jsonify({
-            'success': True, 
-            'server': server_name,
-            'device': f"/{device}",
-            'smart_data': smart_result
-        })
-        
-    except Exception as e:
-        logger.error(f"Erreur test SMART {server_name}:{device}: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/server-types', methods=['POST'])
 def update_server_types():
