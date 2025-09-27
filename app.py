@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.0.12"
+VERSION = "5.0.13"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================
@@ -51,6 +51,7 @@ from datetime import datetime
 
 # Connexions SSH et sécurité
 import paramiko
+import socket
 import base64
 from cryptography.fernet import Fernet
 
@@ -689,9 +690,19 @@ class ServerDiskMonitorWeb:
                 get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
-            device_info = stdout.read().decode('utf-8', errors='ignore')
-            device_error = stderr.read().decode('utf-8', errors='ignore')
-            logger.info(f"⚡ Étape 2 terminée pour {device}")
+            
+            # Set channel timeout for read operations
+            stdout.channel.settimeout(10.0)
+            stderr.channel.settimeout(10.0)
+            
+            try:
+                device_info = stdout.read().decode('utf-8', errors='ignore')
+                device_error = stderr.read().decode('utf-8', errors='ignore')
+                logger.info(f"⚡ Étape 2 terminée pour {device}")
+            except socket.timeout:
+                logger.error(f"⏰ Timeout reading SMART output for {device}")
+                device_info = ""
+                device_error = "Timeout reading SMART data"
             
             logger.info(f"SMART device info for {device}: {device_info[:200]}...")
             if device_error:
@@ -712,9 +723,19 @@ class ServerDiskMonitorWeb:
                 get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
-            health_output = stdout.read().decode('utf-8', errors='ignore')
-            health_error = stderr.read().decode('utf-8', errors='ignore')
-            logger.info(f"⚡ Étape 3 terminée pour {device}")
+            
+            # Set channel timeout for read operations
+            stdout.channel.settimeout(10.0)
+            stderr.channel.settimeout(10.0)
+            
+            try:
+                health_output = stdout.read().decode('utf-8', errors='ignore')
+                health_error = stderr.read().decode('utf-8', errors='ignore')
+                logger.info(f"⚡ Étape 3 terminée pour {device}")
+            except socket.timeout:
+                logger.error(f"⏰ Timeout reading SMART health for {device}")
+                health_output = ""
+                health_error = "Timeout reading SMART health data"
             
             logger.info(f"SMART health for {device}: {health_output}")
             if health_error:
