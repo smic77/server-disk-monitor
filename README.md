@@ -17,6 +17,9 @@ Dashboard web pour la surveillance des disques durs sur serveurs distants, acces
 - **🆕 Réorganisation Serveurs** : Modification de l'ordre d'affichage par glisser-déposer
 - **🆕 Interface Moderne** : Boutons d'action colorés avec icônes SVG cohérentes
 - **🆕 Thèmes Adaptatifs** : Contraste optimisé pour les modes sombre et clair
+- **🚀 Monitoring SMART** : Surveillance de la santé des disques durs en temps réel
+- **⚡ Système Bi-phasé** : Affichage rapide puis collecte SMART asynchrone
+- **📤 Export/Import Config** : Sauvegarde et restauration complète de configuration
 
 ## 📢 Système de Notifications Telegram
 
@@ -97,12 +100,58 @@ Le serveur ne répond plus aux requêtes ping.
 Timestamp: 2025-01-15 14:25:42
 ```
 
+## 🔬 Monitoring SMART des Disques
+
+### Surveillance de la Santé des Disques
+
+Le système inclut désormais une surveillance SMART complète :
+
+- **📊 Données SMART** : Collecte automatique des informations de santé
+- **🌡️ Température** : Surveillance de la température des disques
+- **💊 État de Santé** : Statut SMART (PASSED/FAILED/UNKNOWN)
+- **⚡ Système Bi-phasé** : Affichage rapide puis collecte asynchrone
+
+### États SMART Possibles
+
+| État | Description | Couleur |
+|------|-------------|---------|
+| `PENDING` | Collecte SMART en attente | 🟡 Jaune |
+| `COLLECTING` | Collecte en cours | 🔵 Bleu |
+| `PASSED` | Disque en bonne santé | 🟢 Vert |
+| `FAILED` | Disque défaillant | 🔴 Rouge |
+| `UNKNOWN` | État indéterminé | ⚫ Gris |
+| `ERROR` | Erreur de collecte | 🟠 Orange |
+| `DISABLED` | SMART désactivé | ⚫ Gris |
+| `UNSUPPORTED` | SMART non supporté | ⚫ Gris |
+
+### Fonctionnement Bi-phasé
+
+#### Phase 1 : Affichage Rapide (2-3 secondes)
+- 🔍 **Ping des serveurs** : Vérification de connectivité
+- 📂 **État des disques** : Montage et existence via SSH
+- 📡 **Affichage immédiat** : Interface utilisateur disponible
+- ⏳ **SMART en attente** : Statut "PENDING" affiché
+
+#### Phase 2 : Collecte SMART Asynchrone (arrière-plan)
+- 🔬 **Thread séparé** : Collecte sans bloquer l'interface
+- 📊 **Commandes smartctl** : `smartctl -i`, `smartctl -H`, `smartctl -A`
+- 🔄 **Mise à jour temps réel** : WebSocket pour chaque disque
+- ⚡ **Progressif** : Statuts mis à jour au fur et à mesure
+
+### Avantages du Système Bi-phasé
+
+✅ **Performance** : Interface réactive immédiatement  
+✅ **Fiabilité** : Pas de blocage sur commandes lentes  
+✅ **Visibilité** : Progression visible en temps réel  
+✅ **Robustesse** : Gestion d'erreurs SMART individuelles
+
 ## 📋 Prérequis
 
 - Docker et Docker Compose
 - Portainer (optionnel mais recommandé)
 - Accès SSH aux serveurs à surveiller
 - `sshpass` installé sur les serveurs cibles
+- `smartmontools` installé sur les serveurs cibles (pour monitoring SMART)
 - **Nouveau** : Bot Telegram (optionnel, pour les notifications)
 
 ## 🔧 Installation et Déploiement
@@ -203,41 +252,69 @@ Une fois déployée, l'application est accessible via :
    - Cliquer sur "📢 Notifications"
    - Activer Telegram et configurer le bot
 
-### Format de Configuration JSON
+## 📤 Sauvegarde et Restauration de Configuration
+
+### Export de Configuration
+
+Pour sauvegarder votre configuration complète :
+
+1. **Cliquer sur le bouton Export** (icône purple avec flèche vers le bas)
+2. **Téléchargement automatique** d'un fichier JSON horodaté
+3. **Nom du fichier** : `server_disk_monitor_config_YYYYMMDD_HHMMSS.json`
+
+Le fichier exporté contient :
+- ✅ **Configuration serveurs** (avec mots de passe masqués pour sécurité)
+- ✅ **Paramètres globaux** (intervalle de rafraîchissement)
+- ✅ **Configuration notifications** (avec tokens masqués)
+- ✅ **Mappings complets des disques**
+
+### Import de Configuration
+
+Pour restaurer une configuration :
+
+1. **Cliquer sur le bouton Import** (icône pink avec flèche vers le haut)
+2. **Sélectionner le fichier JSON** exporté précédemment
+3. **Confirmation automatique** si l'import réussit
+4. **Actualisation du dashboard** avec les nouvelles données
+
+**💡 Sécurité** : Les mots de passe existants sont préservés lors de l'import si ils ne sont pas fournis dans le fichier.
+
+### Format de Configuration Exportée
 
 ```json
 {
+  "server_disk_monitor_config": {
+    "version": "2025.01.01",
+    "export_date": "2025-09-27 11:15:30",
+    "description": "Configuration complète Server Disk Monitor"
+  },
+  "global_settings": {
+    "refresh_interval": 30
+  },
   "servers": {
-    "SERVER-01": {
-      "ip": "192.168.1.10",
-      "username": "admin",
-      "sections": [
-        {
-          "name": "Section principale",
-          "rows": 3,
-          "cols": 4,
-          "orientation": "horizontal"
-        },
-        {
-          "name": "Section stockage",
-          "rows": 2,
-          "cols": 6,
-          "orientation": "vertical"
-        }
-      ],
+    "SERVER-NAME": {
+      "ip": "192.168.1.100",
+      "username": "root",
+      "password": "***",
       "disk_mappings": {
         "s0_0_0": {
           "uuid": "550e8400-e29b-41d4-a716-446655440001",
           "device": "/dev/sda",
           "label": "OS Principal",
-          "serial": "WD123456789",
-          "description": "Disque système Ubuntu Server",
-          "capacity": "500GB SSD"
+          "capacity": "500GB SSD",
+          "description": "Disque système"
         }
       }
     }
   },
-  "refresh_interval": 30
+  "notifications": {
+    "telegram": {
+      "enabled": false,
+      "bot_token": "***",
+      "chat_ids": ["123456789"],
+      "parse_mode": "HTML"
+    }
+  }
 }
 ```
 
@@ -267,8 +344,11 @@ Une fois déployée, l'application est accessible via :
 - **🆕 Test Notifications** : Vérification des alertes Telegram
 - **🆕 Indicateurs SSH** : Statut visuel des mots de passe SSH (🔒 configuré / 🔓 manquant)
 - **🆕 Réorganisation** : Bouton ↕️ pour modifier l'ordre d'affichage des serveurs
-- **🆕 Menu d'Actions** : 8 boutons colorés avec icônes SVG uniformes et lisibles
+- **🆕 Menu d'Actions** : Boutons colorés avec icônes SVG uniformes et lisibles
 - **Basculement de thème** : Mode sombre/clair adaptatif
+- **🔬 Vue SMART** : Santé des disques avec température et statut
+- **📤 Export Config** : Bouton d'export de configuration avec horodatage
+- **⚡ Chargement Progressif** : Affichage immédiat puis données SMART en arrière-plan
 
 ## 🔧 Configuration Avancée
 
@@ -416,9 +496,14 @@ healthcheck:
 - `POST /api/notifications/config` : Mise à jour de la config notifications
 - `POST /api/notifications/test` : Test d'envoi de notification
 
+#### 🆕 Nouveaux Endpoints pour Configuration
+- `GET /api/export/complete` : Export complet de la configuration au format JSON
+- `POST /api/import/complete` : Import complet de configuration depuis JSON
+
 ### WebSocket Events
 
-- `disk_status_update` : Mise à jour des statuts
+- `disk_status_update` : Mise à jour des statuts (Phase 1: État de base)
+- `disk_smart_update` : Mise à jour des données SMART (Phase 2: Asynchrone)
 - `request_refresh` : Demande d'actualisation
 - `connect/disconnect` : Gestion des connexions
 
@@ -460,6 +545,13 @@ Le système surveille automatiquement :
    - Confirmer les Chat IDs avec @userinfobot
    - Tester la connectivité réseau (port 443 HTTPS)
    - Vérifier les logs : `docker logs server-disk-monitor | grep -i telegram`
+
+6. **🆕 Données SMART ne s'affichent pas** :
+   - Vérifier que `smartmontools` est installé : `sudo apt install smartmontools`
+   - Tester manuellement : `sudo smartctl -i /dev/sda`
+   - Vérifier les droits sudo pour l'utilisateur SSH
+   - Contrôler les logs : `docker logs server-disk-monitor | grep -i smart`
+   - États possibles : PENDING → COLLECTING → résultat final
 
 ### Logs et Debug
 
@@ -519,13 +611,15 @@ docker-compose up -d
 
 - **Éditeur de configuration graphique** complet
 - **Alertes email/Slack** en plus de Telegram
-- **Métriques avancées** (SMART, température, etc.)
+- **Métriques avancées SMART** : Graphiques historiques de température
 - **API REST** étendue pour intégrations
 - **Thèmes personnalisables**
 - **Multi-utilisateurs** avec authentification
 - **🆕 Notifications Discord/Teams** : Autres plateformes de messagerie
-- **🆕 Seuils personnalisables** : Alertes basées sur des métriques
+- **🆕 Seuils personnalisables** : Alertes basées sur la température SMART
 - **🆕 Historique des alertes** : Journal des notifications envoyées
+- **🆕 Prédiction de panne** : Analyse des tendances SMART
+- **🆕 Rapports PDF** : Export automatique d'état de santé
 
 ### Contributions
 
@@ -597,13 +691,21 @@ Ce projet est sous licence MIT. Libre d'utilisation, modification et distributio
 - **🔢 Numéros de série** : Suivi détaillé des disques
 - **🎯 Positions discrètes** : Numérotation compacte et claire
 - **🌗 Thème clair amélioré** : Lisibilité et contraste optimisés
+- **🔬 Monitoring SMART** : Santé des disques avec température
+- **⚡ Système Bi-phasé** : Affichage rapide puis collecte asynchrone
+- **📤 Export/Import Configuration** : Sauvegarde complète avec horodatage
+- **🔄 WebSocket SMART** : Mise à jour temps réel des données de santé
 
 ### 🛠️ Améliorations Techniques
 
 - **Cache Intelligent** : Évite les faux positifs
-- **Gestion d'Erreurs** : Robustesse accrue
-- **Logs Détaillés** : Debug facilité
-- **API RESTful** : Endpoints pour notifications
+- **Gestion d'Erreurs** : Robustesse accrue des commandes SMART
+- **Logs Détaillés** : Debug facilité avec émojis et étapes
+- **API RESTful** : Endpoints pour notifications et export/import
 - **Persistance** : Configuration sauvegardée automatiquement
+- **Threading Asynchrone** : Collecte SMART non-bloquante
+- **Timeout Granulaire** : Protection contre les commandes lentes
+- **WebSocket Granulaire** : Événements séparés pour base et SMART
+- **Format JSON Unifié** : Export/import compatible et versionné
 
 La version web avec notifications offre une solution complète, moderne et alertes en temps réel qui répond parfaitement aux besoins d'infrastructure réseau critique et s'intègre naturellement dans un environnement Portainer tout en gardant les équipes informées 24/7.
