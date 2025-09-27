@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.0.14"
+VERSION = "5.1.0"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================
@@ -825,8 +825,8 @@ class ServerDiskMonitorWeb:
             return {"health_status": "ERROR", "temperature": None, "error": str(e)}
     
     def update_all_disk_status(self):
-        """Met à jour le statut de tous les disques avec notifications"""
-        logger.info("Mise à jour du statut des disques...")
+        """Met à jour le statut de tous les disques - Phase 1: État rapide"""
+        logger.info("📊 Phase 1: Mise à jour rapide du statut des disques...")
         
         total_disks = 0
         mounted_disks = 0
@@ -836,7 +836,7 @@ class ServerDiskMonitorWeb:
         
         for server_name, config in self.servers_config.get('servers', {}).items():
             try:
-                logger.info(f"Traitement du serveur {server_name}...")
+                logger.info(f"🔍 Traitement serveur {server_name}...")
                 server_online = self.ping_server(config['ip'])
                 
                 if server_online:
@@ -854,34 +854,21 @@ class ServerDiskMonitorWeb:
                 all_positions = self.generate_all_positions(config)
                 disk_mappings = config.get('disk_mappings', {})
                 
-                logger.info(f"Serveur {server_name}: {len(all_positions)} positions générées, {len(disk_mappings)} configurées")
+                logger.info(f"📂 {server_name}: {len(all_positions)} positions, {len(disk_mappings)} configurées")
                 
                 for position in all_positions:
                     disk_info = disk_mappings.get(position)
                     
                     if disk_info:
-                        # Position configurée - vérification SSH normale
+                        # Position configurée - vérification SSH rapide
                         total_disks += 1
                         
                         if server_online:
                             disk_status = self.check_disk_ssh(config, disk_info)
                             if disk_status['mounted']:
                                 mounted_disks += 1
-                            
-                            # Collecter données SMART si le disque existe
-                            smart_data = {"health_status": "UNKNOWN", "temperature": None}
-                            if disk_status['exists'] and disk_info.get('device'):
-                                try:
-                                    logger.info(f"🔍 Début collecte SMART pour {position} - device: {disk_info.get('device')}")
-                                    smart_data = self.check_disk_smart(config, disk_info)
-                                    logger.info(f"✅ SMART terminé pour {position}: {smart_data}")
-                                except Exception as e:
-                                    logger.error(f"❌ Erreur collecte SMART pour {position} (device: {disk_info.get('device')}, ip: {config.get('ip')}): {str(e)}")
-                                    import traceback
-                                    logger.error(f"❌ Stack trace: {traceback.format_exc()}")
                         else:
                             disk_status = {"exists": False, "mounted": False}
-                            smart_data = {"health_status": "UNKNOWN", "temperature": None}
                         
                         server_status["disks"][position] = {
                             "uuid": disk_info['uuid'],
@@ -891,10 +878,10 @@ class ServerDiskMonitorWeb:
                             "description": disk_info.get('description', ''),
                             "exists": disk_status['exists'],
                             "mounted": disk_status['mounted'],
-                            # Nouvelles données SMART
-                            "smart_health": smart_data.get("health_status", "UNKNOWN"),
-                            "smart_temperature": smart_data.get("temperature"),
-                            "smart_error": smart_data.get("error")
+                            # SMART initialisé à PENDING pour indiquer qu'il va être collecté
+                            "smart_health": "PENDING",
+                            "smart_temperature": None,
+                            "smart_error": None
                         }
                     else:
                         # Position non configurée - slot vide
@@ -959,7 +946,99 @@ class ServerDiskMonitorWeb:
             'config': self.get_safe_config()
         })
         
-        logger.info(f"🎉 Mise à jour terminée: {mounted_disks}/{total_disks} disques montés")
+        logger.info(f"🎉 Phase 1 terminée: {mounted_disks}/{total_disks} disques montés")
+        
+        # 🚀 Phase 2: Lancer la collecte SMART en arrière-plan
+        logger.info("🔬 Phase 2: Lancement collecte SMART en arrière-plan...")
+        import threading
+        smart_thread = threading.Thread(target=self.update_smart_data_async, daemon=True)
+        smart_thread.start()
+    
+    def update_smart_data_async(self):
+        """Phase 2: Collecte SMART asynchrone pour éviter les blocages"""
+        logger.info("🔬 Début de la collecte SMART asynchrone...")
+        
+        updated_count = 0
+        
+        for server_name, config in self.servers_config.get('servers', {}).items():
+            try:
+                # Vérifier si le serveur est en ligne
+                if not self.disk_status.get(server_name, {}).get('online', False):
+                    logger.info(f"⏭️ Serveur {server_name} hors ligne, ignorer SMART")
+                    continue
+                
+                logger.info(f"🔬 Collecte SMART pour serveur {server_name}...")
+                disk_mappings = config.get('disk_mappings', {})
+                
+                for position, disk_info in disk_mappings.items():
+                    try:
+                        # Vérifier si le disque existe avant de collecter SMART
+                        disk_data = self.disk_status[server_name]['disks'].get(position, {})
+                        if not disk_data.get('exists', False):
+                            logger.debug(f"⏭️ Disque {position} n'existe pas, ignorer SMART")
+                            continue
+                        
+                        if not disk_info.get('device'):
+                            logger.debug(f"⏭️ Pas de device pour {position}, ignorer SMART")
+                            continue
+                        
+                        logger.info(f"🔬 Collecte SMART: {server_name}:{position} ({disk_info.get('device')})")
+                        
+                        # Mise à jour du status SMART en "COLLECTING"
+                        self.disk_status[server_name]['disks'][position]['smart_health'] = "COLLECTING"
+                        
+                        # Émission immédiate pour montrer le progrès
+                        socketio.emit('disk_smart_update', {
+                            'server': server_name,
+                            'position': position,
+                            'smart_health': 'COLLECTING'
+                        })
+                        
+                        # Collecte SMART avec timeout plus court
+                        smart_data = self.check_disk_smart(config, disk_info)
+                        
+                        # Mise à jour des données SMART
+                        self.disk_status[server_name]['disks'][position].update({
+                            'smart_health': smart_data.get("health_status", "UNKNOWN"),
+                            'smart_temperature': smart_data.get("temperature"),
+                            'smart_error': smart_data.get("error")
+                        })
+                        
+                        # Émission WebSocket pour mise à jour temps réel
+                        socketio.emit('disk_smart_update', {
+                            'server': server_name,
+                            'position': position,
+                            'smart_health': smart_data.get("health_status", "UNKNOWN"),
+                            'smart_temperature': smart_data.get("temperature"),
+                            'smart_error': smart_data.get("error")
+                        })
+                        
+                        updated_count += 1
+                        logger.info(f"✅ SMART mis à jour: {server_name}:{position} = {smart_data.get('health_status', 'UNKNOWN')}")
+                        
+                        # Petit délai entre les disques pour éviter la surcharge
+                        import time
+                        time.sleep(0.5)
+                        
+                    except Exception as e:
+                        logger.error(f"❌ Erreur SMART {server_name}:{position}: {str(e)}")
+                        # Marquer comme erreur au lieu de laisser PENDING
+                        self.disk_status[server_name]['disks'][position].update({
+                            'smart_health': 'ERROR',
+                            'smart_error': f'SMART collection failed: {str(e)}'
+                        })
+                        
+                        socketio.emit('disk_smart_update', {
+                            'server': server_name,
+                            'position': position,
+                            'smart_health': 'ERROR',
+                            'smart_error': f'SMART collection failed: {str(e)}'
+                        })
+            
+            except Exception as e:
+                logger.error(f"❌ Erreur générale SMART serveur {server_name}: {str(e)}")
+        
+        logger.info(f"🎉 Collecte SMART terminée: {updated_count} disques mis à jour")
     
     def get_safe_config(self):
         """Retourne la configuration sans les mots de passe"""
