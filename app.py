@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.0.13"
+VERSION = "5.0.14"
 BUILD_DATE = "2025-09-27"
 
 # =============================================================================
@@ -761,8 +761,17 @@ class ServerDiskMonitorWeb:
                 get_pty=True,
                 environment={'PATH': '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin'}
             )
-            temp_output = stdout.read().decode('utf-8', errors='ignore')
-            logger.info(f"⚡ Étape 4 terminée pour {device}")
+            
+            # Set channel timeout for read operations
+            stdout.channel.settimeout(10.0)
+            stderr.channel.settimeout(10.0)
+            
+            try:
+                temp_output = stdout.read().decode('utf-8', errors='ignore')
+                logger.info(f"⚡ Étape 4 terminée pour {device}")
+            except socket.timeout:
+                logger.error(f"⏰ Timeout reading SMART attributes for {device}")
+                temp_output = ""
             
             logger.info(f"SMART attributes for {device}: {temp_output[:300]}...")
             
