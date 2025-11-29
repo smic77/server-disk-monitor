@@ -27,8 +27,8 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.2.1"
-BUILD_DATE = "2025-09-27"
+VERSION = "5.2.2"
+BUILD_DATE = "2025-11-29"
 
 # =============================================================================
 # IMPORTS DES DÉPENDANCES
@@ -563,66 +563,105 @@ class ServerDiskMonitorWeb:
         return sorted(all_positions)
     
     def check_disk_ssh(self, server_config, disk_info):
-        """Vérifie le statut d'un disque via SSH"""
-        # CORRECTION : Créer une clé de cache unique pour ce disque
+        """Vérifie le statut d'un disque via SSH - OPTIMISÉ avec connexion unique"""
         cache_key = f"{server_config['ip']}_{disk_info['uuid']}_{disk_info['device']}"
-        
+
         try:
-            # Si pas de mot de passe configuré, retourner un état fixe depuis le cache
+            # Si pas de mot de passe configuré, retourner un état vide
             if not server_config.get('password'):
-                if cache_key in self.status_cache:
-                    return self.status_cache[cache_key]
-                
-                # Première fois : créer un statut par défaut et le mettre en cache
                 logger.warning(f"Pas de mot de passe configuré pour {server_config['ip']}")
-                result = {"exists": False, "mounted": False}
-                self.status_cache[cache_key] = result
-                return result
-            
-            ssh = paramiko.SSHClient()
-            ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            
-            password = self.decrypt_password(server_config['password'])
-            
-            ssh.connect(
-                hostname=server_config['ip'],
-                username=server_config['username'],
-                password=password,
-                timeout=10
-            )
-            
+                return {"exists": False, "mounted": False}
+
+            # Vérifier si on a déjà une connexion SSH active pour ce serveur
+            server_key = f"ssh_conn_{server_config['ip']}"
+
+            if not hasattr(self, '_ssh_connections'):
+                self._ssh_connections = {}
+
+            # Réutiliser ou créer la connexion SSH
+            if server_key not in self._ssh_connections:
+                ssh = paramiko.SSHClient()
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+                password = self.decrypt_password(server_config['password'])
+
+                ssh.connect(
+                    hostname=server_config['ip'],
+                    username=server_config['username'],
+                    password=password,
+                    timeout=10
+                )
+
+                self._ssh_connections[server_key] = {
+                    'client': ssh,
+                    'timestamp': time.time()
+                }
+                logger.info(f"✅ Nouvelle connexion SSH créée pour {server_config['ip']}")
+            else:
+                ssh = self._ssh_connections[server_key]['client']
+                # Vérifier si la connexion est toujours active
+                try:
+                    transport = ssh.get_transport()
+                    if not transport or not transport.is_active():
+                        # Reconnexion si la connexion est morte
+                        raise Exception("Connexion SSH inactive")
+                except:
+                    # Recréer la connexion
+                    ssh = paramiko.SSHClient()
+                    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                    password = self.decrypt_password(server_config['password'])
+                    ssh.connect(
+                        hostname=server_config['ip'],
+                        username=server_config['username'],
+                        password=password,
+                        timeout=10
+                    )
+                    self._ssh_connections[server_key]['client'] = ssh
+                    logger.info(f"🔄 Reconnexion SSH pour {server_config['ip']}")
+
             # Vérification du disque
             stdin, stdout, stderr = ssh.exec_command(f"lsblk -f | grep -i {disk_info['uuid']}")
             disk_exists = bool(stdout.read().decode().strip())
-            
+
             if disk_exists:
                 stdin, stdout, stderr = ssh.exec_command(f"mount | grep {disk_info['device']}")
                 is_mounted = bool(stdout.read().decode().strip())
             else:
                 is_mounted = False
-            
-            ssh.close()
-            
+
             result = {"exists": disk_exists, "mounted": is_mounted}
-            # Mettre en cache le résultat réel
-            self.status_cache[cache_key] = result
             return result
-            
+
         except Exception as e:
             logger.error(f"Erreur SSH pour {server_config['ip']}: {e}")
-            
-            # CORRECTION : En cas d'erreur, utiliser le cache ou créer un état fixe
-            if cache_key in self.status_cache:
-                return self.status_cache[cache_key]
-            
-            result = {"exists": False, "mounted": False}
-            self.status_cache[cache_key] = result
-            return result
+
+            # En cas d'erreur, fermer la connexion en cache
+            server_key = f"ssh_conn_{server_config['ip']}"
+            if hasattr(self, '_ssh_connections') and server_key in self._ssh_connections:
+                try:
+                    self._ssh_connections[server_key]['client'].close()
+                except:
+                    pass
+                del self._ssh_connections[server_key]
+
+            return {"exists": False, "mounted": False}
     
     def clear_status_cache(self):
         """Vide le cache de statut si nécessaire"""
         self.status_cache.clear()
         logger.info("Cache de statut vidé")
+
+    def close_ssh_connections(self):
+        """Ferme toutes les connexions SSH actives"""
+        if hasattr(self, '_ssh_connections'):
+            for server_key, conn_data in list(self._ssh_connections.items()):
+                try:
+                    conn_data['client'].close()
+                    logger.info(f"🔒 Connexion SSH fermée pour {server_key}")
+                except:
+                    pass
+            self._ssh_connections.clear()
+            logger.info("✅ Toutes les connexions SSH fermées")
     
     
     def update_all_disk_status(self):
@@ -659,21 +698,15 @@ class ServerDiskMonitorWeb:
                 
                 for position in all_positions:
                     disk_info = disk_mappings.get(position)
-                    
+
                     if disk_info:
-                        # Position configurée - vérification SSH rapide
+                        # Position configurée - vérification SSH réelle
                         total_disks += 1
-                        
+
                         if server_online:
-                            # Utiliser le cache pour éviter les multiples connexions SSH
-                            cache_key = f"{config['ip']}_{disk_info['uuid']}_{disk_info['device']}"
-                            if cache_key in self.status_cache:
-                                disk_status = self.status_cache[cache_key]
-                            else:
-                                # Si pas en cache, marquer comme non vérifié pour éviter les connexions multiples
-                                disk_status = {"exists": True, "mounted": True}  # Optimiste
-                                self.status_cache[cache_key] = disk_status
-                            
+                            # CORRECTION: Toujours vérifier via SSH pour détecter les disques démontés
+                            disk_status = self.check_disk_ssh(config, disk_info)
+
                             if disk_status['mounted']:
                                 mounted_disks += 1
                         else:
@@ -748,6 +781,9 @@ class ServerDiskMonitorWeb:
         })
         
         logger.info(f"🎉 Phase 1 terminée: {mounted_disks}/{total_disks} disques montés")
+
+        # Fermer les connexions SSH pour éviter les connexions multiples
+        self.close_ssh_connections()
         
     
     
