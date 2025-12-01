@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.3.0"
+VERSION = "5.3.1"
 BUILD_DATE = "2025-12-01"
 
 # =============================================================================
@@ -737,12 +737,26 @@ class ServerDiskMonitorWeb:
                     self._ssh_connections[server_key]['client'] = ssh
                     logger.info(f"🔄 Reconnexion SSH pour {server_config['ip']}")
 
-            # Vérification du disque
+            # Vérification du disque par UUID
             stdin, stdout, stderr = ssh.exec_command(f"lsblk -f | grep -i {disk_info['uuid']}")
-            disk_exists = bool(stdout.read().decode().strip())
+            lsblk_output = stdout.read().decode().strip()
+            disk_exists = bool(lsblk_output)
 
             if disk_exists:
-                stdin, stdout, stderr = ssh.exec_command(f"mount | grep {disk_info['device']}")
+                # CORRECTION: Détecter le device réel depuis lsblk au lieu d'utiliser la config
+                # Exemple de ligne lsblk: "sda    ext4   1.0   b3e817e7-280b-4e87-8c85-93aaca092d67"
+                # Extraire le nom du device (première colonne)
+                try:
+                    device_name = lsblk_output.split()[0].strip('└─├─│')
+                    real_device = f"/dev/{device_name}"
+                    logger.debug(f"Device détecté pour UUID {disk_info['uuid']}: {real_device}")
+                except:
+                    # Fallback: utiliser le device de la configuration
+                    real_device = disk_info['device']
+                    logger.warning(f"Impossible d'extraire le device depuis lsblk, utilisation config: {real_device}")
+
+                # Vérifier si le disque est monté avec le device réel
+                stdin, stdout, stderr = ssh.exec_command(f"mount | grep {real_device}")
                 is_mounted = bool(stdout.read().decode().strip())
             else:
                 is_mounted = False
