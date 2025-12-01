@@ -27,8 +27,8 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.2.2"
-BUILD_DATE = "2025-11-29"
+VERSION = "5.3.0"
+BUILD_DATE = "2025-12-01"
 
 # =============================================================================
 # IMPORTS DES DÉPENDANCES
@@ -106,25 +106,29 @@ class NotificationManager:
     def __init__(self, cipher=None):
         """
         Initialise le gestionnaire de notifications.
-        
+
         Args:
             cipher (Fernet): Instance de chiffrement pour les tokens sensibles
         """
         # Cache des états précédents pour détecter les changements
         self.previous_disk_states = {}      # États des disques par serveur
         self.previous_server_states = {}    # États de connectivité des serveurs
-        
+
+        # NOUVEAU: Système de temporisation pour les alertes négatives
+        self.pending_negative_alerts = {}   # Alertes en attente de temporisation
+
         # Configuration par défaut des notifications Telegram
         self.telegram_config = {
             'enabled': False,        # Notifications désactivées par défaut
             'bot_token': '',         # Token du bot Telegram (chiffré)
             'chat_ids': [],         # Liste des IDs de chat destinations
-            'parse_mode': 'HTML'    # Format des messages (HTML ou Markdown)
+            'parse_mode': 'HTML',   # Format des messages (HTML ou Markdown)
+            'negative_alert_delay': 300  # Délai en secondes avant envoi alerte négative (5 min par défaut)
         }
-        
+
         # Référence vers l'instance de chiffrement partagée
         self.cipher = cipher
-        
+
         # Chargement de la configuration persistante
         self.load_notification_config()
     
@@ -280,45 +284,79 @@ class NotificationManager:
         return message
     
     def check_disk_state_changes(self, current_disk_status):
-        """Vérifie les changements d'état des disques et serveurs, envoie des notifications"""
+        """
+        Vérifie les changements d'état des disques et serveurs avec temporisation intelligente.
+
+        Logique:
+        - Alertes NÉGATIVES (offline, démonté) : Temporisation configurable (défaut 5 min)
+        - Alertes POSITIVES (online, remonté) : Envoi IMMÉDIAT + annulation des alertes en attente
+        """
         notifications_sent = []
-        
-        # NOUVEAU: Vérification des changements d'état des serveurs
+        current_time = time.time()
+        delay = self.telegram_config.get('negative_alert_delay', 300)  # 5 min par défaut
+
+        # ========================================================================
+        # PARTIE 1: Vérification des changements d'état des SERVEURS
+        # ========================================================================
         for server_name, server_data in current_disk_status.items():
             current_server_online = server_data.get('online', False)
-            
+            alert_key = f"server_{server_name}"
+
             # Vérifier s'il y a un état précédent pour le serveur
             if server_name in self.previous_server_states:
                 previous_server_online = self.previous_server_states[server_name]
-                
+
                 # Détecter les changements d'état du serveur
                 if previous_server_online != current_server_online:
-                    server_status = 'online' if current_server_online else 'offline'
-                    
-                    if self.telegram_config['enabled']:
-                        server_message = self.format_server_telegram_message(
-                            server_name,
-                            server_data.get('ip', 'N/A'),
-                            server_status
-                        )
-                        
-                        if self.send_telegram_notification(server_message):
-                            notifications_sent.append({
-                                'type': 'telegram_server',
-                                'server': server_name,
-                                'change': f"SERVEUR {server_status.upper()}"
-                            })
-            
+
+                    # CAS 1: Serveur devient OFFLINE (alerte négative - TEMPORISER)
+                    if current_server_online == False:
+                        if alert_key not in self.pending_negative_alerts:
+                            # Première détection - créer l'alerte en attente
+                            self.pending_negative_alerts[alert_key] = {
+                                'timestamp': current_time,
+                                'type': 'server_offline',
+                                'server_name': server_name,
+                                'server_ip': server_data.get('ip', 'N/A')
+                            }
+                            logger.info(f"⏱️ Alerte serveur offline en attente: {server_name} (délai: {delay}s)")
+
+                    # CAS 2: Serveur redevient ONLINE (alerte positive - IMMÉDIAT)
+                    else:
+                        # Annuler l'alerte en attente si elle existe
+                        if alert_key in self.pending_negative_alerts:
+                            logger.info(f"✅ Serveur rétabli avant l'alerte: {server_name} - Annulation")
+                            del self.pending_negative_alerts[alert_key]
+
+                        # Envoyer notification de rétablissement immédiatement
+                        if self.telegram_config['enabled']:
+                            server_message = self.format_server_telegram_message(
+                                server_name,
+                                server_data.get('ip', 'N/A'),
+                                'online'
+                            )
+
+                            if self.send_telegram_notification(server_message):
+                                notifications_sent.append({
+                                    'type': 'telegram_server',
+                                    'server': server_name,
+                                    'change': 'SERVEUR ONLINE'
+                                })
+
             # Mettre à jour l'état précédent du serveur
             self.previous_server_states[server_name] = current_server_online
-        
-        # Vérification existante des changements d'état des disques
+
+        # ========================================================================
+        # PARTIE 2: Vérification des changements d'état des DISQUES
+        # ========================================================================
         for server_name, server_data in current_disk_status.items():
             if not server_data.get('online', False):
                 continue
-            
+
             for position, disk_data in server_data.get('disks', {}).items():
                 disk_key = f"{server_name}_{position}"
+                alert_key = f"disk_{disk_key}"
+
                 current_state = {
                     'exists': disk_data.get('exists', False),
                     'mounted': disk_data.get('mounted', False),
@@ -326,51 +364,131 @@ class NotificationManager:
                     'device': disk_data.get('device', 'N/A'),
                     'capacity': disk_data.get('capacity', 'N/A')
                 }
-                
+
                 # Vérifier s'il y a un état précédent
                 if disk_key in self.previous_disk_states:
                     previous_state = self.previous_disk_states[disk_key]
-                    
+
                     # Détecter les changements critiques
-                    changes = []
-                    
-                    # Disque démonté
+                    is_negative_change = False
+                    is_positive_change = False
+                    change_type = None
+                    change_message = None
+
+                    # CAS NÉGATIFS (temporiser)
                     if previous_state['mounted'] and not current_state['mounted']:
-                        changes.append(f"❌ DISQUE DÉMONTÉ: {current_state['label']}")
-                        
-                    # Disque disparu
+                        is_negative_change = True
+                        change_type = 'unmounted'
+                        change_message = f"❌ DISQUE DÉMONTÉ: {current_state['label']}"
                     elif previous_state['exists'] and not current_state['exists']:
-                        changes.append(f"🚨 DISQUE DISPARU: {current_state['label']}")
-                    
-                    # Disque remonté (bonne nouvelle)
+                        is_negative_change = True
+                        change_type = 'disappeared'
+                        change_message = f"🚨 DISQUE DISPARU: {current_state['label']}"
+
+                    # CAS POSITIFS (envoi immédiat)
                     elif not previous_state['mounted'] and current_state['mounted']:
-                        changes.append(f"✅ DISQUE REMONTÉ: {current_state['label']}")
-                    
-                    # Disque réapparu
+                        is_positive_change = True
+                        change_type = 'remounted'
+                        change_message = f"✅ DISQUE REMONTÉ: {current_state['label']}"
                     elif not previous_state['exists'] and current_state['exists']:
-                        changes.append(f"🔄 DISQUE RÉAPPARU: {current_state['label']}")
-                    
-                    # Envoyer notification Telegram si changement détecté
-                    if changes and self.telegram_config['enabled']:
-                        telegram_message = self.format_telegram_message(
-                            server_name, 
-                            server_data.get('ip', 'N/A'),
-                            position,
-                            current_state['label'],
-                            changes
-                        )
-                        
-                        if self.send_telegram_notification(telegram_message):
-                            notifications_sent.append({
-                                'type': 'telegram',
-                                'server': server_name,
-                                'disk': current_state['label'],
-                                'change': changes[0]
-                            })
-                
+                        is_positive_change = True
+                        change_type = 'reappeared'
+                        change_message = f"🔄 DISQUE RÉAPPARU: {current_state['label']}"
+
+                    # Traitement des changements NÉGATIFS (avec temporisation)
+                    if is_negative_change:
+                        if alert_key not in self.pending_negative_alerts:
+                            # Première détection - créer l'alerte en attente
+                            self.pending_negative_alerts[alert_key] = {
+                                'timestamp': current_time,
+                                'type': change_type,
+                                'server_name': server_name,
+                                'server_ip': server_data.get('ip', 'N/A'),
+                                'position': position,
+                                'disk_label': current_state['label'],
+                                'change_message': change_message
+                            }
+                            logger.info(f"⏱️ Alerte disque en attente: {server_name}/{position} - {change_type} (délai: {delay}s)")
+
+                    # Traitement des changements POSITIFS (envoi immédiat)
+                    elif is_positive_change:
+                        # Annuler l'alerte en attente si elle existe
+                        if alert_key in self.pending_negative_alerts:
+                            logger.info(f"✅ Disque rétabli avant l'alerte: {server_name}/{position} - Annulation")
+                            del self.pending_negative_alerts[alert_key]
+
+                        # Envoyer notification de rétablissement immédiatement
+                        if self.telegram_config['enabled']:
+                            telegram_message = self.format_telegram_message(
+                                server_name,
+                                server_data.get('ip', 'N/A'),
+                                position,
+                                current_state['label'],
+                                [change_message]
+                            )
+
+                            if self.send_telegram_notification(telegram_message):
+                                notifications_sent.append({
+                                    'type': 'telegram',
+                                    'server': server_name,
+                                    'disk': current_state['label'],
+                                    'change': change_message
+                                })
+
                 # Mettre à jour l'état précédent
                 self.previous_disk_states[disk_key] = current_state.copy()
-        
+
+        # ========================================================================
+        # PARTIE 3: Vérifier et envoyer les alertes en attente qui ont dépassé le délai
+        # ========================================================================
+        alerts_to_send = []
+        for alert_key, alert_data in list(self.pending_negative_alerts.items()):
+            elapsed = current_time - alert_data['timestamp']
+
+            if elapsed >= delay:
+                alerts_to_send.append((alert_key, alert_data))
+
+        # Envoyer les alertes qui ont dépassé le délai
+        for alert_key, alert_data in alerts_to_send:
+            if self.telegram_config['enabled']:
+                # Alerte serveur
+                if alert_data['type'] == 'server_offline':
+                    message = self.format_server_telegram_message(
+                        alert_data['server_name'],
+                        alert_data['server_ip'],
+                        'offline'
+                    )
+
+                    if self.send_telegram_notification(message):
+                        notifications_sent.append({
+                            'type': 'telegram_server',
+                            'server': alert_data['server_name'],
+                            'change': 'SERVEUR OFFLINE (confirmé)'
+                        })
+                        logger.info(f"🔔 Alerte serveur offline envoyée: {alert_data['server_name']}")
+
+                # Alerte disque
+                else:
+                    message = self.format_telegram_message(
+                        alert_data['server_name'],
+                        alert_data['server_ip'],
+                        alert_data['position'],
+                        alert_data['disk_label'],
+                        [alert_data['change_message']]
+                    )
+
+                    if self.send_telegram_notification(message):
+                        notifications_sent.append({
+                            'type': 'telegram',
+                            'server': alert_data['server_name'],
+                            'disk': alert_data['disk_label'],
+                            'change': alert_data['change_message'] + ' (confirmé)'
+                        })
+                        logger.info(f"🔔 Alerte disque envoyée: {alert_data['server_name']}/{alert_data['position']}")
+
+            # Supprimer l'alerte de la liste des alertes en attente
+            del self.pending_negative_alerts[alert_key]
+
         return notifications_sent
 
 class ServerDiskMonitorWeb:
