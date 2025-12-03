@@ -27,8 +27,8 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.3.1"
-BUILD_DATE = "2025-12-01"
+VERSION = "5.4.0"
+BUILD_DATE = "2025-12-03"
 
 # =============================================================================
 # IMPORTS DES DÉPENDANCES
@@ -117,13 +117,17 @@ class NotificationManager:
         # NOUVEAU: Système de temporisation pour les alertes négatives
         self.pending_negative_alerts = {}   # Alertes en attente de temporisation
 
+        # NOUVEAU: Système de tracking du temps d'absence pour les alertes positives
+        self.downtime_tracking = {}         # Track quand un serveur/disque est devenu offline
+
         # Configuration par défaut des notifications Telegram
         self.telegram_config = {
             'enabled': False,        # Notifications désactivées par défaut
             'bot_token': '',         # Token du bot Telegram (chiffré)
             'chat_ids': [],         # Liste des IDs de chat destinations
             'parse_mode': 'HTML',   # Format des messages (HTML ou Markdown)
-            'negative_alert_delay': 300  # Délai en secondes avant envoi alerte négative (5 min par défaut)
+            'negative_alert_delay': 300,  # Délai en secondes avant envoi alerte négative (5 min par défaut)
+            'positive_alert_min_downtime': 300  # Durée minimale d'absence avant notification de retour (5 min par défaut)
         }
 
         # Référence vers l'instance de chiffrement partagée
@@ -289,11 +293,12 @@ class NotificationManager:
 
         Logique:
         - Alertes NÉGATIVES (offline, démonté) : Temporisation configurable (défaut 5 min)
-        - Alertes POSITIVES (online, remonté) : Envoi IMMÉDIAT + annulation des alertes en attente
+        - Alertes POSITIVES (online, remonté) : Envoi UNIQUEMENT si l'absence a dépassé le délai minimum configuré
         """
         notifications_sent = []
         current_time = time.time()
-        delay = self.telegram_config.get('negative_alert_delay', 300)  # 5 min par défaut
+        negative_delay = self.telegram_config.get('negative_alert_delay', 300)  # 5 min par défaut
+        min_downtime = self.telegram_config.get('positive_alert_min_downtime', 300)  # 5 min par défaut
 
         # ========================================================================
         # PARTIE 1: Vérification des changements d'état des SERVEURS
@@ -319,17 +324,37 @@ class NotificationManager:
                                 'server_name': server_name,
                                 'server_ip': server_data.get('ip', 'N/A')
                             }
-                            logger.info(f"⏱️ Alerte serveur offline en attente: {server_name} (délai: {delay}s)")
+                            logger.info(f"⏱️ Alerte serveur offline en attente: {server_name} (délai: {negative_delay}s)")
 
-                    # CAS 2: Serveur redevient ONLINE (alerte positive - IMMÉDIAT)
+                        # Traquer le début du downtime
+                        if alert_key not in self.downtime_tracking:
+                            self.downtime_tracking[alert_key] = current_time
+                            logger.info(f"📊 Début du downtime tracké pour {server_name}")
+
+                    # CAS 2: Serveur redevient ONLINE (alerte positive - CONDITIONNEL)
                     else:
                         # Annuler l'alerte en attente si elle existe
                         if alert_key in self.pending_negative_alerts:
                             logger.info(f"✅ Serveur rétabli avant l'alerte: {server_name} - Annulation")
                             del self.pending_negative_alerts[alert_key]
 
-                        # Envoyer notification de rétablissement immédiatement
-                        if self.telegram_config['enabled']:
+                        # Vérifier si le downtime a dépassé le délai minimum
+                        downtime_start = self.downtime_tracking.get(alert_key)
+                        should_notify = False
+
+                        if downtime_start:
+                            downtime_duration = current_time - downtime_start
+                            if downtime_duration >= min_downtime:
+                                should_notify = True
+                                logger.info(f"✅ Serveur {server_name} rétabli après {downtime_duration:.0f}s (>= {min_downtime}s) - Notification envoyée")
+                            else:
+                                logger.info(f"⏭️ Serveur {server_name} rétabli après {downtime_duration:.0f}s (< {min_downtime}s) - Notification ignorée")
+
+                            # Nettoyer le tracking
+                            del self.downtime_tracking[alert_key]
+
+                        # Envoyer notification de rétablissement UNIQUEMENT si le downtime a dépassé le délai
+                        if should_notify and self.telegram_config['enabled']:
                             server_message = self.format_server_telegram_message(
                                 server_name,
                                 server_data.get('ip', 'N/A'),
@@ -408,17 +433,37 @@ class NotificationManager:
                                 'disk_label': current_state['label'],
                                 'change_message': change_message
                             }
-                            logger.info(f"⏱️ Alerte disque en attente: {server_name}/{position} - {change_type} (délai: {delay}s)")
+                            logger.info(f"⏱️ Alerte disque en attente: {server_name}/{position} - {change_type} (délai: {negative_delay}s)")
 
-                    # Traitement des changements POSITIFS (envoi immédiat)
+                        # Traquer le début du downtime
+                        if alert_key not in self.downtime_tracking:
+                            self.downtime_tracking[alert_key] = current_time
+                            logger.info(f"📊 Début du downtime tracké pour disque {server_name}/{position}")
+
+                    # Traitement des changements POSITIFS (envoi conditionnel)
                     elif is_positive_change:
                         # Annuler l'alerte en attente si elle existe
                         if alert_key in self.pending_negative_alerts:
                             logger.info(f"✅ Disque rétabli avant l'alerte: {server_name}/{position} - Annulation")
                             del self.pending_negative_alerts[alert_key]
 
-                        # Envoyer notification de rétablissement immédiatement
-                        if self.telegram_config['enabled']:
+                        # Vérifier si le downtime a dépassé le délai minimum
+                        downtime_start = self.downtime_tracking.get(alert_key)
+                        should_notify = False
+
+                        if downtime_start:
+                            downtime_duration = current_time - downtime_start
+                            if downtime_duration >= min_downtime:
+                                should_notify = True
+                                logger.info(f"✅ Disque {server_name}/{position} rétabli après {downtime_duration:.0f}s (>= {min_downtime}s) - Notification envoyée")
+                            else:
+                                logger.info(f"⏭️ Disque {server_name}/{position} rétabli après {downtime_duration:.0f}s (< {min_downtime}s) - Notification ignorée")
+
+                            # Nettoyer le tracking
+                            del self.downtime_tracking[alert_key]
+
+                        # Envoyer notification de rétablissement UNIQUEMENT si le downtime a dépassé le délai
+                        if should_notify and self.telegram_config['enabled']:
                             telegram_message = self.format_telegram_message(
                                 server_name,
                                 server_data.get('ip', 'N/A'),

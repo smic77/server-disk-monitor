@@ -2062,6 +2062,22 @@
                             <option value="Markdown">Markdown</option>
                         </select>
                     </div>
+
+                    <div class="form-group">
+                        <label for="negativeAlertDelay">⏱️ Délai avant alerte négative (secondes) :</label>
+                        <input type="number" id="negativeAlertDelay" min="0" step="30" value="300">
+                        <small style="color: #ccc; font-size: 0.9em;">
+                            Temporisation avant d'envoyer une alerte lorsqu'un serveur/disque devient offline (défaut: 300s = 5 min)
+                        </small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="positiveAlertMinDowntime">✅ Durée minimum d'absence avant notification de retour (secondes) :</label>
+                        <input type="number" id="positiveAlertMinDowntime" min="0" step="30" value="300">
+                        <small style="color: #ccc; font-size: 0.9em;">
+                            Ne notifier le retour d'un serveur/disque que s'il a été absent au moins ce délai (défaut: 300s = 5 min)
+                        </small>
+                    </div>
                 </div>
             </div>
             <div style="text-align: center; margin-top: 20px;">
@@ -3313,22 +3329,26 @@
         // Remplissage du modal des notifications
         function populateNotificationModal() {
             const telegramConfig = notificationConfig.telegram || {};
-            
+
             // État d'activation
             document.getElementById('telegramEnabled').checked = telegramConfig.enabled || false;
-            
+
             // Token (masqué)
             document.getElementById('botToken').value = telegramConfig.bot_token === '***' ? '' : '';
             document.getElementById('botToken').placeholder = telegramConfig.bot_token === '***' ? 'Token configuré (modifiez pour changer)' : 'Entrez votre token de bot';
-            
+
             // Mode de formatage
             document.getElementById('parseMode').value = telegramConfig.parse_mode || 'HTML';
-            
+
+            // Délais de notification
+            document.getElementById('negativeAlertDelay').value = telegramConfig.negative_alert_delay || 300;
+            document.getElementById('positiveAlertMinDowntime').value = telegramConfig.positive_alert_min_downtime || 300;
+
             // Chat IDs
             const chatIds = telegramConfig.chat_ids || [];
             const container = document.getElementById('chatIdsContainer');
             container.innerHTML = '';
-            
+
             if (chatIds.length === 0) {
                 addChatId(); // Ajouter un champ vide
             } else {
@@ -3336,10 +3356,10 @@
                     addChatId(chatId);
                 });
             }
-            
+
             // Affichage conditionnel de la config Telegram
             toggleTelegramConfig();
-            
+
             // Event listener pour l'activation
             document.getElementById('telegramEnabled').addEventListener('change', toggleTelegramConfig);
         }
@@ -3376,21 +3396,25 @@
                 const telegramEnabled = document.getElementById('telegramEnabled').checked;
                 const botToken = document.getElementById('botToken').value.trim();
                 const parseMode = document.getElementById('parseMode').value;
-                
+                const negativeAlertDelay = parseInt(document.getElementById('negativeAlertDelay').value) || 300;
+                const positiveAlertMinDowntime = parseInt(document.getElementById('positiveAlertMinDowntime').value) || 300;
+
                 // Récupérer tous les Chat IDs
                 const chatIdInputs = document.querySelectorAll('#chatIdsContainer input');
                 const chatIds = Array.from(chatIdInputs)
                     .map(input => input.value.trim())
                     .filter(chatId => chatId !== '');
-                
+
                 const config = {
                     telegram: {
                         enabled: telegramEnabled,
                         parse_mode: parseMode,
-                        chat_ids: chatIds
+                        chat_ids: chatIds,
+                        negative_alert_delay: negativeAlertDelay,
+                        positive_alert_min_downtime: positiveAlertMinDowntime
                     }
                 };
-                
+
                 // Ajouter le token seulement s'il est fourni
                 if (botToken) {
                     config.telegram.bot_token = botToken;
