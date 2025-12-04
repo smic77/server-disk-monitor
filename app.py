@@ -27,8 +27,8 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.4.0"
-BUILD_DATE = "2025-12-03"
+VERSION = "5.4.1"
+BUILD_DATE = "2025-12-04"
 
 # =============================================================================
 # IMPORTS DES DÉPENDANCES
@@ -120,6 +120,9 @@ class NotificationManager:
         # NOUVEAU: Système de tracking du temps d'absence pour les alertes positives
         self.downtime_tracking = {}         # Track quand un serveur/disque est devenu offline
 
+        # Flag pour ignorer le premier scan après démarrage
+        self.first_scan_done = False
+
         # Configuration par défaut des notifications Telegram
         self.telegram_config = {
             'enabled': False,        # Notifications désactivées par défaut
@@ -135,6 +138,9 @@ class NotificationManager:
 
         # Chargement de la configuration persistante
         self.load_notification_config()
+
+        # Chargement du tracking persistant
+        self.load_downtime_tracking()
     
     def load_notification_config(self):
         """Charge la configuration des notifications"""
@@ -162,6 +168,31 @@ class NotificationManager:
             return True
         except Exception as e:
             logger.error(f"Erreur sauvegarde config notifications: {e}")
+            return False
+
+    def load_downtime_tracking(self):
+        """Charge le tracking du downtime depuis le fichier"""
+        tracking_file = os.path.join("data", "downtime_tracking.json")
+        if os.path.exists(tracking_file):
+            try:
+                with open(tracking_file, 'r', encoding='utf-8') as f:
+                    self.downtime_tracking = json.load(f)
+                    logger.info(f"Tracking downtime chargé: {len(self.downtime_tracking)} entrées")
+            except Exception as e:
+                logger.error(f"Erreur chargement tracking downtime: {e}")
+                self.downtime_tracking = {}
+
+    def save_downtime_tracking(self):
+        """Sauvegarde le tracking du downtime dans un fichier"""
+        os.makedirs("data", exist_ok=True)
+        tracking_file = os.path.join("data", "downtime_tracking.json")
+        try:
+            with open(tracking_file, 'w', encoding='utf-8') as f:
+                json.dump(self.downtime_tracking, f, indent=4, ensure_ascii=False)
+            logger.debug("Tracking downtime sauvegardé")
+            return True
+        except Exception as e:
+            logger.error(f"Erreur sauvegarde tracking downtime: {e}")
             return False
     
     def decrypt_token(self, encrypted_token):
@@ -294,11 +325,32 @@ class NotificationManager:
         Logique:
         - Alertes NÉGATIVES (offline, démonté) : Temporisation configurable (défaut 5 min)
         - Alertes POSITIVES (online, remonté) : Envoi UNIQUEMENT si l'absence a dépassé le délai minimum configuré
+        - Premier scan après démarrage : Initialisation silencieuse (pas de notifications)
         """
         notifications_sent = []
         current_time = time.time()
         negative_delay = self.telegram_config.get('negative_alert_delay', 300)  # 5 min par défaut
         min_downtime = self.telegram_config.get('positive_alert_min_downtime', 300)  # 5 min par défaut
+
+        # Premier scan : initialiser les états sans notifier
+        if not self.first_scan_done:
+            logger.info("🔄 Premier scan après démarrage - Initialisation des états sans notification")
+            # Initialiser les états des serveurs
+            for server_name, server_data in current_disk_status.items():
+                self.previous_server_states[server_name] = server_data.get('online', False)
+                # Initialiser les états des disques
+                for position, disk_data in server_data.get('disks', {}).items():
+                    disk_key = f"{server_name}_{position}"
+                    self.previous_disk_states[disk_key] = {
+                        'exists': disk_data.get('exists', False),
+                        'mounted': disk_data.get('mounted', False),
+                        'label': disk_data.get('label', 'Disque inconnu'),
+                        'device': disk_data.get('device', 'N/A'),
+                        'capacity': disk_data.get('capacity', 'N/A')
+                    }
+            self.first_scan_done = True
+            logger.info("✅ États initiaux enregistrés")
+            return []
 
         # ========================================================================
         # PARTIE 1: Vérification des changements d'état des SERVEURS
@@ -329,6 +381,7 @@ class NotificationManager:
                         # Traquer le début du downtime
                         if alert_key not in self.downtime_tracking:
                             self.downtime_tracking[alert_key] = current_time
+                            self.save_downtime_tracking()
                             logger.info(f"📊 Début du downtime tracké pour {server_name}")
 
                     # CAS 2: Serveur redevient ONLINE (alerte positive - CONDITIONNEL)
@@ -352,6 +405,7 @@ class NotificationManager:
 
                             # Nettoyer le tracking
                             del self.downtime_tracking[alert_key]
+                            self.save_downtime_tracking()
 
                         # Envoyer notification de rétablissement UNIQUEMENT si le downtime a dépassé le délai
                         if should_notify and self.telegram_config['enabled']:
@@ -438,6 +492,7 @@ class NotificationManager:
                         # Traquer le début du downtime
                         if alert_key not in self.downtime_tracking:
                             self.downtime_tracking[alert_key] = current_time
+                            self.save_downtime_tracking()
                             logger.info(f"📊 Début du downtime tracké pour disque {server_name}/{position}")
 
                     # Traitement des changements POSITIFS (envoi conditionnel)
@@ -461,6 +516,7 @@ class NotificationManager:
 
                             # Nettoyer le tracking
                             del self.downtime_tracking[alert_key]
+                            self.save_downtime_tracking()
 
                         # Envoyer notification de rétablissement UNIQUEMENT si le downtime a dépassé le délai
                         if should_notify and self.telegram_config['enabled']:
@@ -533,6 +589,9 @@ class NotificationManager:
 
             # Supprimer l'alerte de la liste des alertes en attente
             del self.pending_negative_alerts[alert_key]
+
+        # Sauvegarder le tracking après les modifications
+        self.save_downtime_tracking()
 
         return notifications_sent
 
