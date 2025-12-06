@@ -27,8 +27,8 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.4.1"
-BUILD_DATE = "2025-12-04"
+VERSION = "5.4.2"
+BUILD_DATE = "2025-12-06"
 
 # =============================================================================
 # IMPORTS DES DÉPENDANCES
@@ -238,20 +238,25 @@ class NotificationManager:
                     'disable_web_page_preview': True
                 }
                 
-                logger.info(f"Envoi vers Chat ID: {chat_id}")
-                logger.debug(f"URL: {url}")
-                logger.debug(f"Payload: {payload}")
-                
-                response = requests.post(url, json=payload, timeout=10)
-                
-                logger.info(f"Response status: {response.status_code}")
-                logger.debug(f"Response: {response.text}")
-                
-                if response.status_code == 200:
-                    success_count += 1
-                    logger.info(f"Message Telegram envoyé avec succès à {chat_id}")
-                else:
-                    logger.error(f"Erreur Telegram {chat_id}: {response.status_code} - {response.text}")
+                try:
+                    logger.info(f"Envoi vers Chat ID: {chat_id}")
+                    logger.debug(f"URL: {url}")
+                    logger.debug(f"Payload: {payload}")
+
+                    response = requests.post(url, json=payload, timeout=5)
+
+                    logger.info(f"Response status: {response.status_code}")
+                    logger.debug(f"Response: {response.text}")
+
+                    if response.status_code == 200:
+                        success_count += 1
+                        logger.info(f"Message Telegram envoyé avec succès à {chat_id}")
+                    else:
+                        logger.error(f"Erreur Telegram {chat_id}: {response.status_code} - {response.text}")
+                except requests.exceptions.Timeout:
+                    logger.error(f"Timeout lors de l'envoi Telegram à {chat_id} (>5s)")
+                except requests.exceptions.RequestException as req_err:
+                    logger.error(f"Erreur réseau Telegram pour {chat_id}: {req_err}")
             
             return success_count > 0
             
@@ -381,7 +386,6 @@ class NotificationManager:
                         # Traquer le début du downtime
                         if alert_key not in self.downtime_tracking:
                             self.downtime_tracking[alert_key] = current_time
-                            self.save_downtime_tracking()
                             logger.info(f"📊 Début du downtime tracké pour {server_name}")
 
                     # CAS 2: Serveur redevient ONLINE (alerte positive - CONDITIONNEL)
@@ -405,7 +409,6 @@ class NotificationManager:
 
                             # Nettoyer le tracking
                             del self.downtime_tracking[alert_key]
-                            self.save_downtime_tracking()
 
                         # Envoyer notification de rétablissement UNIQUEMENT si le downtime a dépassé le délai
                         if should_notify and self.telegram_config['enabled']:
@@ -492,7 +495,6 @@ class NotificationManager:
                         # Traquer le début du downtime
                         if alert_key not in self.downtime_tracking:
                             self.downtime_tracking[alert_key] = current_time
-                            self.save_downtime_tracking()
                             logger.info(f"📊 Début du downtime tracké pour disque {server_name}/{position}")
 
                     # Traitement des changements POSITIFS (envoi conditionnel)
@@ -516,7 +518,6 @@ class NotificationManager:
 
                             # Nettoyer le tracking
                             del self.downtime_tracking[alert_key]
-                            self.save_downtime_tracking()
 
                         # Envoyer notification de rétablissement UNIQUEMENT si le downtime a dépassé le délai
                         if should_notify and self.telegram_config['enabled']:
@@ -546,7 +547,7 @@ class NotificationManager:
         for alert_key, alert_data in list(self.pending_negative_alerts.items()):
             elapsed = current_time - alert_data['timestamp']
 
-            if elapsed >= delay:
+            if elapsed >= negative_delay:
                 alerts_to_send.append((alert_key, alert_data))
 
         # Envoyer les alertes qui ont dépassé le délai
