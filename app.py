@@ -27,8 +27,8 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.4.2"
-BUILD_DATE = "2025-12-06"
+VERSION = "5.4.3"
+BUILD_DATE = "2025-12-11"
 
 # =============================================================================
 # IMPORTS DES DÉPENDANCES
@@ -812,7 +812,7 @@ class ServerDiskMonitorWeb:
                     hostname=server_config['ip'],
                     username=server_config['username'],
                     password=password,
-                    timeout=10
+                    timeout=5
                 )
 
                 self._ssh_connections[server_key] = {
@@ -837,13 +837,18 @@ class ServerDiskMonitorWeb:
                         hostname=server_config['ip'],
                         username=server_config['username'],
                         password=password,
-                        timeout=10
+                        timeout=5
                     )
                     self._ssh_connections[server_key]['client'] = ssh
                     logger.info(f"🔄 Reconnexion SSH pour {server_config['ip']}")
 
-            # Vérification du disque par UUID
-            stdin, stdout, stderr = ssh.exec_command(f"lsblk -f | grep -i {disk_info['uuid']}")
+            # Vérification du disque par UUID avec timeout
+            stdin, stdout, stderr = ssh.exec_command(
+                f"lsblk -f | grep -i {disk_info['uuid']}",
+                timeout=3
+            )
+            # Lire avec timeout
+            stdout.channel.settimeout(3)
             lsblk_output = stdout.read().decode().strip()
             disk_exists = bool(lsblk_output)
 
@@ -860,8 +865,12 @@ class ServerDiskMonitorWeb:
                     real_device = disk_info['device']
                     logger.warning(f"Impossible d'extraire le device depuis lsblk, utilisation config: {real_device}")
 
-                # Vérifier si le disque est monté avec le device réel
-                stdin, stdout, stderr = ssh.exec_command(f"mount | grep {real_device}")
+                # Vérifier si le disque est monté avec le device réel (avec timeout)
+                stdin, stdout, stderr = ssh.exec_command(
+                    f"mount | grep {real_device}",
+                    timeout=3
+                )
+                stdout.channel.settimeout(3)
                 is_mounted = bool(stdout.read().decode().strip())
             else:
                 is_mounted = False
@@ -869,6 +878,17 @@ class ServerDiskMonitorWeb:
             result = {"exists": disk_exists, "mounted": is_mounted}
             return result
 
+        except socket.timeout:
+            logger.error(f"⏱️ Timeout SSH pour {server_config['ip']} (>3s)")
+            # Fermer la connexion en timeout
+            server_key = f"ssh_conn_{server_config['ip']}"
+            if hasattr(self, '_ssh_connections') and server_key in self._ssh_connections:
+                try:
+                    self._ssh_connections[server_key]['client'].close()
+                except:
+                    pass
+                del self._ssh_connections[server_key]
+            return {"exists": False, "mounted": False}
         except Exception as e:
             logger.error(f"Erreur SSH pour {server_config['ip']}: {e}")
 
@@ -903,15 +923,27 @@ class ServerDiskMonitorWeb:
     
     def update_all_disk_status(self):
         """Met à jour le statut de tous les disques - Phase 1: État rapide"""
+        start_time = time.time()
+        max_duration = 120  # Temps maximum total: 2 minutes
+        max_server_duration = 30  # Temps maximum par serveur: 30 secondes
+
         logger.info("📊 Phase 1: Mise à jour rapide du statut des disques...")
-        
+
         total_disks = 0
         mounted_disks = 0
         online_servers = 0
-        
+
         logger.info(f"Traitement de {len(self.servers_config.get('servers', {}))} serveurs")
         
         for server_name, config in self.servers_config.get('servers', {}).items():
+            # Vérifier le timeout global
+            elapsed = time.time() - start_time
+            if elapsed > max_duration:
+                logger.warning(f"⏱️ Timeout global atteint ({elapsed:.1f}s > {max_duration}s) - Arrêt du scan")
+                break
+
+            server_start_time = time.time()
+
             try:
                 logger.info(f"🔍 Traitement serveur {server_name}...")
                 server_online = self.ping_server(config['ip'])
@@ -971,8 +1003,14 @@ class ServerDiskMonitorWeb:
                         }
                 
                 self.disk_status[server_name] = server_status
-                logger.info(f"Serveur {server_name} traité avec succès - {len(server_status['disks'])} positions")
-                
+
+                # Vérifier le temps de traitement du serveur
+                server_elapsed = time.time() - server_start_time
+                if server_elapsed > max_server_duration:
+                    logger.warning(f"⚠️ Serveur {server_name} a pris {server_elapsed:.1f}s (> {max_server_duration}s)")
+                else:
+                    logger.info(f"Serveur {server_name} traité avec succès - {len(server_status['disks'])} positions ({server_elapsed:.1f}s)")
+
             except Exception as e:
                 logger.error(f"ERREUR lors du traitement du serveur {server_name}: {e}")
                 logger.error(f"Stack trace:", exc_info=True)
@@ -1017,7 +1055,8 @@ class ServerDiskMonitorWeb:
             'config': self.get_safe_config()
         })
         
-        logger.info(f"🎉 Phase 1 terminée: {mounted_disks}/{total_disks} disques montés")
+        total_elapsed = time.time() - start_time
+        logger.info(f"🎉 Phase 1 terminée: {mounted_disks}/{total_disks} disques montés (durée: {total_elapsed:.1f}s)")
 
         # Fermer les connexions SSH pour éviter les connexions multiples
         self.close_ssh_connections()
