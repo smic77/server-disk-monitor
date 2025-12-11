@@ -27,7 +27,7 @@ Repository: https://github.com/smic77/server-disk-monitor
 """
 
 # Version de l'application - Incrémentée automatiquement par Claude
-VERSION = "5.4.3"
+VERSION = "5.4.4"
 BUILD_DATE = "2025-12-11"
 
 # =============================================================================
@@ -667,7 +667,10 @@ class ServerDiskMonitorWeb:
         
         # AJOUT: Gestionnaire de notifications avec référence au cipher
         self.notification_manager = NotificationManager(cipher=self.cipher)
-        
+
+        # AJOUT: Verrou pour éviter les scans concurrents (race conditions)
+        self.scan_lock = threading.Lock()
+
         # Démarrage du scheduler
         self.scheduler = BackgroundScheduler()
         self.start_monitoring()
@@ -923,143 +926,152 @@ class ServerDiskMonitorWeb:
     
     def update_all_disk_status(self):
         """Met à jour le statut de tous les disques - Phase 1: État rapide"""
-        start_time = time.time()
-        max_duration = 120  # Temps maximum total: 2 minutes
-        max_server_duration = 30  # Temps maximum par serveur: 30 secondes
+        # Empêcher les scans concurrents qui causent des incohérences d'état
+        if not self.scan_lock.acquire(blocking=False):
+            logger.warning("⚠️ Scan déjà en cours - Requête ignorée (évite race conditions)")
+            return
 
-        logger.info("📊 Phase 1: Mise à jour rapide du statut des disques...")
+        try:
+            start_time = time.time()
+            max_duration = 120  # Temps maximum total: 2 minutes
+            max_server_duration = 30  # Temps maximum par serveur: 30 secondes
 
-        total_disks = 0
-        mounted_disks = 0
-        online_servers = 0
+            logger.info("📊 Phase 1: Mise à jour rapide du statut des disques...")
 
-        logger.info(f"Traitement de {len(self.servers_config.get('servers', {}))} serveurs")
-        
-        for server_name, config in self.servers_config.get('servers', {}).items():
-            # Vérifier le timeout global
-            elapsed = time.time() - start_time
-            if elapsed > max_duration:
-                logger.warning(f"⏱️ Timeout global atteint ({elapsed:.1f}s > {max_duration}s) - Arrêt du scan")
-                break
+            total_disks = 0
+            mounted_disks = 0
+            online_servers = 0
 
-            server_start_time = time.time()
+            logger.info(f"Traitement de {len(self.servers_config.get('servers', {}))} serveurs")
 
-            try:
-                logger.info(f"🔍 Traitement serveur {server_name}...")
-                server_online = self.ping_server(config['ip'])
-                
-                if server_online:
-                    online_servers += 1
-                
-                server_status = {
-                    "name": server_name,
-                    "online": server_online,
-                    "ip": config['ip'],
-                    "username": config['username'],
-                    "disks": {}
-                }
-                
-                # Générer toutes les positions possibles basées sur les sections
-                all_positions = self.generate_all_positions(config)
-                disk_mappings = config.get('disk_mappings', {})
-                
-                logger.info(f"📂 {server_name}: {len(all_positions)} positions, {len(disk_mappings)} configurées")
-                
-                for position in all_positions:
-                    disk_info = disk_mappings.get(position)
+            for server_name, config in self.servers_config.get('servers', {}).items():
+                # Vérifier le timeout global
+                elapsed = time.time() - start_time
+                if elapsed > max_duration:
+                    logger.warning(f"⏱️ Timeout global atteint ({elapsed:.1f}s > {max_duration}s) - Arrêt du scan")
+                    break
 
-                    if disk_info:
-                        # Position configurée - vérification SSH réelle
-                        total_disks += 1
+                server_start_time = time.time()
 
-                        if server_online:
-                            # CORRECTION: Toujours vérifier via SSH pour détecter les disques démontés
-                            disk_status = self.check_disk_ssh(config, disk_info)
+                try:
+                    logger.info(f"🔍 Traitement serveur {server_name}...")
+                    server_online = self.ping_server(config['ip'])
 
-                            if disk_status['mounted']:
-                                mounted_disks += 1
+                    if server_online:
+                        online_servers += 1
+
+                    server_status = {
+                        "name": server_name,
+                        "online": server_online,
+                        "ip": config['ip'],
+                        "username": config['username'],
+                        "disks": {}
+                    }
+
+                    # Générer toutes les positions possibles basées sur les sections
+                    all_positions = self.generate_all_positions(config)
+                    disk_mappings = config.get('disk_mappings', {})
+
+                    logger.info(f"📂 {server_name}: {len(all_positions)} positions, {len(disk_mappings)} configurées")
+
+                    for position in all_positions:
+                        disk_info = disk_mappings.get(position)
+
+                        if disk_info:
+                            # Position configurée - vérification SSH réelle
+                            total_disks += 1
+
+                            if server_online:
+                                # CORRECTION: Toujours vérifier via SSH pour détecter les disques démontés
+                                disk_status = self.check_disk_ssh(config, disk_info)
+
+                                if disk_status['mounted']:
+                                    mounted_disks += 1
+                            else:
+                                disk_status = {"exists": False, "mounted": False}
+
+                            server_status["disks"][position] = {
+                                "uuid": disk_info['uuid'],
+                                "device": disk_info['device'],
+                                "label": disk_info.get('label', ''),
+                                "capacity": disk_info.get('capacity', ''),
+                                "description": disk_info.get('description', ''),
+                                "exists": disk_status['exists'],
+                                "mounted": disk_status['mounted'],
+                            }
                         else:
-                            disk_status = {"exists": False, "mounted": False}
-                        
-                        server_status["disks"][position] = {
-                            "uuid": disk_info['uuid'],
-                            "device": disk_info['device'],
-                            "label": disk_info.get('label', ''),
-                            "capacity": disk_info.get('capacity', ''),
-                            "description": disk_info.get('description', ''),
-                            "exists": disk_status['exists'],
-                            "mounted": disk_status['mounted'],
-                        }
+                            # Position non configurée - slot vide
+                            server_status["disks"][position] = {
+                                "uuid": "",
+                                "device": "",
+                                "label": "",
+                                "capacity": "",
+                                "description": "",
+                                "exists": False,
+                                "mounted": False,
+                            }
+
+                    self.disk_status[server_name] = server_status
+
+                    # Vérifier le temps de traitement du serveur
+                    server_elapsed = time.time() - server_start_time
+                    if server_elapsed > max_server_duration:
+                        logger.warning(f"⚠️ Serveur {server_name} a pris {server_elapsed:.1f}s (> {max_server_duration}s)")
                     else:
-                        # Position non configurée - slot vide
-                        server_status["disks"][position] = {
-                            "uuid": "",
-                            "device": "",
-                            "label": "",
-                            "capacity": "",
-                            "description": "",
-                            "exists": False,
-                            "mounted": False,
-                        }
-                
-                self.disk_status[server_name] = server_status
+                        logger.info(f"Serveur {server_name} traité avec succès - {len(server_status['disks'])} positions ({server_elapsed:.1f}s)")
 
-                # Vérifier le temps de traitement du serveur
-                server_elapsed = time.time() - server_start_time
-                if server_elapsed > max_server_duration:
-                    logger.warning(f"⚠️ Serveur {server_name} a pris {server_elapsed:.1f}s (> {max_server_duration}s)")
-                else:
-                    logger.info(f"Serveur {server_name} traité avec succès - {len(server_status['disks'])} positions ({server_elapsed:.1f}s)")
+                except Exception as e:
+                    logger.error(f"ERREUR lors du traitement du serveur {server_name}: {e}")
+                    logger.error(f"Stack trace:", exc_info=True)
+                    # Créer un status minimal pour éviter de casser l'affichage
+                    error_status = {
+                        "name": server_name,
+                        "online": False,
+                        "ip": config.get('ip', ''),
+                        "username": config.get('username', ''),
+                        "disks": {}
+                    }
+                    self.disk_status[server_name] = error_status
+                    continue
 
-            except Exception as e:
-                logger.error(f"ERREUR lors du traitement du serveur {server_name}: {e}")
-                logger.error(f"Stack trace:", exc_info=True)
-                # Créer un status minimal pour éviter de casser l'affichage
-                error_status = {
-                    "name": server_name,
-                    "online": False,
-                    "ip": config.get('ip', ''),
-                    "username": config.get('username', ''),
-                    "disks": {}
-                }
-                self.disk_status[server_name] = error_status
-                continue
-        
-        self.last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        # Debug: vérifier que les serveurs sont bien ajoutés
-        logger.info(f"🎯 Serveurs dans disk_status: {list(self.disk_status.keys())}")
-        logger.info(f"📊 Contenu disk_status: {len(str(self.disk_status))} chars")
-        
-        # AJOUT: Vérification des changements et notifications
-        notifications = self.notification_manager.check_disk_state_changes(self.disk_status)
-        
-        if notifications:
-            logger.info(f"Notifications envoyées: {len(notifications)}")
-            for notif in notifications:
-                logger.info(f"  - {notif['type']}: {notif['server']} - {notif['change']}")
-        
-        # Statistiques globales
-        stats = {
-            "total_servers": len(self.servers_config.get('servers', {})),
-            "online_servers": online_servers,
-            "total_disks": total_disks,
-            "mounted_disks": mounted_disks,
-            "last_update": self.last_update
-        }
-        
-        # Envoi des données via WebSocket
-        socketio.emit('disk_status_update', {
-            'servers': self.disk_status,
-            'stats': stats,
-            'config': self.get_safe_config()
-        })
-        
-        total_elapsed = time.time() - start_time
-        logger.info(f"🎉 Phase 1 terminée: {mounted_disks}/{total_disks} disques montés (durée: {total_elapsed:.1f}s)")
+            self.last_update = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        # Fermer les connexions SSH pour éviter les connexions multiples
-        self.close_ssh_connections()
+            # Debug: vérifier que les serveurs sont bien ajoutés
+            logger.info(f"🎯 Serveurs dans disk_status: {list(self.disk_status.keys())}")
+            logger.info(f"📊 Contenu disk_status: {len(str(self.disk_status))} chars")
+
+            # AJOUT: Vérification des changements et notifications
+            notifications = self.notification_manager.check_disk_state_changes(self.disk_status)
+
+            if notifications:
+                logger.info(f"Notifications envoyées: {len(notifications)}")
+                for notif in notifications:
+                    logger.info(f"  - {notif['type']}: {notif['server']} - {notif['change']}")
+
+            # Statistiques globales
+            stats = {
+                "total_servers": len(self.servers_config.get('servers', {})),
+                "online_servers": online_servers,
+                "total_disks": total_disks,
+                "mounted_disks": mounted_disks,
+                "last_update": self.last_update
+            }
+
+            # Envoi des données via WebSocket
+            socketio.emit('disk_status_update', {
+                'servers': self.disk_status,
+                'stats': stats,
+                'config': self.get_safe_config()
+            })
+
+            total_elapsed = time.time() - start_time
+            logger.info(f"🎉 Phase 1 terminée: {mounted_disks}/{total_disks} disques montés (durée: {total_elapsed:.1f}s)")
+
+            # Fermer les connexions SSH pour éviter les connexions multiples
+            self.close_ssh_connections()
+        finally:
+            # TOUJOURS libérer le verrou, même en cas d'erreur
+            self.scan_lock.release()
         
     
     
